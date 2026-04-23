@@ -1,0 +1,203 @@
+// ============================================================================
+// 5 Dining Philosophers — with Start / Stop control and state events
+// suitable for the JavaScript visualization popup.
+//
+// Each state transition is printed in a machine-parseable form:
+//
+//   VIZ PHILO <id> THINK
+//   VIZ PHILO <id> HUNGRY
+//   VIZ PHILO <id> EAT <count>
+//   VIZ PHILO <id> DONE
+//   VIZ FORK  <id> FREE
+//   VIZ FORK  <id> TAKEN <philoId>
+//   VIZ FORK  <id> HANDOFF
+//
+// Usage (from Open Console (Server)):
+//   load src/viz_philosophers.abcl
+//   compile
+//   send table.start();    // begin dinner
+//   send table.stop();     // stop dinner
+//
+// Then click the "Open Visualization" button to open the popup.
+// Deadlock avoidance: resource hierarchy (each philosopher takes the
+// lower-numbered fork first).
+// ============================================================================
+
+class Fork {
+  var id     = 0;
+  var taken  = 0;
+  var waiter = "";
+
+  method init(myId) {
+    id = myId;
+    print("VIZ FORK " + id + " FREE");
+  }
+
+  method take(reqId) {
+    if (taken == 0) {
+      taken = 1;
+      print("VIZ FORK " + id + " TAKEN " + reqId);
+      send sender.fork_granted();
+    } else {
+      waiter = sender;
+    }
+  }
+
+  method release() {
+    if (waiter == "") {
+      taken = 0;
+      print("VIZ FORK " + id + " FREE");
+    } else {
+      print("VIZ FORK " + id + " HANDOFF");
+      send waiter.fork_granted();
+      waiter = "";
+    }
+  }
+}
+
+class Philosopher {
+  var id       = 0;
+  var lowFork  = "";
+  var highFork = "";
+  var hasLow   = 0;
+  var eatCount = 0;
+  var running  = 0;
+
+  method init(myId, lo, hi) {
+    id       = myId;
+    lowFork  = lo;
+    highFork = hi;
+  }
+
+  method start() {
+    running  = 1;
+    hasLow   = 0;
+    send self.think();
+  }
+
+  method stop() {
+    running = 0;
+    print("[P" + id + "] stop requested");
+  }
+
+  method think() {
+    if (running == 0) {
+      print("VIZ PHILO " + id + " DONE");
+    } else {
+      print("VIZ PHILO " + id + " THINK");
+      call wait(700);
+      send self.hungry();
+    }
+  }
+
+  method hungry() {
+    if (running == 0) {
+      print("VIZ PHILO " + id + " DONE");
+    } else {
+      print("VIZ PHILO " + id + " HUNGRY");
+      hasLow = 0;
+      send lowFork.take(id);
+    }
+  }
+
+  method fork_granted() {
+    if (running == 0) {
+      // A stopped philosopher that just got handed a fork MUST return it,
+      // otherwise the fork stays "taken" and later Start deadlocks.
+      if (hasLow == 0) {
+        // This grant was for LOW; release it back.
+        send lowFork.release();
+      } else {
+        // Had LOW, this grant was for HIGH; release both.
+        send lowFork.release();
+        send highFork.release();
+        hasLow = 0;
+      }
+      print("VIZ PHILO " + id + " DONE");
+    } else {
+      if (hasLow == 0) {
+        hasLow = 1;
+        send highFork.take(id);
+      } else {
+        send self.eat();
+      }
+    }
+  }
+
+  method eat() {
+    if (running == 0) {
+      send lowFork.release();
+      send highFork.release();
+      print("VIZ PHILO " + id + " DONE");
+    } else {
+      eatCount = eatCount + 1;
+      print("VIZ PHILO " + id + " EAT " + eatCount);
+      call wait(900);
+      send self.eat_done();
+    }
+  }
+
+  method eat_done() {
+    send lowFork.release();
+    send highFork.release();
+    if (running == 0) {
+      print("VIZ PHILO " + id + " DONE");
+    } else {
+      send self.think();
+    }
+  }
+}
+
+class Table {
+  var p0 = "p0";
+  var p1 = "p1";
+  var p2 = "p2";
+  var p3 = "p3";
+  var p4 = "p4";
+
+  method init() {
+    print("[Table] ready — send start() to begin dinner");
+  }
+
+  method start() {
+    print("[Table] dinner begins");
+    send p0.start();
+    send p1.start();
+    send p2.start();
+    send p3.start();
+    send p4.start();
+  }
+
+  method stop() {
+    print("[Table] dinner stopping");
+    send p0.stop();
+    send p1.stop();
+    send p2.stop();
+    send p3.stop();
+    send p4.stop();
+  }
+}
+
+var fork0 = new Fork(0);
+var fork1 = new Fork(1);
+var fork2 = new Fork(2);
+var fork3 = new Fork(3);
+var fork4 = new Fork(4);
+
+var p0 = new Philosopher(0, "fork0", "fork4");
+var p1 = new Philosopher(1, "fork0", "fork1");
+var p2 = new Philosopher(2, "fork1", "fork2");
+var p3 = new Philosopher(3, "fork2", "fork3");
+var p4 = new Philosopher(4, "fork3", "fork4");
+
+var table = new Table();
+
+web_listen(8080);
+
+print("");
+print("==================================================================");
+print("  viz_philosophers loaded.");
+print("  Open http://localhost:8080/viz_philosophers.html");
+print("  send table.start();   // begin");
+print("  send table.stop();    // halt");
+print("==================================================================");

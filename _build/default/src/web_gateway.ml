@@ -729,13 +729,17 @@ let handle_send_direct_json (body:string) : (int * string * string) =
         let from_ = match json_get_string "from" o with Some s -> s | None -> "<web>" in
         let sid = match json_get_string "sid" o with Some s -> s | None -> "" in
         let args_json = match json_get_array "args" o with Some xs -> xs | None -> [] in
-	let real_to = if sid <> "" then actor_for_sid ~sid ~base:to_ else to_ in
+	let real_to =
+	  if Eval_thread.actor_exists to_ then to_
+	  else if sid <> "" then actor_for_sid ~sid ~base:to_
+	  else to_
+	in
 	let unsafe = match json_get_bool "unsafe" o with Some b -> b | None -> false in
         if to_ = "" || meth = "" then
           (400, "text/plain; charset=utf-8", "missing to/method")
         else
           let exprs = List.map ast_of_json_value args_json in
-          if sid <> "" then (
+          if sid <> "" && real_to <> to_ then (
             if not (Eval_thread.actor_exists real_to) then
             Eval_thread.spawn_actor ~class_name:"Calc" ~actor_name:real_to
           );
@@ -782,14 +786,18 @@ let handle_send_exposed_json ~(key:string) (body:string) : (int * string * strin
             let from_ = match json_get_string "from" o with Some s -> s | None -> "<web>" in
             let args_json = match json_get_array "args" o with Some xs -> xs | None -> [] in
             let sid = match json_get_string "sid" o with Some s -> s | None -> "" in
-	    let real_to = if sid <> "" then actor_for_sid ~sid ~base:to_ else to_ in
+	    let real_to =
+	      if Eval_thread.actor_exists to_ then to_
+	      else if sid <> "" then actor_for_sid ~sid ~base:to_
+	      else to_
+	    in
 	    let unsafe = match json_get_bool "unsafe" o with Some b -> b | None -> false in
-	    
+
             if to_ = "" || meth = "" then
               (400, "text/plain; charset=utf-8", "missing method")
             else
               let exprs = List.map ast_of_json_value args_json in
-              if sid <> "" then (
+              if sid <> "" && real_to <> to_ then (
                 if not (Eval_thread.actor_exists real_to) then
                   Eval_thread.spawn_actor ~class_name:"Calculator" ~actor_name:real_to
               );
@@ -838,9 +846,9 @@ let handle_api_log (query:(string,string) Hashtbl.t) =
     | None -> -1
   in
 
-  (* sid が無い場合は空を返す（または従来ログを返す方針でも可） *)
+  (* sid が無い場合は global の web_logs を返す（Server Console 用） *)
   let (next_id, lines) =
-    if sid = "" then (-1, [])
+    if sid = "" then Eval_thread.get_web_logs_since after
     else Eval_thread.get_sid_logs_since sid after
     in
      let esc s =
@@ -1045,6 +1053,25 @@ let read_file (path:string) : string =
   close_in ic;
   s
 
+(* Look for a static asset (app.js etc.) in a few likely locations so the REPL
+   serves the web console whether it's launched from the project root or from
+   src/. Returns None if no candidate is found. *)
+let read_asset (name:string) : string option =
+  let candidates = [ name; "src/" ^ name; "../src/" ^ name ] in
+  let rec loop = function
+    | []      -> None
+    | p :: ps -> (try Some (read_file p) with _ -> loop ps)
+  in
+  loop candidates
+
+let serve_asset (name:string) (ctype:string) : int * string * string =
+  match read_asset name with
+  | Some body -> (200, ctype, body)
+  | None ->
+      (404, "text/plain; charset=utf-8",
+       "asset not found: " ^ name ^
+       " (looked in ., src/, ../src/)")
+
 let handle_client (client: file_descr) : unit =
   let ic = in_channel_of_descr client in
   let oc = out_channel_of_descr client in
@@ -1097,9 +1124,12 @@ let handle_client (client: file_descr) : unit =
 	 let code, ctype, resp_body =
            match meth, path with
 	   | "GET", "/" -> (200, "text/html; charset=utf-8", html_index ())
-	   | "GET", "/app.js" -> (200, "application/javascript; charset=utf-8", read_file "app.js")
-           | "GET", "/console_server.js" -> (200, "application/javascript", read_file "console_server.js")
-	   | "GET", "/console_browser.js" -> (200, "application/javascript", read_file "console_browser.js")
+	   | "GET", "/app.js" -> serve_asset "app.js" "application/javascript; charset=utf-8"
+           | "GET", "/console_server.js" -> serve_asset "console_server.js" "application/javascript; charset=utf-8"
+	   | "GET", "/console_browser.js" -> serve_asset "console_browser.js" "application/javascript; charset=utf-8"
+	   | "GET", "/viz_philosophers.html" -> serve_asset "viz_philosophers.html" "text/html; charset=utf-8"
+	   | "GET", "/viz_philosophers.js" -> serve_asset "viz_philosophers.js" "application/javascript; charset=utf-8"
+	   | "GET", "/viz_philosophers.abcl" -> serve_asset "viz_philosophers.abcl" "text/plain; charset=utf-8"
            | "GET", "/api/log" -> handle_api_log q
 	   | "GET", "/api/events" -> handle_api_events q  
 	   | "POST", "/api/send" -> let params = parse_form_urlencoded body in handle_send_direct params

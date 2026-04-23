@@ -1,2 +1,2 @@
-load web_calc1.abcl
+load src/web_philosophers.abcl
 compile

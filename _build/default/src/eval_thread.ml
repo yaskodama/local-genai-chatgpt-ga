@@ -147,8 +147,11 @@ let push_web_log (s:string) =
   let id = !web_log_next_id in
   incr web_log_next_id;
   web_logs := (id, s) :: !web_logs;
+  (* web_logs is newest-first, so take-N keeps the newest N. The previous
+     double-reverse discarded the newest item once the limit was exceeded,
+     which froze the /api/log cursor and stopped the viz popup. *)
   if List.length !web_logs > web_log_limit then
-    web_logs := List.rev (take web_log_limit (List.rev !web_logs));
+    web_logs := take web_log_limit !web_logs;
   Mutex.unlock web_log_mutex
 
 let get_web_logs_since (after:int) : (int * string list) =
@@ -746,6 +749,25 @@ let prim_table : (string, value list -> value) Hashtbl.t =
             and r  = as_int r  and g  = as_int g  and b = as_int b in
             Sdl_helper.sdl_draw_line_rgb x1 y1 x2 y2 r g b; VInt 0
         | _ -> failwith "sdl_line_c(x1,y1,x2,y2,r,g,b): arity 7 expected"));
+    (* Non-blocking keyboard poll: returns the next SDL scancode (int) or 0.
+       Typical scancodes: UP=82, DOWN=81, LEFT=80, RIGHT=79, SPACE=44. *)
+    ("sdl_poll_key",
+      (function
+        | [] -> VInt (Sdl_helper.sdl_poll_key ())
+        | _  -> failwith "sdl_poll_key(): arity 0 expected"));
+    (* Current mouse X / Y and left-button state (0 or 1). *)
+    ("sdl_mouse_x",
+      (function
+        | [] -> VInt (Sdl_helper.sdl_mouse_x ())
+        | _  -> failwith "sdl_mouse_x(): arity 0 expected"));
+    ("sdl_mouse_y",
+      (function
+        | [] -> VInt (Sdl_helper.sdl_mouse_y ())
+        | _  -> failwith "sdl_mouse_y(): arity 0 expected"));
+    ("sdl_mouse_down",
+      (function
+        | [] -> VInt (Sdl_helper.sdl_mouse_down ())
+        | _  -> failwith "sdl_mouse_down(): arity 0 expected"));
     ("array_empty",
       (function
         | [] -> VArray ([||], None)

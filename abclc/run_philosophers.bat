@@ -1,2 +1,2 @@
-load abclc/Philosophers5_debug.abcl
+load abclc/Philosophers5.abcl
 compile

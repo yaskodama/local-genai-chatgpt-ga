@@ -1,0 +1,164 @@
+// ============================================================================
+// 5 Dining Philosophers — OCaml runtime, driven from the web console.
+// ============================================================================
+//
+// This file defines the classes, creates the actors, starts the HTTP gateway
+// on port 8080, and then **waits**.  To begin the dinner, open
+//
+//     http://localhost:8080/
+//
+// in a browser and send:
+//
+//     to     : table
+//     method : start
+//     args   : (empty)
+//
+// Or you can drive each philosopher individually (to : p0 / p1 / ... , method :
+// start).  Progress is printed to stdout and streamed into the web log panel.
+//
+// Deadlock avoidance: resource hierarchy — every philosopher takes its
+// lower-numbered fork first.
+
+class Fork {
+  var id     = 0;
+  var taken  = 0;
+  var waiter = "";
+
+  method init(myId) {
+    id = myId;
+  }
+
+  method take(reqId) {
+    if (taken == 0) {
+      taken = 1;
+      print("[F" + id + "] taken by P" + reqId);
+      send sender.fork_granted();
+    } else {
+      waiter = sender;
+    }
+  }
+
+  method release() {
+    if (waiter == "") {
+      taken = 0;
+      print("[F" + id + "] free");
+    } else {
+      print("[F" + id + "] handed off");
+      send waiter.fork_granted();
+      waiter = "";
+    }
+  }
+}
+
+class Philosopher {
+  var id       = 0;
+  var lowFork  = "";
+  var highFork = "";
+  var hasLow   = 0;
+  var eatCount = 0;
+  var limit    = 0;
+
+  method init(myId, lo, hi, maxMeals) {
+    id       = myId;
+    lowFork  = lo;
+    highFork = hi;
+    limit    = maxMeals;
+  }
+
+  method start() {
+    print("[P" + id + "] start");
+    send self.think();
+  }
+
+  method think() {
+    print("[P" + id + "] THINK");
+    call wait(700);
+    send self.hungry();
+  }
+
+  method hungry() {
+    print("[P" + id + "] HUNGRY");
+    hasLow = 0;
+    send lowFork.take(id);
+  }
+
+  method fork_granted() {
+    if (hasLow == 0) {
+      hasLow = 1;
+      send highFork.take(id);
+    } else {
+      send self.eat();
+    }
+  }
+
+  method eat() {
+    eatCount = eatCount + 1;
+    print("[P" + id + "] EAT (" + eatCount + "/" + limit + ")");
+    call wait(900);
+    send self.eat_done();
+  }
+
+  method eat_done() {
+    send lowFork.release();
+    send highFork.release();
+    if (eatCount == limit) {
+      print("[P" + id + "] DONE");
+    } else {
+      send self.think();
+    }
+  }
+}
+
+class Table {
+  // Defaults match the global actor names below; `send p0.start()` therefore
+  // routes to actor "p0" via the Send target-name fallback.
+  var p0 = "p0";
+  var p1 = "p1";
+  var p2 = "p2";
+  var p3 = "p3";
+  var p4 = "p4";
+
+  method init() {
+    print("[Table] ready — send start() to begin dinner");
+  }
+
+  method start() {
+    print("[Table] dinner begins");
+    send p0.start();
+    send p1.start();
+    send p2.start();
+    send p3.start();
+    send p4.start();
+  }
+}
+
+// Fork i sits between philosopher i and (i+1)%5.  Each philosopher takes the
+// LOW-numbered fork first (passed via the `lo` parameter), then the HIGH-
+// numbered one, which eliminates the circular-wait condition.
+var fork0 = new Fork(0);
+var fork1 = new Fork(1);
+var fork2 = new Fork(2);
+var fork3 = new Fork(3);
+var fork4 = new Fork(4);
+
+var p0 = new Philosopher(0, "fork0", "fork4", 5);   // right=fork0, left=fork4
+var p1 = new Philosopher(1, "fork0", "fork1", 5);
+var p2 = new Philosopher(2, "fork1", "fork2", 5);
+var p3 = new Philosopher(3, "fork2", "fork3", 5);
+var p4 = new Philosopher(4, "fork3", "fork4", 5);
+
+var table = new Table();
+
+// Start the embedded HTTP gateway and expose friendly endpoints.
+web_listen(8080);
+web_expose("/table", "table");
+web_expose("/p0", "p0");
+web_expose("/p1", "p1");
+web_expose("/p2", "p2");
+web_expose("/p3", "p3");
+web_expose("/p4", "p4");
+
+print("");
+print("==================================================================");
+print("  Open http://localhost:8080/ and send to actor 'table' method 'start'");
+print("==================================================================");

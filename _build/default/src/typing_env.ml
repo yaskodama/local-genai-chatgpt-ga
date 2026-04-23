@@ -108,6 +108,14 @@ let prelude () : env =
   add_mono e "sdl_erase_line" (TFun ([TFloat; TFloat; TFloat; TFloat], TUnit));
   add_mono e "sdl_erase_line" (TFun ([TInt;   TInt;   TInt;   TInt  ], TUnit));
 
+  (* sdl_poll_key : () -> int  (non-blocking SDL keyboard scancode, 0 if none) *)
+  add_mono e "sdl_poll_key" (TFun ([], TInt));
+
+  (* sdl_mouse_x / sdl_mouse_y / sdl_mouse_down : () -> int *)
+  add_mono e "sdl_mouse_x"    (TFun ([], TInt));
+  add_mono e "sdl_mouse_y"    (TFun ([], TInt));
+  add_mono e "sdl_mouse_down" (TFun ([], TInt));
+
   (* 3) typeof : 各型 or 多相。ここでは各型を列挙 *)
   add_mono e "typeof" (TFun ([TInt],    TString));
   add_mono e "typeof" (TFun ([TFloat],  TString));

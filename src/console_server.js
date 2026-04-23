@@ -1,10 +1,14 @@
 document.body.innerHTML = `
 <div id="bar" style="padding:10px;background:#222;border-bottom:1px solid #333;">
-  <button class="quick" id="btnLoad">load sample</button>
+  <button class="quick" id="btnLoad">load philosophers</button>
   <button class="quick" id="btnCompile">compile</button>
-  <button class="quick" id="btnMain">send calc.main();</button>
-  <button class="quick" id="btnAdd">send calc.add(3,4);</button>
-  <button class="quick" id="btnNewActor">var c = new Calc();</button>
+  <button class="quick" id="btnStart">send table.start();</button>
+  <button class="quick" id="btnP0">send p0.start();</button>
+  <button class="quick" id="btnP1">send p1.start();</button>
+  <button class="quick" id="btnP2">send p2.start();</button>
+  <button class="quick" id="btnP3">send p3.start();</button>
+  <button class="quick" id="btnP4">send p4.start();</button>
+  <button class="quick" id="btnViz" style="margin-left:12px;background:#264;color:#cfc;">Open Visualization</button>
   <button class="quick" id="btnClear">clear</button>
 </div>
 
@@ -63,9 +67,9 @@ async function runReplCommand(cmd) {
 function startConsoleStreaming() {
   async function poll() {
     try {
-      const r1 = await fetch(
-        "/api/log?sid=" + encodeURIComponent(sid) + "&after=" + consoleAfterLog
-      );
+      // Server Console は global web_logs を見る（sid を付けない）。
+      // これで print() の出力がブラウザ側にも流れてくる。
+      const r1 = await fetch("/api/log?after=" + consoleAfterLog);
       if (r1.ok) {
         const j1 = await r1.json();
         if (typeof j1.next === "number") consoleAfterLog = j1.next;
@@ -146,29 +150,24 @@ cmdInput.addEventListener("keydown", (ev) => {
   }
 });
 
-document.getElementById("btnLoad").addEventListener("click", () => {
-  appendConsole(">>> load web_calc1.abcl");
-  runReplCommand("load web_calc1.abcl");
-});
+function quick(id, cmd) {
+  document.getElementById(id).addEventListener("click", () => {
+    appendConsole(">>> " + cmd);
+    runReplCommand(cmd);
+  });
+}
 
-document.getElementById("btnCompile").addEventListener("click", () => {
-  appendConsole(">>> compile");
-  runReplCommand("compile");
-});
+quick("btnLoad",    "load src/web_philosophers.abcl");
+quick("btnCompile", "compile");
+quick("btnStart",   "send table.start();");
+quick("btnP0",      "send p0.start();");
+quick("btnP1",      "send p1.start();");
+quick("btnP2",      "send p2.start();");
+quick("btnP3",      "send p3.start();");
+quick("btnP4",      "send p4.start();");
 
-document.getElementById("btnMain").addEventListener("click", () => {
-  appendConsole(">>> send calc.main();");
-  runReplCommand("send calc.main();");
-});
-
-document.getElementById("btnAdd").addEventListener("click", () => {
-  appendConsole(">>> send calc.add(3,4);");
-  runReplCommand("send calc.add(3,4);");
-});
-
-document.getElementById("btnNewActor").addEventListener("click", () => {
-  appendConsole(">>> var c = new Calc();");
-  runReplCommand("var c = new Calc();");
+document.getElementById("btnViz").addEventListener("click", () => {
+  window.open("/viz_philosophers.html", "_blank", "width=1100,height=1050");
 });
 
 document.getElementById("btnClear").addEventListener("click", () => {

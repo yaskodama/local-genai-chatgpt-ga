@@ -250,10 +250,17 @@ class Philosopher {
     call sdl_present();
   }
 
+  // Waits below are generous so the visualisation is easy to follow:
+  //   THINK / EAT  last ~1.8 s (outer-ring thickness shows the state).
+  //   HUNGRY       is held for 0.6 s before the first fork request.
+  //   Between the low-fork grant and the high-fork request there is a
+  //   0.5 s pause so "holding one fork, waiting for the second" is
+  //   visible on screen.  `eat_done` also releases the forks 0.4 s
+  //   apart so you can see each fork return to its rest position.
   method think() {
     state = 0;
     send self.refresh();
-    call wait(700);
+    call wait(1800);
     send self.hungry();
   }
 
@@ -261,14 +268,17 @@ class Philosopher {
     state = 1;
     send self.refresh();
     hasLow = 0;
+    call wait(600);
     send lowFork.take(id, px, py, cr, cg, cb);
   }
 
   method fork_granted() {
     if (hasLow == 0) {
       hasLow = 1;
+      call wait(500);
       send highFork.take(id, px, py, cr, cg, cb);
     } else {
+      call wait(300);
       send self.eat();
     }
   }
@@ -277,13 +287,15 @@ class Philosopher {
     state = 2;
     send self.refresh();
     eatCount = eatCount + 1;
-    call wait(900);
+    call wait(1800);
     send self.eat_done();
   }
 
   method eat_done() {
     send lowFork.release();
+    call wait(400);
     send highFork.release();
+    call wait(300);
     send self.think();
   }
 }

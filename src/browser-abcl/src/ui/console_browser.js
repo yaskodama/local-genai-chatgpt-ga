@@ -175,6 +175,132 @@ var p1 = new Philosopher(1, fork0, fork1);
 var p2 = new Philosopher(2, fork1, fork2);
 var p3 = new Philosopher(3, fork2, fork3);
 var p4 = new Philosopher(4, fork3, fork4);`,
+
+  bounded_buffer: `class Buffer {
+  var cap   = 4;
+  var s0    = 0;
+  var s1    = 0;
+  var s2    = 0;
+  var s3    = 0;
+  var head  = 0;
+  var tail  = 0;
+  var count = 0;
+
+  var pwaiter = "";
+  var pitem   = 0;
+  var cwaiter = "";
+
+  method put(item) {
+    if (cwaiter != "") {
+      send sender.put_ok();
+      send cwaiter.got(item);
+      print("[BUF] passthrough put=" + item);
+      cwaiter = "";
+    } else {
+      if (count == cap) {
+        pwaiter = sender;
+        pitem   = item;
+        print("[BUF] FULL  -- queued put=" + item);
+      } else {
+        if (tail == 0) { s0 = item; }
+        if (tail == 1) { s1 = item; }
+        if (tail == 2) { s2 = item; }
+        if (tail == 3) { s3 = item; }
+        tail = tail + 1;
+        if (tail == cap) { tail = 0; }
+        count = count + 1;
+        print("[BUF] put=" + item + "   count=" + count);
+        send sender.put_ok();
+      }
+    }
+  }
+
+  method get() {
+    if (count == 0) {
+      cwaiter = sender;
+      print("[BUF] EMPTY -- queued get");
+    } else {
+      if (head == 0) { send sender.got(s0); }
+      if (head == 1) { send sender.got(s1); }
+      if (head == 2) { send sender.got(s2); }
+      if (head == 3) { send sender.got(s3); }
+      head = head + 1;
+      if (head == cap) { head = 0; }
+      count = count - 1;
+      print("[BUF] get   count=" + count);
+      if (pwaiter != "") {
+        if (tail == 0) { s0 = pitem; }
+        if (tail == 1) { s1 = pitem; }
+        if (tail == 2) { s2 = pitem; }
+        if (tail == 3) { s3 = pitem; }
+        tail = tail + 1;
+        if (tail == cap) { tail = 0; }
+        count = count + 1;
+        print("[BUF] accepted queued put=" + pitem);
+        send pwaiter.put_ok();
+        pwaiter = "";
+      }
+    }
+  }
+}
+
+class Producer {
+  var id  = 0;
+  var buf = "";
+  var n   = 0;
+  var max = 0;
+
+  method init(myId, b, limit) {
+    id = myId; buf = b; max = limit;
+    send self.produce();
+  }
+
+  method produce() {
+    if (n == max) {
+      print("[P" + id + "] DONE");
+    } else {
+      n = n + 1;
+      print("[P" + id + "] -> put " + n);
+      send buf.put(n);
+    }
+  }
+
+  method put_ok() {
+    call wait(120);
+    send self.produce();
+  }
+}
+
+class Consumer {
+  var id    = 0;
+  var buf   = "";
+  var taken = 0;
+  var max   = 0;
+
+  method init(myId, b, limit) {
+    id = myId; buf = b; max = limit;
+    send buf.get();
+  }
+
+  method got(item) {
+    taken = taken + 1;
+    print("[C" + id + "] got " + item + "   (total=" + taken + ")");
+    if (taken == max) {
+      print("[C" + id + "] DONE");
+    } else {
+      call wait(420);
+      send self.do_get();
+    }
+  }
+
+  method do_get() {
+    send buf.get();
+  }
+}
+
+var buf = new Buffer();
+var p0  = new Producer(0, buf, 12);
+var c0  = new Consumer(0, buf, 12);`,
 };
 
 window.addEventListener("DOMContentLoaded", () => {
@@ -191,6 +317,7 @@ window.addEventListener("DOMContentLoaded", () => {
       <button id="btnLoadCalc">Calc (select)</button>
       <button id="btnLoadRotate">Rotate4Lines</button>
       <button id="btnLoadPhilos">5 Philosophers</button>
+      <button id="btnLoadBuf">Bounded Buffer</button>
     </div>
 
     <div style="display:flex;height:calc(100vh - 360px);min-height:160px;">
@@ -328,6 +455,7 @@ window.addEventListener("DOMContentLoaded", () => {
   document.getElementById("btnLoadCalc").addEventListener("click", () => { src.value = SAMPLES.calc; });
   document.getElementById("btnLoadRotate").addEventListener("click", () => { src.value = SAMPLES.rotate4; });
   document.getElementById("btnLoadPhilos").addEventListener("click", () => { src.value = SAMPLES.philosophers; });
+  document.getElementById("btnLoadBuf").addEventListener("click", () => { src.value = SAMPLES.bounded_buffer; });
 
   document.getElementById("runCmdBtn").addEventListener("click", () => {
     const cmd = cmdInput.value.trim();
@@ -356,8 +484,8 @@ window.addEventListener("DOMContentLoaded", () => {
   appendConsole("ABCL/c+ Browser Console — actor threads edition");
   appendConsole("Each actor runs as an independent setTimeout thread.");
   appendConsole("");
-  appendConsole("Samples: PingPong / Calc(select) / Rotate4Lines / 5 Philosophers");
-  appendConsole("Demos:   /rotate4lines.html  /philosophers.html");
+  appendConsole("Samples: PingPong / Calc(select) / Rotate4Lines / 5 Philosophers / Bounded Buffer");
+  appendConsole("Demos:   /rotate4lines.html  /philosophers.html  /bounded_buffer.html");
   appendConsole("Press ▶ run to execute.");
   appendConsole("");
   cmdInput.focus();

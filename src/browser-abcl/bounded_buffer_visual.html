@@ -1,0 +1,564 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>ABCL/c+ — Bounded Buffer (visual)</title>
+  <style>
+    body { margin: 0; background: #0d0d1a; color: #ccc; font-family: monospace; display: flex; flex-direction: column; align-items: center; }
+    h2 { margin: 12px 0 4px; font-size: 1rem; color: #8af; }
+    #info { font-size: 0.75rem; color: #777; margin-bottom: 8px; max-width: 760px; text-align: center; line-height: 1.4; }
+    canvas { border: 1px solid #333; display: block; background: #05051a; }
+
+    #sliders { width: 760px; display: flex; justify-content: space-between; margin: 8px 0 4px; gap: 16px; }
+    .slider-box { flex: 1; display: flex; flex-direction: column; padding: 6px 10px; border: 1px solid #223; border-radius: 4px; background: #10101e; }
+    .slider-box .title { font-size: 0.75rem; color: #aef; margin-bottom: 4px; }
+    .slider-box .val   { font-size: 0.72rem; color: #ddd; }
+    .slider-box input[type=range] { width: 100%; accent-color: #5af; }
+
+    #controls { margin: 10px 0; display: flex; gap: 8px; }
+    button { padding: 6px 14px; background: #222; color: #aef; border: 1px solid #446; cursor: pointer; font-family: monospace; }
+    button:hover { background: #334; }
+
+    #log { width: 760px; height: 130px; background: #050510; color: #9aa; font-size: 0.72rem; overflow-y: auto; padding: 6px; margin-top: 6px; white-space: pre-wrap; border: 1px solid #223; }
+    nav { margin: 6px; font-size: 0.8rem; }
+    nav a { color: #6af; margin: 0 6px; }
+    .legend { font-size: 0.72rem; color: #778; margin: 4px 0; }
+    .legend span { margin: 0 6px; }
+  </style>
+</head>
+<body>
+  <h2>ABCL/c+ — Bounded Buffer (producer / consumer, capacity = 20)</h2>
+  <div id="info">
+    JavaScript-runtime version. One Producer actor and one Consumer actor share
+    a capacity-20 Buffer actor. Adjust each side's speed with the sliders below —
+    make the producer faster than the consumer and the buffer fills up and the
+    producer blocks; flip it and the consumer blocks on the empty buffer.
+    The numbers on each side show how many more operations can complete without blocking.
+  </div>
+
+  <div id="sliders">
+    <div class="slider-box">
+      <div class="title">Producer speed (入力側): every <span id="prodSpeedLabel">500</span> ms</div>
+      <input type="range" id="prodSpeed" min="80" max="2000" step="20" value="500">
+      <div class="val">← slide left for faster input, right for slower input</div>
+    </div>
+    <div class="slider-box">
+      <div class="title">Consumer speed (出力側): every <span id="consSpeedLabel">800</span> ms</div>
+      <input type="range" id="consSpeed" min="80" max="2000" step="20" value="800">
+      <div class="val">← slide left for faster output, right for slower output</div>
+    </div>
+  </div>
+
+  <canvas id="canvas" width="760" height="320"></canvas>
+
+  <div class="legend">
+    <span style="color:#66ccff;">■ Producer</span>
+    <span style="color:#ffcc66;">■ Consumer</span>
+    <span style="color:#55ff55;">■ Slot filled</span>
+    <span style="color:#ff9955;">■ BLOCKED (FULL / EMPTY)</span>
+  </div>
+
+  <div id="controls">
+    <button id="btnRun">▶ Run</button>
+    <button id="btnStop">■ Stop</button>
+    <button id="btnReset">↺ Reset</button>
+    <button id="btnShowSrc">Show ABCL source</button>
+    <button id="btnText" onclick="location.href='/bounded_buffer.html'" style="background:#1a1a3a; color:#aef; border-color:#68a;">← テキスト版 (Text log)</button>
+  </div>
+  <div id="log"></div>
+  <nav>
+    <a href="/browser_console.html">Console</a> |
+    <a href="/rotate4lines.html">Rotate 4 Lines</a> |
+    <a href="/philosophers.html">Dining Philosophers</a> |
+    <a href="/bounded_buffer.html">← Bounded Buffer (text)</a>
+  </nav>
+
+  <script>
+  // ===================================================================
+  // ABCL source (shown by the "Show ABCL source" button for reference).
+  // The visual simulation below is a faithful JS port of this source:
+  //   - asynchronous message passing (put / get / put_ok / got)
+  //   - blocking on FULL / EMPTY is modelled as stashing the sender and
+  //     hand-delivering a reply when the guard becomes satisfiable
+  // ===================================================================
+  const ABCL_SOURCE = `\
+class Buffer {
+  var cap     = 20;
+  var slots   = array_empty();          // 20 slots, filled in init
+  var head    = 0;
+  var tail    = 0;
+  var count   = 0;
+  var pwaiter = "";
+  var pitem   = 0;
+  var cwaiter = "";
+
+  method init() {
+    var i = 0;
+    while (i < 20) do { slots = array_push(slots, 0); i = i + 1; }
+  }
+
+  method put(item) {
+    if (cwaiter != "") {
+      send sender.put_ok();
+      send cwaiter.got(item);
+      cwaiter = "";
+    } else if (count == cap) {
+      pwaiter = sender; pitem = item;      // queue the producer
+    } else {
+      slots = array_set(slots, tail, item);
+      tail = tail + 1; if (tail == cap) { tail = 0; }
+      count = count + 1;
+      send sender.put_ok();
+    }
+  }
+
+  method get() {
+    if (count == 0) {
+      cwaiter = sender;                     // queue the consumer
+    } else {
+      send sender.got(array_get(slots, head));
+      head = head + 1; if (head == cap) { head = 0; }
+      count = count - 1;
+      if (pwaiter != "") {                  // release queued producer
+        slots = array_set(slots, tail, pitem);
+        tail = tail + 1; if (tail == cap) { tail = 0; }
+        count = count + 1;
+        send pwaiter.put_ok();
+        pwaiter = "";
+      }
+    }
+  }
+}
+
+class Producer {
+  method produce() { n = n + 1; send buf.put(n); }
+  method put_ok()  { call wait(PROD_SPEED); send self.produce(); }
+}
+
+class Consumer {
+  method got(item) { call wait(CONS_SPEED); send self.do_get(); }
+  method do_get()  { send buf.get(); }
+}
+
+var buf = new Buffer();
+var p0  = new Producer(0, buf, 9999);
+var c0  = new Consumer(0, buf, 9999);
+`;
+
+  // ===================================================================
+  // Simulation state
+  // ===================================================================
+  const CAP = 20;
+  let buffer = new Array(CAP).fill(null);
+  let head = 0, tail = 0, count = 0;
+  let producerN = 0, consumerTaken = 0;
+
+  // pwaiter / cwaiter: 1:1 with the ABCL model — at most one queued sender
+  // of each kind. When satisfied, the stashed callback runs.
+  let pwaiter = null;   // () => void    (slot now free)
+  let pitem   = 0;
+  let cwaiter = null;   // (item) => void (item now available)
+
+  let producerState = "idle";   // "idle" | "producing" | "blocked"
+  let consumerState = "idle";   // "idle" | "consuming" | "blocked"
+
+  let prodSpeed = 500;
+  let consSpeed = 800;
+
+  let running = false;
+  let timerIds = [];
+  let animations = [];
+
+  // ===================================================================
+  // Canvas geometry
+  // ===================================================================
+  const canvas = document.getElementById("canvas");
+  const ctx = canvas.getContext("2d");
+  const W = canvas.width, H = canvas.height;
+
+  const PROD_X = 60,  PROD_Y = 160;
+  const CONS_X = 700, CONS_Y = 160;
+  const SLOT_W = 22, SLOT_H = 44, SLOT_GAP = 2;
+  const BUF_Y  = 160;
+  const BUF_LEFT = W / 2 - (CAP * SLOT_W + (CAP - 1) * SLOT_GAP) / 2;
+  const slotCx = i => BUF_LEFT + i * (SLOT_W + SLOT_GAP) + SLOT_W / 2;
+
+  // ===================================================================
+  // Scheduling
+  // ===================================================================
+  function schedTimeout(fn, ms) {
+    const id = setTimeout(() => {
+      timerIds = timerIds.filter(x => x !== id);
+      if (running) fn();
+    }, ms);
+    timerIds.push(id);
+    return id;
+  }
+
+  function stopAll() {
+    running = false;
+    timerIds.forEach(clearTimeout);
+    timerIds = [];
+    animations = [];
+  }
+
+  function resetState() {
+    stopAll();
+    buffer = new Array(CAP).fill(null);
+    head = 0; tail = 0; count = 0;
+    producerN = 0; consumerTaken = 0;
+    pwaiter = null; pitem = 0; cwaiter = null;
+    producerState = "idle";
+    consumerState = "idle";
+    logDiv.textContent = "";
+  }
+
+  // ===================================================================
+  // Buffer actor methods (matches the ABCL put / get above)
+  // ===================================================================
+  function put(item, onOK) {
+    if (cwaiter) {
+      // passthrough: hand the item directly to the waiting consumer
+      const cb = cwaiter; cwaiter = null;
+      consumerState = "idle";
+      log("[BUF] passthrough put=" + item);
+      animateTransfer(PROD_X + 45, PROD_Y, CONS_X - 45, CONS_Y,
+                      item, "#66ffcc", () => cb(item));
+      onOK();
+    } else if (count === CAP) {
+      // FULL: queue the producer
+      producerState = "blocked";
+      pitem = item;
+      pwaiter = () => {
+        const idx = tail;
+        buffer[idx] = item;
+        tail = (tail + 1) % CAP;
+        count++;
+        log("[BUF] accepted queued put=" + item + "  count=" + count);
+        animateTransfer(PROD_X + 45, PROD_Y, slotCx(idx), BUF_Y,
+                        item, "#66ccff", () => {
+          producerState = "idle";
+          onOK();
+        });
+      };
+      log("[BUF] FULL  — queued put=" + item);
+    } else {
+      const idx = tail;
+      buffer[idx] = item;
+      tail = (tail + 1) % CAP;
+      count++;
+      log("[BUF] put=" + item + "  count=" + count);
+      animateTransfer(PROD_X + 45, PROD_Y, slotCx(idx), BUF_Y,
+                      item, "#66ccff", () => onOK());
+    }
+  }
+
+  function get(onGot) {
+    if (count === 0) {
+      // EMPTY: queue the consumer
+      consumerState = "blocked";
+      cwaiter = (item) => onGot(item);
+      log("[BUF] EMPTY — queued get");
+    } else {
+      const idx = head;
+      const item = buffer[idx];
+      buffer[idx] = null;
+      head = (head + 1) % CAP;
+      count--;
+      log("[BUF] get=" + item + "  count=" + count);
+      animateTransfer(slotCx(idx), BUF_Y, CONS_X - 45, CONS_Y,
+                      item, "#ffcc66", () => onGot(item));
+      if (pwaiter) {
+        // a slot just freed — accept the queued producer's pending item
+        const cb = pwaiter; pwaiter = null;
+        cb();
+      }
+    }
+  }
+
+  // ===================================================================
+  // Producer / Consumer cycles
+  // ===================================================================
+  function producerCycle() {
+    if (!running) return;
+    producerState = "producing";
+    producerN += 1;
+    const n = producerN;
+    log("[P0] -> put " + n);
+    put(n, () => {
+      if (!running) return;
+      // put_ok received → producer waits prodSpeed ms, then produces again
+      schedTimeout(producerCycle, prodSpeed);
+    });
+  }
+
+  function consumerCycle() {
+    if (!running) return;
+    consumerState = "consuming";
+    get((item) => {
+      if (!running) return;
+      consumerTaken += 1;
+      log("[C0] got " + item + "  (total=" + consumerTaken + ")");
+      consumerState = "idle";
+      // got → consumer waits consSpeed ms, then gets again
+      schedTimeout(consumerCycle, consSpeed);
+    });
+  }
+
+  function runSim() {
+    resetState();
+    running = true;
+    producerCycle();
+    consumerCycle();
+  }
+
+  // ===================================================================
+  // Rendering
+  // ===================================================================
+  function animateTransfer(fromX, fromY, toX, toY, value, color, onDone) {
+    animations.push({
+      fromX, fromY, toX, toY,
+      value, color,
+      t0: performance.now(),
+      dur: 260,
+      onDone
+    });
+  }
+
+  function drawBox(cx, cy, w, h, fill, stroke, label, sublabel) {
+    ctx.fillStyle = fill;
+    ctx.fillRect(cx - w/2, cy - h/2, w, h);
+    ctx.strokeStyle = stroke;
+    ctx.lineWidth = 3;
+    ctx.strokeRect(cx - w/2, cy - h/2, w, h);
+    ctx.fillStyle = "#fff";
+    ctx.font = "bold 14px monospace";
+    ctx.textAlign = "center";
+    ctx.fillText(label, cx, cy - 4);
+    if (sublabel) {
+      ctx.fillStyle = "#ffe";
+      ctx.font = "12px monospace";
+      ctx.fillText(sublabel, cx, cy + 14);
+    }
+  }
+
+  function render() {
+    const now = performance.now();
+    ctx.clearRect(0, 0, W, H);
+
+    // Subtle table for the buffer row
+    ctx.fillStyle = "#10101e";
+    ctx.fillRect(BUF_LEFT - 14, BUF_Y - SLOT_H/2 - 10,
+                 CAP * SLOT_W + (CAP - 1) * SLOT_GAP + 28, SLOT_H + 20);
+
+    // --- Producer box ---
+    {
+      const stroke = producerState === "blocked" ? "#ff9955" : "#66ccff";
+      const fill   = producerState === "blocked" ? "#3a2410" : "#142848";
+      const sub    = producerState === "blocked" ? "BLOCKED (FULL)" : "running";
+      drawBox(PROD_X, PROD_Y, 90, 70, fill, stroke, "Producer", sub);
+
+      // number sent so far
+      ctx.fillStyle = "#88c0ff";
+      ctx.font = "11px monospace";
+      ctx.fillText("sent=" + producerN, PROD_X, PROD_Y - 24);
+
+      // あと何個入力できるか (= free slots left in buffer)
+      const free = CAP - count;
+      ctx.fillStyle = "#fff";
+      ctx.font = "bold 12px monospace";
+      ctx.fillText("あと入力可能", PROD_X, PROD_Y + 54);
+      ctx.fillStyle = free === 0 ? "#ff9955" : "#9fe";
+      ctx.font = "bold 24px monospace";
+      ctx.fillText(String(free), PROD_X, PROD_Y + 82);
+    }
+
+    // --- Consumer box ---
+    {
+      const stroke = consumerState === "blocked" ? "#ff9955" : "#ffcc66";
+      const fill   = consumerState === "blocked" ? "#3a2410" : "#3a2a14";
+      const sub    = consumerState === "blocked" ? "BLOCKED (EMPTY)" : "running";
+      drawBox(CONS_X, CONS_Y, 90, 70, fill, stroke, "Consumer", sub);
+
+      ctx.fillStyle = "#ffd088";
+      ctx.font = "11px monospace";
+      ctx.fillText("taken=" + consumerTaken, CONS_X, CONS_Y - 24);
+
+      // あと何個出力できるか (= items currently in buffer)
+      const avail = count;
+      ctx.fillStyle = "#fff";
+      ctx.font = "bold 12px monospace";
+      ctx.fillText("あと出力可能", CONS_X, CONS_Y + 54);
+      ctx.fillStyle = avail === 0 ? "#ff9955" : "#fe9";
+      ctx.font = "bold 24px monospace";
+      ctx.fillText(String(avail), CONS_X, CONS_Y + 82);
+    }
+
+    // --- Arrows from producer to buffer, and buffer to consumer ---
+    ctx.strokeStyle = "#445";
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(PROD_X + 45, PROD_Y);
+    ctx.lineTo(BUF_LEFT - 4, BUF_Y);
+    ctx.moveTo(BUF_LEFT + CAP * SLOT_W + (CAP - 1) * SLOT_GAP + 4, BUF_Y);
+    ctx.lineTo(CONS_X - 45, CONS_Y);
+    ctx.stroke();
+
+    // --- Buffer slots ---
+    for (let i = 0; i < CAP; i++) {
+      const x = BUF_LEFT + i * (SLOT_W + SLOT_GAP);
+      const y = BUF_Y - SLOT_H / 2;
+      const isHead = (count > 0 && i === head);
+      const isTail = (count < CAP && i === tail);
+
+      ctx.fillStyle = buffer[i] !== null ? "#123a20" : "#101022";
+      ctx.fillRect(x, y, SLOT_W, SLOT_H);
+
+      ctx.strokeStyle = buffer[i] !== null ? "#55ff55" : "#445";
+      ctx.lineWidth = 1.5;
+      ctx.strokeRect(x, y, SLOT_W, SLOT_H);
+
+      if (buffer[i] !== null) {
+        ctx.fillStyle = "#afe";
+        ctx.textAlign = "center";
+        ctx.font = "bold 12px monospace";
+        // Show full item number; wraps with tiny font if >= 100
+        const label = String(buffer[i]);
+        ctx.font = label.length <= 2 ? "bold 13px monospace"
+                 : label.length === 3 ? "bold 10px monospace"
+                 :                      "bold 8px monospace";
+        ctx.fillText(label, x + SLOT_W/2, BUF_Y + 5);
+      }
+
+      // slot index label every 5 slots (to keep the row readable)
+      if (i % 5 === 0 || i === CAP - 1) {
+        ctx.fillStyle = "#667";
+        ctx.font = "9px monospace";
+        ctx.fillText("s" + i, x + SLOT_W/2, y + SLOT_H + 10);
+      }
+
+      // head / tail indicators — small coloured wedge above/below the slot
+      if (isHead) {
+        ctx.fillStyle = "#ffcc66";
+        ctx.beginPath();
+        ctx.moveTo(x + SLOT_W/2 - 4, y - 6);
+        ctx.lineTo(x + SLOT_W/2 + 4, y - 6);
+        ctx.lineTo(x + SLOT_W/2,     y - 1);
+        ctx.closePath();
+        ctx.fill();
+      }
+      if (isTail) {
+        ctx.fillStyle = "#66ccff";
+        ctx.beginPath();
+        ctx.moveTo(x + SLOT_W/2 - 4, y + SLOT_H + 6);
+        ctx.lineTo(x + SLOT_W/2 + 4, y + SLOT_H + 6);
+        ctx.lineTo(x + SLOT_W/2,     y + SLOT_H + 1);
+        ctx.closePath();
+        ctx.fill();
+      }
+    }
+
+    // count display
+    ctx.fillStyle = "#778";
+    ctx.font = "11px monospace";
+    ctx.textAlign = "center";
+    ctx.fillText("count = " + count + " / " + CAP,
+                 BUF_LEFT + (CAP * SLOT_W + (CAP - 1) * SLOT_GAP) / 2,
+                 BUF_Y - SLOT_H/2 - 18);
+    // head/tail legend
+    ctx.font = "10px monospace";
+    ctx.fillStyle = "#ffcc66";
+    ctx.fillText("▼ head", BUF_LEFT + 30, BUF_Y - SLOT_H/2 - 4);
+    ctx.fillStyle = "#66ccff";
+    ctx.fillText("▲ tail", BUF_LEFT + (CAP * SLOT_W + (CAP - 1) * SLOT_GAP) - 30,
+                 BUF_Y - SLOT_H/2 - 4);
+
+    // --- Flying items ---
+    animations = animations.filter(a => {
+      const t = (now - a.t0) / a.dur;
+      if (t >= 1) {
+        try { a.onDone(); } catch (e) { log("[ERROR] " + e); }
+        return false;
+      }
+      const x = a.fromX + (a.toX - a.fromX) * t;
+      const baseY = a.fromY + (a.toY - a.fromY) * t;
+      const y = baseY - Math.sin(t * Math.PI) * 22;
+      ctx.fillStyle = a.color;
+      ctx.beginPath();
+      ctx.arc(x, y, 11, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.strokeStyle = "#fff";
+      ctx.lineWidth = 1.2;
+      ctx.stroke();
+      ctx.fillStyle = "#000";
+      const alabel = String(a.value);
+      ctx.font = alabel.length <= 2 ? "bold 11px monospace"
+               : alabel.length === 3 ? "bold 9px monospace"
+               :                       "bold 7px monospace";
+      ctx.textAlign = "center";
+      ctx.fillText(alabel, x, y + 4);
+      return true;
+    });
+  }
+
+  function raf() {
+    render();
+    requestAnimationFrame(raf);
+  }
+  requestAnimationFrame(raf);
+
+  // ===================================================================
+  // Log
+  // ===================================================================
+  const logDiv = document.getElementById("log");
+  function log(s) {
+    const row = document.createElement("div");
+    row.textContent = s;
+    if (s.startsWith("[BUF] FULL") || s.startsWith("[BUF] EMPTY")) {
+      row.style.color = "#ff9955";
+    } else if (s.startsWith("[BUF]")) {
+      row.style.color = "#55ff55";
+    } else if (s.startsWith("[P")) {
+      row.style.color = "#66ccff";
+    } else if (s.startsWith("[C")) {
+      row.style.color = "#ffcc66";
+    }
+    logDiv.appendChild(row);
+    logDiv.scrollTop = logDiv.scrollHeight;
+  }
+
+  // ===================================================================
+  // Wire up controls
+  // ===================================================================
+  const prodSlider = document.getElementById("prodSpeed");
+  const consSlider = document.getElementById("consSpeed");
+  const prodLabel  = document.getElementById("prodSpeedLabel");
+  const consLabel  = document.getElementById("consSpeedLabel");
+
+  function syncSliders() {
+    prodSpeed = parseInt(prodSlider.value, 10);
+    consSpeed = parseInt(consSlider.value, 10);
+    prodLabel.textContent = prodSpeed;
+    consLabel.textContent = consSpeed;
+  }
+  prodSlider.addEventListener("input", syncSliders);
+  consSlider.addEventListener("input", syncSliders);
+  syncSliders();
+
+  document.getElementById("btnRun").addEventListener("click", runSim);
+  document.getElementById("btnStop").addEventListener("click", () => {
+    stopAll();
+    log("[stopped]");
+  });
+  document.getElementById("btnReset").addEventListener("click", () => {
+    resetState();
+    log("[reset]");
+  });
+  document.getElementById("btnShowSrc").addEventListener("click", () => {
+    logDiv.textContent = ABCL_SOURCE;
+  });
+
+  window.addEventListener("load", runSim);
+  </script>
+</body>
+</html>

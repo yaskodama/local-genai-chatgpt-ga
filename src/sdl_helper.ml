@@ -20,6 +20,31 @@ let post cmd =
   Mutex.lock m; Queue.add cmd q; Condition.signal c; Mutex.unlock m
 (*   log "posted cmd"    *)
 
+(* Non-blocking keyboard event queue. KeyDown scancodes are enqueued by
+   the SDL main thread and drained by `sdl_poll_key` from ABCL actors. *)
+let key_q : int Queue.t = Queue.create ()
+let key_m = Mutex.create ()
+let sdl_poll_key () : int =
+  Mutex.lock key_m;
+  let r = if Queue.is_empty key_q then 0 else Queue.pop key_q in
+  Mutex.unlock key_m;
+  r
+
+(* Latest mouse state, updated by the SDL main thread from
+   Mouse_button_down / Mouse_button_up / Mouse_motion events.
+   sdl_mouse_down returns 1 while the left button is held. *)
+let mouse_x    = ref 0
+let mouse_y    = ref 0
+let mouse_down = ref 0
+let mouse_m    = Mutex.create ()
+
+let sdl_mouse_x () : int =
+  Mutex.lock mouse_m; let r = !mouse_x in Mutex.unlock mouse_m; r
+let sdl_mouse_y () : int =
+  Mutex.lock mouse_m; let r = !mouse_y in Mutex.unlock mouse_m; r
+let sdl_mouse_down () : int =
+  Mutex.lock mouse_m; let r = !mouse_down in Mutex.unlock mouse_m; r
+
 (* 外部公開 API：他スレッドからはこれだけ呼ぶ *)
 let sdl_init ~w ~h ~title = post (Init (w,h,title))
 let sdl_draw_line x1 y1 x2 y2 = post (Line (x1,y1,x2,y2))
@@ -56,6 +81,31 @@ let main_loop () =
     ignore (Sdl.poll_event (Some ev));
     (match Sdl.Event.(enum (get ev typ)) with
      | `Quit -> running := false
+     | `Key_down ->
+         let sc = Sdl.Event.(get ev keyboard_scancode) in
+         Mutex.lock key_m; Queue.add sc key_q; Mutex.unlock key_m
+     | `Mouse_button_down ->
+         let btn = Sdl.Event.(get ev mouse_button_button) in
+         let x   = Sdl.Event.(get ev mouse_button_x) in
+         let y   = Sdl.Event.(get ev mouse_button_y) in
+         Mutex.lock mouse_m;
+         mouse_x := x; mouse_y := y;
+         if btn = Sdl.Button.left then mouse_down := 1;
+         Mutex.unlock mouse_m
+     | `Mouse_button_up ->
+         let btn = Sdl.Event.(get ev mouse_button_button) in
+         let x   = Sdl.Event.(get ev mouse_button_x) in
+         let y   = Sdl.Event.(get ev mouse_button_y) in
+         Mutex.lock mouse_m;
+         mouse_x := x; mouse_y := y;
+         if btn = Sdl.Button.left then mouse_down := 0;
+         Mutex.unlock mouse_m
+     | `Mouse_motion ->
+         let x = Sdl.Event.(get ev mouse_motion_x) in
+         let y = Sdl.Event.(get ev mouse_motion_y) in
+         Mutex.lock mouse_m;
+         mouse_x := x; mouse_y := y;
+         Mutex.unlock mouse_m
      | _ -> ());
 
     if not !running then (

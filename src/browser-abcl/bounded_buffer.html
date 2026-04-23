@@ -18,10 +18,10 @@
   </style>
 </head>
 <body>
-  <h2>ABCL/c+ — Bounded Buffer (producer / consumer, capacity = 4)</h2>
+  <h2>ABCL/c+ — Bounded Buffer (producer / consumer, capacity = 20)</h2>
   <div id="info">
-    One Producer actor and one Consumer actor share a capacity-4 Buffer actor.
-    The producer runs every ~120 ms and the consumer every ~420 ms, so the buffer
+    One Producer actor and one Consumer actor share a capacity-20 Buffer actor.
+    The producer runs every ~80 ms and the consumer every ~250 ms, so the buffer
     fills, the producer blocks, and each consumer-get wakes the queued producer.
     Blocking is expressed in ABCL's native way: the buffer stashes the waiting
     sender and hand-delivers a reply when the guard becomes satisfiable.
@@ -36,11 +36,13 @@
     <button id="btnRun">▶ Run</button>
     <button id="btnStop">■ Stop</button>
     <button id="btnShowSrc">Show ABCL source</button>
+    <button id="btnVisual" onclick="location.href='/bounded_buffer_visual.html'" style="background:#1a3a1a; color:#afe; border-color:#4c6;">✨ 可視化版 (Visual)</button>
   </div>
   <div id="log"></div>
   <nav>
     <a href="/browser_console.html">Console</a> |
-    <a href="/philosophers.html">← Dining Philosophers</a>
+    <a href="/philosophers.html">← Dining Philosophers</a> |
+    <a href="/bounded_buffer_visual.html">Bounded Buffer (visual) →</a>
   </nav>
 
   <script src="/src/parser/parser.js"></script>
@@ -50,11 +52,27 @@
 
     const ABCL_SOURCE = `\
 class Buffer {
-  var cap   = 4;
-  var s0    = 0;
-  var s1    = 0;
-  var s2    = 0;
-  var s3    = 0;
+  var cap   = 20;
+  var s0  = 0;
+  var s1  = 0;
+  var s2  = 0;
+  var s3  = 0;
+  var s4  = 0;
+  var s5  = 0;
+  var s6  = 0;
+  var s7  = 0;
+  var s8  = 0;
+  var s9  = 0;
+  var s10 = 0;
+  var s11 = 0;
+  var s12 = 0;
+  var s13 = 0;
+  var s14 = 0;
+  var s15 = 0;
+  var s16 = 0;
+  var s17 = 0;
+  var s18 = 0;
+  var s19 = 0;
   var head  = 0;
   var tail  = 0;
   var count = 0;
@@ -79,6 +97,22 @@ class Buffer {
         if (tail == 1) { s1 = item; }
         if (tail == 2) { s2 = item; }
         if (tail == 3) { s3 = item; }
+        if (tail == 4) { s4 = item; }
+        if (tail == 5) { s5 = item; }
+        if (tail == 6) { s6 = item; }
+        if (tail == 7) { s7 = item; }
+        if (tail == 8) { s8 = item; }
+        if (tail == 9) { s9 = item; }
+        if (tail == 10) { s10 = item; }
+        if (tail == 11) { s11 = item; }
+        if (tail == 12) { s12 = item; }
+        if (tail == 13) { s13 = item; }
+        if (tail == 14) { s14 = item; }
+        if (tail == 15) { s15 = item; }
+        if (tail == 16) { s16 = item; }
+        if (tail == 17) { s17 = item; }
+        if (tail == 18) { s18 = item; }
+        if (tail == 19) { s19 = item; }
         tail = tail + 1;
         if (tail == cap) { tail = 0; }
         count = count + 1;
@@ -97,6 +131,22 @@ class Buffer {
       if (head == 1) { send sender.got(s1); }
       if (head == 2) { send sender.got(s2); }
       if (head == 3) { send sender.got(s3); }
+      if (head == 4) { send sender.got(s4); }
+      if (head == 5) { send sender.got(s5); }
+      if (head == 6) { send sender.got(s6); }
+      if (head == 7) { send sender.got(s7); }
+      if (head == 8) { send sender.got(s8); }
+      if (head == 9) { send sender.got(s9); }
+      if (head == 10) { send sender.got(s10); }
+      if (head == 11) { send sender.got(s11); }
+      if (head == 12) { send sender.got(s12); }
+      if (head == 13) { send sender.got(s13); }
+      if (head == 14) { send sender.got(s14); }
+      if (head == 15) { send sender.got(s15); }
+      if (head == 16) { send sender.got(s16); }
+      if (head == 17) { send sender.got(s17); }
+      if (head == 18) { send sender.got(s18); }
+      if (head == 19) { send sender.got(s19); }
       head = head + 1;
       if (head == cap) { head = 0; }
       count = count - 1;
@@ -106,6 +156,22 @@ class Buffer {
         if (tail == 1) { s1 = pitem; }
         if (tail == 2) { s2 = pitem; }
         if (tail == 3) { s3 = pitem; }
+        if (tail == 4) { s4 = pitem; }
+        if (tail == 5) { s5 = pitem; }
+        if (tail == 6) { s6 = pitem; }
+        if (tail == 7) { s7 = pitem; }
+        if (tail == 8) { s8 = pitem; }
+        if (tail == 9) { s9 = pitem; }
+        if (tail == 10) { s10 = pitem; }
+        if (tail == 11) { s11 = pitem; }
+        if (tail == 12) { s12 = pitem; }
+        if (tail == 13) { s13 = pitem; }
+        if (tail == 14) { s14 = pitem; }
+        if (tail == 15) { s15 = pitem; }
+        if (tail == 16) { s16 = pitem; }
+        if (tail == 17) { s17 = pitem; }
+        if (tail == 18) { s18 = pitem; }
+        if (tail == 19) { s19 = pitem; }
         tail = tail + 1;
         if (tail == cap) { tail = 0; }
         count = count + 1;
@@ -141,7 +207,7 @@ class Producer {
   }
 
   method put_ok() {
-    call wait(120);
+    call wait(80);
     send self.produce();
   }
 }
@@ -165,7 +231,7 @@ class Consumer {
     if (taken == max) {
       print("[C" + id + "] DONE");
     } else {
-      call wait(420);
+      call wait(250);
       send self.do_get();
     }
   }
@@ -176,8 +242,8 @@ class Consumer {
 }
 
 var buf = new Buffer();
-var p0  = new Producer(0, buf, 12);
-var c0  = new Consumer(0, buf, 12);
+var p0  = new Producer(0, buf, 40);
+var c0  = new Consumer(0, buf, 40);
 `;
 
     const logDiv = document.getElementById("log");
