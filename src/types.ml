@@ -166,6 +166,7 @@ let rec occurs (v : tvar ref) (t : ty) : bool =
 let rec unify ?(loc = Location.dummy) (t1 : ty) (t2 : ty) : unit =
   match repr t1, repr t2 with
   | t1, t2 when t1 == t2 -> ()
+  | TAny, _ | _, TAny -> ()
   | TVar v, t
   | t, TVar v ->
       if occurs v t then

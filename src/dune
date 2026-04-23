@@ -1,35 +1,28 @@
-; lexer.mll
 (ocamllex (modules lexer))
+(ocamlyacc (modules parser))
 
-; parser.mly → Menhir を使って処理
-;(menhir
-; (modules parser)
-; (flags --infer))
-
-; 共通ライブラリ
 (library
  (name abcllib)
  (wrapped false)
  (modules
   ast
+  location
   types
   typing_env
   infer
   typecheck
   sdl_helper
+  remote_client
+  parser
+  lexer
   eval_thread
- compiler
- web_gateway)
+  compiler
+  web_gateway)
  (flags (:standard -w -a))
-;; (preprocess (menhir))
  (libraries tsdl threads unix))
 
-; 実行ファイル（REPL）
 (executable
- (name repl_thread)         ; ← ファイル repl_thread.ml と一致させる
+ (name repl_thread)
  (modules repl_thread)
-;; (preprocess (menhir))
-; (flags (:standard -w -9-26-27-32-33-8-11))
  (flags (:standard -w -a))
-;; (preprocess (menhir))
  (libraries abcllib tsdl threads unix))

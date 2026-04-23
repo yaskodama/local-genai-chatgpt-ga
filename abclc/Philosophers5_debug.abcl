@@ -1,0 +1,101 @@
+// Debug version — prints state transitions
+class Fork {
+  var id     = 0;
+  var fx     = 0;
+  var fy     = 0;
+  var taken  = 0;
+  var waiter = "";
+  var drawn  = 0;
+
+  method init(myId, x, y) {
+    id = myId;
+    fx = x;
+    fy = y;
+  }
+
+  method take() {
+    if (taken == 0) {
+      taken = 1;
+      print("F" + id + " taken by " + sender);
+      send sender.fork_granted();
+    } else {
+      waiter = sender;
+      print("F" + id + " queuing waiter=" + sender);
+    }
+  }
+
+  method release() {
+    if (waiter == "") {
+      taken = 0;
+      print("F" + id + " released");
+    } else {
+      print("F" + id + " transfer to waiter=" + waiter);
+      send waiter.fork_granted();
+      waiter = "";
+    }
+  }
+}
+
+class Philosopher {
+  var id       = 0;
+  var lowFork  = "";
+  var highFork = "";
+  var hasLow   = 0;
+  var eatCount = 0;
+
+  method init(myId, lo, hi) {
+    id = myId;
+    lowFork  = lo;
+    highFork = hi;
+    send self.think();
+  }
+
+  method think() {
+    print("P" + id + " think");
+    call wait(700);
+    send self.hungry();
+  }
+
+  method hungry() {
+    print("P" + id + " hungry, requesting " + lowFork);
+    hasLow = 0;
+    send lowFork.take();
+  }
+
+  method fork_granted() {
+    if (hasLow == 0) {
+      hasLow = 1;
+      print("P" + id + " got low, requesting " + highFork);
+      send highFork.take();
+    } else {
+      print("P" + id + " got both — eating");
+      send self.eat();
+    }
+  }
+
+  method eat() {
+    eatCount = eatCount + 1;
+    print("P" + id + " eat #" + eatCount);
+    call wait(900);
+    send self.eat_done();
+  }
+
+  method eat_done() {
+    print("P" + id + " done, releasing " + lowFork + "," + highFork);
+    send lowFork.release();
+    send highFork.release();
+    send self.think();
+  }
+}
+
+var fork0 = new Fork(0, 326, 145);
+var fork1 = new Fork(1, 374, 290);
+var fork2 = new Fork(2, 250, 380);
+var fork3 = new Fork(3, 126, 290);
+var fork4 = new Fork(4, 174, 145);
+
+var p0 = new Philosopher(0, "fork0", "fork1");
+var p1 = new Philosopher(1, "fork1", "fork2");
+var p2 = new Philosopher(2, "fork2", "fork3");
+var p3 = new Philosopher(3, "fork3", "fork4");
+var p4 = new Philosopher(4, "fork0", "fork4");

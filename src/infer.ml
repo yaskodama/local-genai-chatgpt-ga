@@ -280,6 +280,10 @@ let rec check_stmt (env:env) (s:stmt) : unit =
                          raise (Type_error (s.sloc,
                            ("method " ^ mname ^ " is not a function: "
                             ^ string_of_ty tf))))
+            (* A variable holding an actor name as a string is resolved at
+               runtime (see eval_thread.ml Send handling). Accept it here. *)
+            | TString | TAny | TVar _ ->
+                List.iter (fun e -> ignore (infer_expr env e)) args
             | t_non_actor ->
                 raise (Type_error (s.sloc,
                   ("send target is not actor: " ^ string_of_ty t_non_actor)))
@@ -312,34 +316,36 @@ let rec check_stmt (env:env) (s:stmt) : unit =
       
 let check_decl (env:env) = function
   | Class c ->
+    (* Use a class-local env so field names don't pollute the global env *)
+    let env_cls = clone env in
     List.iter
       (fun (st:Ast.stmt) ->
 	match st.sdesc with
         | VarDecl (name, init) ->
-            let t   = infer_expr env init in
-            let sch = Types.generalize (ftv_env env) t in
-            add env name sch
+            let t   = infer_expr env_cls init in
+            let sch = Types.generalize (ftv_env env_cls) t in
+            set env_cls name sch
         | _ -> ()
       ) c.fields;
 
-      (* 2) メソッド名を「float^n -> unit」として env に先に登録 *)
+      (* 2) メソッド名を「any^n -> unit」として env_cls に先に登録 *)
       List.iter (fun m ->
         let param_count =
           try List.length (Obj.magic m.params : string list) with _ -> 0
         in
-        let ft = TFun (List.init param_count (fun _ -> TFloat), TUnit) in
-        add env m.mname (Forall ([], ft))
+        let ft = TFun (List.init param_count (fun _ -> TAny), TUnit) in
+        set env_cls m.mname (Forall ([], ft))
       ) c.methods;
 
       (* 3) 本文は“ローカル環境”で検査：ローカル変数が外へ漏れない *)
       List.iter (fun m ->
-        let env_m = clone env in
-        (* ★ self をこのクラスのアクターとしてローカル環境に追加 *)
+        let env_m = clone env_cls in
         set env_m "self" (Forall ([], TActor (c.Ast.cname, [])));
+        set env_m "sender" (Forall ([], TAny));
 
-        (* ★ メソッド仮引数をローカル環境に束縛（今は float 想定） *)
         List.iter (fun p ->
-          set env_m p (Forall ([], TFloat))
+          let a = Types.fresh_tvar () in
+          set env_m p (Forall ([], Types.TVar a))
         ) m.params;
 
         check_stmt env_m m.body

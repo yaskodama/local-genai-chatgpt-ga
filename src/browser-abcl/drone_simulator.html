@@ -1,0 +1,257 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>ABCL/c+ — Drone Return-Route Simulator</title>
+  <style>
+    body { margin: 0; background: #0a0a1a; color: #ccc; font-family: monospace; display: flex; flex-direction: column; align-items: center; }
+    h2 { margin: 12px 0 4px; font-size: 1rem; color: #8af; }
+    #info { font-size: 0.75rem; color: #77a; margin-bottom: 8px; max-width: 780px; text-align: center; line-height: 1.4; }
+    canvas { border: 1px solid #333; display: block; background: #05051a; }
+    #controls { margin: 10px 0; display: flex; gap: 8px; }
+    button { padding: 6px 14px; background: #222; color: #aef; border: 1px solid #446; cursor: pointer; font-family: monospace; }
+    button:hover { background: #334; }
+    #legend { display: flex; gap: 14px; font-size: 0.72rem; margin: 4px 0; color: #889; flex-wrap: wrap; justify-content: center; max-width: 780px; }
+    .sw { display: inline-block; width: 10px; height: 10px; vertical-align: middle; margin-right: 4px; border-radius: 50%; }
+    #log { width: 780px; height: 150px; background: #050510; color: #4a4; font-size: 0.72rem; overflow-y: auto; padding: 6px; margin-top: 6px; white-space: pre-wrap; }
+    nav { margin: 6px; font-size: 0.8rem; }
+    nav a { color: #6af; margin: 0 6px; }
+  </style>
+</head>
+<body>
+  <h2>ABCL/c+ — Drone Return-Route Support Simulator</h2>
+  <div id="info">
+    Multi-agent port of Taga et al. (2016) — the smartphones of stranded commuters
+    are replaced with a swarm of relief drones. Each Drone actor scans for
+    impassable zones, diffuses discoveries through a MANET-style broadcast, and
+    detours around known obstacles while flying toward the safe zone.
+  </div>
+  <canvas id="canvas" width="800" height="600"></canvas>
+  <div id="legend">
+    <span><span class="sw" style="background:#ff4a5c;"></span>flying</span>
+    <span><span class="sw" style="background:#3ddc78;"></span>arrived</span>
+    <span><span class="sw" style="background:#666;"></span>dead (battery)</span>
+    <span><span class="sw" style="background:#c060e0;"></span>impassable zone</span>
+    <span><span class="sw" style="background:rgba(60,220,120,0.4); border:1px solid #3ddc78;"></span>safe zone</span>
+    <span><span class="sw" style="border:1px solid #ffdc50; background:transparent;"></span>drone with obstacle info</span>
+    <span style="color:#778;">blue thread lines = MANET links within comm range</span>
+  </div>
+  <div id="controls">
+    <button id="btnRun">▶ Run</button>
+    <button id="btnStop">■ Stop</button>
+    <button id="btnShowSrc">Show ABCL source</button>
+  </div>
+  <div id="log"></div>
+  <nav>
+    <a href="/rotate4lines.html">← Rotate 4 Lines</a> |
+    <a href="/philosophers.html">Dining Philosophers</a> |
+    <a href="/browser_console.html">Console</a>
+  </nav>
+
+  <script src="/src/parser/parser.js"></script>
+  <script type="module">
+    import * as AST from "/src/ast.js";
+    import { Interpreter } from "/src/interpreter.js";
+
+    const ABCL_SOURCE = `\
+class Drone {
+  var id       = 0;
+  var x        = 0.0;
+  var y        = 0.0;
+  var destX    = 700.0;
+  var destY    = 550.0;
+  var speed    = 2.5;
+  var arrived  = 0;
+  var dead     = 0;
+  var battery  = 300;
+  var obsKnown = 0;
+  var obsId    = 0;
+  var obsX     = 0.0;
+  var obsY     = 0.0;
+  var obsR     = 0.0;
+
+  method init(myId, startX, startY, dx, dy, startBatt) {
+    id      = myId;
+    x       = startX;
+    y       = startY;
+    destX   = dx;
+    destY   = dy;
+    battery = startBatt;
+    call drone_register(id);
+    call drone_pos(id, x, y);
+    call drone_state(id, 0);
+    send self.step();
+  }
+
+  method step() {
+    if (arrived == 0) {
+      if (dead == 0) {
+        battery = battery - 1;
+        if (battery <= 0) {
+          dead = 1;
+          call drone_state(id, 2);
+        }
+        if (dead == 0) {
+          call drone_scan(id, x, y);
+          var ddx  = destX - x;
+          var ddy  = destY - y;
+          var dist = sqrt(ddx * ddx + ddy * ddy);
+          if (dist < speed) {
+            x = destX;
+            y = destY;
+            arrived = 1;
+            call drone_pos(id, x, y);
+            call drone_state(id, 1);
+          } else {
+            var moveX = ddx / dist * speed;
+            var moveY = ddy / dist * speed;
+            if (obsKnown == 1) {
+              var odx   = obsX - x;
+              var ody   = obsY - y;
+              var odist = sqrt(odx * odx + ody * ody);
+              var marg  = obsR + 32.0;
+              if (odist < marg) {
+                var nx  = odx / odist;
+                var ny  = ody / odist;
+                var tx1 = 0.0 - ny;
+                var ty1 = nx;
+                var tx2 = ny;
+                var ty2 = 0.0 - nx;
+                var dot1 = ddx * tx1 + ddy * ty1;
+                if (dot1 > 0.0) {
+                  moveX = tx1 * speed;
+                  moveY = ty1 * speed;
+                } else {
+                  moveX = tx2 * speed;
+                  moveY = ty2 * speed;
+                }
+              }
+            }
+            x = x + moveX;
+            y = y + moveY;
+            call drone_pos(id, x, y);
+          }
+          call wait(55);
+          send self.step();
+        }
+      }
+    }
+  }
+
+  method learn_obstacle(newObsId, ox, oy, oR) {
+    if (obsKnown == 0) {
+      obsKnown = 1;
+      obsId    = newObsId;
+      obsX     = ox;
+      obsY     = oy;
+      obsR     = oR;
+      call drone_remember(id, newObsId);
+      call drone_broadcast(id, newObsId, ox, oy, oR);
+    } else {
+      if (obsId != newObsId) {
+        var dNew = sqrt((ox - x) * (ox - x) + (oy - y) * (oy - y));
+        var dOld = sqrt((obsX - x) * (obsX - x) + (obsY - y) * (obsY - y));
+        if (dNew < dOld) {
+          obsId = newObsId;
+          obsX  = ox;
+          obsY  = oy;
+          obsR  = oR;
+        }
+        call drone_remember(id, newObsId);
+        call drone_broadcast(id, newObsId, ox, oy, oR);
+      }
+    }
+  }
+}
+
+class Spawner {
+  var count = 0;
+  var total = 0;
+  var destX = 700.0;
+  var destY = 550.0;
+
+  method init(n, dx, dy) {
+    total = n;
+    destX = dx;
+    destY = dy;
+    send self.spawn_next();
+  }
+
+  method spawn_next() {
+    if (count < total) {
+      var sx   = 30.0 + rand(90);
+      var sy   = 30.0 + rand(120);
+      var batt = 400 + rand(400);
+      print(new Drone(count, sx, sy, destX, destY, batt));
+      count = count + 1;
+      call wait(25);
+      send self.spawn_next();
+    } else {
+      print("spawner: all drones dispatched");
+    }
+  }
+}
+
+call world_setup(800, 600, 110, 55);
+call place_safe(720.0, 540.0, 38.0);
+
+call place_obstacle(1, 280.0, 220.0, 55.0);
+call place_obstacle(2, 480.0, 380.0, 65.0);
+call place_obstacle(3, 200.0, 450.0, 48.0);
+call place_obstacle(4, 560.0, 180.0, 42.0);
+
+var spawner = new Spawner(14, 720.0, 540.0);
+`;
+
+    const canvas = document.getElementById("canvas");
+    const logDiv = document.getElementById("log");
+    let activeTimers = [], running = false;
+
+    const _origSetTimeout = window.setTimeout.bind(window);
+    window.setTimeout = function(fn, ms, ...rest) {
+      const id = _origSetTimeout(fn, ms, ...rest);
+      if (running) activeTimers.push(id);
+      return id;
+    };
+
+    function appendLog(line) {
+      if (line === undefined || line === null) return;
+      const s = String(line);
+      if (s.startsWith("[send]")) return;
+      logDiv.textContent += s + "\n";
+      logDiv.scrollTop = logDiv.scrollHeight;
+    }
+
+    function stopAll() {
+      running = false;
+      activeTimers.forEach(id => clearTimeout(id));
+      activeTimers = [];
+    }
+
+    function runProgram() {
+      stopAll();
+      logDiv.textContent = "";
+      const parser = window.parser;
+      if (!parser) { appendLog("[ERROR] parser not loaded"); return; }
+      parser.yy = AST;
+      running = true;
+      const interp = new Interpreter(appendLog);
+      interp.setCanvas(canvas);
+      try {
+        const ast = parser.parse(ABCL_SOURCE);
+        appendLog("[parse ok]");
+        interp.runProgram(ast);
+        appendLog("[drone swarm + spawner actors started]");
+      } catch (e) {
+        running = false;
+        appendLog("[ERROR] " + e);
+      }
+    }
+
+    document.getElementById("btnRun").addEventListener("click", runProgram);
+    document.getElementById("btnStop").addEventListener("click", () => { stopAll(); appendLog("[stopped]"); });
+    document.getElementById("btnShowSrc").addEventListener("click", () => { logDiv.textContent = ABCL_SOURCE; });
+    window.addEventListener("load", runProgram);
+  </script>
+</body>
+</html>

@@ -1,0 +1,53 @@
+// Rotate4Lines — 4 coloured lines, each rotating around one vertex of a square.
+class Line {
+  var cx    = 0.0;
+  var cy    = 0.0;
+  var angle = 0.0;
+  var len   = 50.0;
+  var r     = 255;
+  var g     = 255;
+  var b     = 255;
+  var x1    = 0.0;
+  var y1    = 0.0;
+  var x2    = 0.0;
+  var y2    = 0.0;
+  var drawn = 0;
+
+  method init(startCx, startCy, startAngle, cr, cg, cb) {
+    cx = startCx;
+    cy = startCy;
+    angle = startAngle;
+    r = cr; g = cg; b = cb;
+  }
+
+  method rotate() {
+    if (drawn == 1) {
+      call sdl_erase_line(x1, y1, x2, y2);
+    }
+    angle = angle + 3.0;
+    var rad = angle * 3.14159 / 180.0;
+    var dx = cos(rad) * len;
+    var dy = sin(rad) * len;
+    x1 = cx - dx;
+    y1 = cy - dy;
+    x2 = cx + dx;
+    y2 = cy + dy;
+    call sdl_line_c(x1, y1, x2, y2, r, g, b);
+    call sdl_present();
+    drawn = 1;
+    call wait(32);
+    send self.rotate();
+  }
+}
+
+sdl_init(500, 500);
+
+// Square vertices on a 500x500 canvas — each line has its own colour
+var li1 = new Line(125.0, 125.0,   0.0, 255,  80,  80);   // red
+var li2 = new Line(375.0, 125.0,  90.0,  80, 255, 120);   // green
+var li3 = new Line(125.0, 375.0, 180.0,  80, 160, 255);   // blue
+var li4 = new Line(375.0, 375.0, 270.0, 255, 200,  40);   // yellow
+send li1.rotate();
+send li2.rotate();
+send li3.rotate();
+send li4.rotate();

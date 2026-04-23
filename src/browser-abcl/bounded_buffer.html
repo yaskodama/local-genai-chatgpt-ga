@@ -1,0 +1,244 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>ABCL/c+ — Bounded Buffer</title>
+  <style>
+    body { margin: 0; background: #0d0d1a; color: #ccc; font-family: monospace; display: flex; flex-direction: column; align-items: center; }
+    h2 { margin: 12px 0 4px; font-size: 1rem; color: #8af; }
+    #info { font-size: 0.75rem; color: #666; margin-bottom: 8px; max-width: 640px; text-align: center; }
+    #controls { margin: 10px 0; display: flex; gap: 8px; }
+    button { padding: 6px 14px; background: #222; color: #aef; border: 1px solid #446; cursor: pointer; font-family: monospace; }
+    button:hover { background: #334; }
+    #log { width: 640px; height: 440px; background: #050510; color: #9aa; font-size: 0.78rem; overflow-y: auto; padding: 8px; margin-top: 6px; white-space: pre-wrap; border: 1px solid #223; }
+    nav { margin: 6px; font-size: 0.8rem; }
+    nav a { color: #6af; margin: 0 6px; }
+    .legend { font-size: 0.72rem; color: #778; margin: 4px 0; }
+    .legend span { margin: 0 6px; }
+  </style>
+</head>
+<body>
+  <h2>ABCL/c+ — Bounded Buffer (producer / consumer, capacity = 4)</h2>
+  <div id="info">
+    One Producer actor and one Consumer actor share a capacity-4 Buffer actor.
+    The producer runs every ~120 ms and the consumer every ~420 ms, so the buffer
+    fills, the producer blocks, and each consumer-get wakes the queued producer.
+    Blocking is expressed in ABCL's native way: the buffer stashes the waiting
+    sender and hand-delivers a reply when the guard becomes satisfiable.
+  </div>
+  <div class="legend">
+    <span style="color:#55ff55;">[BUF] put / get / accepted</span>
+    <span style="color:#ff9955;">[BUF] FULL / EMPTY</span>
+    <span style="color:#66ccff;">[P0] producer</span>
+    <span style="color:#ffcc66;">[C0] consumer</span>
+  </div>
+  <div id="controls">
+    <button id="btnRun">▶ Run</button>
+    <button id="btnStop">■ Stop</button>
+    <button id="btnShowSrc">Show ABCL source</button>
+  </div>
+  <div id="log"></div>
+  <nav>
+    <a href="/browser_console.html">Console</a> |
+    <a href="/philosophers.html">← Dining Philosophers</a>
+  </nav>
+
+  <script src="/src/parser/parser.js"></script>
+  <script type="module">
+    import * as AST from "/src/ast.js";
+    import { Interpreter } from "/src/interpreter.js";
+
+    const ABCL_SOURCE = `\
+class Buffer {
+  var cap   = 4;
+  var s0    = 0;
+  var s1    = 0;
+  var s2    = 0;
+  var s3    = 0;
+  var head  = 0;
+  var tail  = 0;
+  var count = 0;
+
+  var pwaiter = "";
+  var pitem   = 0;
+  var cwaiter = "";
+
+  method put(item) {
+    if (cwaiter != "") {
+      send sender.put_ok();
+      send cwaiter.got(item);
+      print("[BUF] passthrough put=" + item);
+      cwaiter = "";
+    } else {
+      if (count == cap) {
+        pwaiter = sender;
+        pitem   = item;
+        print("[BUF] FULL  -- queued put=" + item);
+      } else {
+        if (tail == 0) { s0 = item; }
+        if (tail == 1) { s1 = item; }
+        if (tail == 2) { s2 = item; }
+        if (tail == 3) { s3 = item; }
+        tail = tail + 1;
+        if (tail == cap) { tail = 0; }
+        count = count + 1;
+        print("[BUF] put=" + item + "   count=" + count);
+        send sender.put_ok();
+      }
+    }
+  }
+
+  method get() {
+    if (count == 0) {
+      cwaiter = sender;
+      print("[BUF] EMPTY -- queued get");
+    } else {
+      if (head == 0) { send sender.got(s0); }
+      if (head == 1) { send sender.got(s1); }
+      if (head == 2) { send sender.got(s2); }
+      if (head == 3) { send sender.got(s3); }
+      head = head + 1;
+      if (head == cap) { head = 0; }
+      count = count - 1;
+      print("[BUF] get   count=" + count);
+      if (pwaiter != "") {
+        if (tail == 0) { s0 = pitem; }
+        if (tail == 1) { s1 = pitem; }
+        if (tail == 2) { s2 = pitem; }
+        if (tail == 3) { s3 = pitem; }
+        tail = tail + 1;
+        if (tail == cap) { tail = 0; }
+        count = count + 1;
+        print("[BUF] accepted queued put=" + pitem);
+        send pwaiter.put_ok();
+        pwaiter = "";
+      }
+    }
+  }
+}
+
+class Producer {
+  var id    = 0;
+  var buf   = "";
+  var n     = 0;
+  var max   = 0;
+
+  method init(myId, b, limit) {
+    id  = myId;
+    buf = b;
+    max = limit;
+    send self.produce();
+  }
+
+  method produce() {
+    if (n == max) {
+      print("[P" + id + "] DONE");
+    } else {
+      n = n + 1;
+      print("[P" + id + "] -> put " + n);
+      send buf.put(n);
+    }
+  }
+
+  method put_ok() {
+    call wait(120);
+    send self.produce();
+  }
+}
+
+class Consumer {
+  var id    = 0;
+  var buf   = "";
+  var taken = 0;
+  var max   = 0;
+
+  method init(myId, b, limit) {
+    id  = myId;
+    buf = b;
+    max = limit;
+    send buf.get();
+  }
+
+  method got(item) {
+    taken = taken + 1;
+    print("[C" + id + "] got " + item + "   (total=" + taken + ")");
+    if (taken == max) {
+      print("[C" + id + "] DONE");
+    } else {
+      call wait(420);
+      send self.do_get();
+    }
+  }
+
+  method do_get() {
+    send buf.get();
+  }
+}
+
+var buf = new Buffer();
+var p0  = new Producer(0, buf, 12);
+var c0  = new Consumer(0, buf, 12);
+`;
+
+    const logDiv = document.getElementById("log");
+    let activeTimers = [], running = false;
+
+    const _origSetTimeout = window.setTimeout.bind(window);
+    window.setTimeout = function(fn, ms, ...rest) {
+      const id = _origSetTimeout(fn, ms, ...rest);
+      if (running) activeTimers.push(id);
+      return id;
+    };
+
+    function appendLog(line) {
+      if (line === undefined || line === null) return;
+      const s = String(line);
+      if (s.startsWith("[send]")) return;
+      if (s.startsWith("[actor created]")) return;
+      const row = document.createElement("div");
+      row.textContent = s;
+      if (s.startsWith("[BUF] FULL") || s.startsWith("[BUF] EMPTY")) {
+        row.style.color = "#ff9955";
+      } else if (s.startsWith("[BUF]")) {
+        row.style.color = "#55ff55";
+      } else if (s.startsWith("[P")) {
+        row.style.color = "#66ccff";
+      } else if (s.startsWith("[C")) {
+        row.style.color = "#ffcc66";
+      }
+      logDiv.appendChild(row);
+      logDiv.scrollTop = logDiv.scrollHeight;
+    }
+
+    function stopAll() {
+      running = false;
+      activeTimers.forEach(id => clearTimeout(id));
+      activeTimers = [];
+    }
+
+    function runProgram() {
+      stopAll();
+      logDiv.textContent = "";
+      const parser = window.parser;
+      if (!parser) { appendLog("[ERROR] parser not loaded"); return; }
+      parser.yy = AST;
+      running = true;
+      const interp = new Interpreter(appendLog);
+      try {
+        const ast = parser.parse(ABCL_SOURCE);
+        appendLog("[parse ok]");
+        interp.runProgram(ast);
+        appendLog("[3 actors started: Buffer + Producer + Consumer]");
+      } catch (e) {
+        running = false;
+        appendLog("[ERROR] " + e);
+      }
+    }
+
+    document.getElementById("btnRun").addEventListener("click", runProgram);
+    document.getElementById("btnStop").addEventListener("click", () => { stopAll(); appendLog("[stopped]"); });
+    document.getElementById("btnShowSrc").addEventListener("click", () => { logDiv.textContent = ABCL_SOURCE; });
+    window.addEventListener("load", runProgram);
+  </script>
+</body>
+</html>

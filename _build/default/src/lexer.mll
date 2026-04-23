@@ -27,10 +27,11 @@ rule token = parse
 
   (* --- キーワード/記号 --- *)
 | "class"      { CLASS }
-| "object"     { OBJECT }
+| "become"     { BECOME }
 | "method"     { METHOD }
 | "float"      { FLOAT }
 | "call"       { CALL }
+| "send!"      { UNSAFESEND }
 | "send"       { SEND }
 | "if"         { IF }
 | "self"       { SELF }
@@ -39,10 +40,17 @@ rule token = parse
 | "else"       { ELSE }
 | "while"      { WHILE }
 | "do"         { DO }
-| "=="         { EQ }          (* 等値 *)
+| "select"     { SELECT }
+| "case"       { CASE }
+| "timeout"    { TIMEOUT }
+| "->"         { ARROW }
+| "=="         { EQ }
+| "!="         { NEQ }
 | ">="         { GE }
 | "<="         { LE }
-| "="          { ASSIGN }      (* 代入、parser.mly に %token ASSIGN を追加して使う *)
+| ">"          { GT }
+| "<"          { LT }
+| "="          { ASSIGN }
 | "+"          { PLUS }
 | "-"          { MINUS }
 | "*"          { TIMES }
@@ -57,6 +65,7 @@ rule token = parse
 | "var"        { VAR }
 | "new"        { NEW }
 | "class"      { CLASS }
+| "remote"     { REMOTE }
 
   (* --- リテラル/識別子 --- *)
 (* 1. 「100.5」形式（整数部・小数部あり） *)

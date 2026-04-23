@@ -460,11 +460,14 @@ let apply_binop op v1 v2 =
   | "+", VString s1, VString s2 -> VString (s1 ^ s2)
   | "+", VString s1, v2         -> VString (s1 ^ to_string_plain v2)
   | "+", v1,         VString s2 -> VString (to_string_plain v1 ^ s2)
+  (* --- 文字列等価 --- *)
+  | "==", VString a, VString b -> VBool (a = b)
+  | "!=", VString a, VString b -> VBool (a <> b)
   | _ ->
     failwith ("unsupported binop/operands: " ^ op)
 
 let expr_of_value = function
-  | VInt n -> String (string_of_int n)
+  | VInt n    -> Int n            (* keep integers as Int, not String *)
   | VFloat f  -> Float f
   | VString s -> String s
   | VBool  b  -> String (if b then "true" else "false")  (* Bool/Unit の式型が無ければ文字列化でOK *)
@@ -522,7 +525,9 @@ let send_message ?msg_id ~from (target_name:string) (stmt:Ast.stmt) : unit = (
   | Some actor ->
       let m = { msg_id; from; stmt } in
       Mutex.lock actor.mutex;
-      actor.last_sender <- from;
+      (* Do NOT set actor.last_sender here — it is now set in actor_loop
+         when the message is dequeued, so concurrent senders don't clobber
+         each other's sender identity. *)
       Queue.push m actor.queue;
       Condition.signal actor.cond;
       Mutex.unlock actor.mutex
@@ -733,6 +738,14 @@ let prim_table : (string, value list -> value) Hashtbl.t =
             let x1 = as_int x1 and y1 = as_int y1 and x2 = as_int x2 and y2 = as_int y2 in
                 Sdl_helper.sdl_erase_line x1 y1 x2 y2; VInt 0
         | _ -> failwith "sdl_erase_line(x1,y1,x2,y2): arity 4 expected"));
+    ("sdl_line_c",
+      (function
+        | [x1; y1; x2; y2; r; g; b] ->
+            let x1 = as_int x1 and y1 = as_int y1
+            and x2 = as_int x2 and y2 = as_int y2
+            and r  = as_int r  and g  = as_int g  and b = as_int b in
+            Sdl_helper.sdl_draw_line_rgb x1 y1 x2 y2 r g b; VInt 0
+        | _ -> failwith "sdl_line_c(x1,y1,x2,y2,r,g,b): arity 7 expected"));
     ("array_empty",
       (function
         | [] -> VArray ([||], None)
@@ -968,8 +981,9 @@ and eval_stmt (actor:actor) (s : Ast.stmt) =
           List.iter2 (fun p v -> Hashtbl.replace actor.env p v) params arg_vals;
           Hashtbl.replace actor.env "self" (VActor (actor.cls, Hashtbl.create 0));
           Hashtbl.replace actor.env "__class" (VString actor.cls);
-          if actor.last_sender <> "" then
-            Hashtbl.replace actor.env "sender" (VActor (actor.last_sender, Hashtbl.create 0));
+          (* Expose `sender` as a plain string so == / != against "" works *)
+          Hashtbl.replace actor.env "sender" (VString actor.last_sender);
+          Hashtbl.replace actor.env "self"   (VString actor.name);
             eval_stmt actor mdecl.body;
             List.iter (fun (p, ov) ->
               match ov with Some v -> Hashtbl.replace actor.env p v | None -> Hashtbl.remove actor.env p
@@ -986,7 +1000,12 @@ and eval_stmt (actor:actor) (s : Ast.stmt) =
         let actual_target =
           if tgt = "self" then actor.name
           else if tgt = "sender" then actor.last_sender
-          else tgt
+          else
+            (* If tgt is a local variable holding an actor name, resolve it *)
+            (match Hashtbl.find_opt actor.env tgt with
+             | Some (VString s) when s <> "" -> s
+             | Some (VActor (n, _)) -> n
+             | _ -> tgt)
         in
         send_message ~from:actor.name actual_target
           (mk_stmt (CallStmt (meth, arg_exprs)))
@@ -1007,7 +1026,11 @@ and eval_stmt (actor:actor) (s : Ast.stmt) =
         let actual_target =
           if tgt = "self" then actor.name
           else if tgt = "sender" then actor.last_sender
-          else tgt
+          else
+            (match Hashtbl.find_opt actor.env tgt with
+             | Some (VString s) when s <> "" -> s
+             | Some (VActor (n, _)) -> n
+             | _ -> tgt)
         in
         send_message ~from:actor.name actual_target
           (mk_stmt (CallStmt (meth, arg_exprs)))
@@ -1063,6 +1086,10 @@ and actor_loop actor = (
     done;
     let msg = Queue.pop actor.queue in
     Mutex.unlock actor.mutex;
+    (* Bind sender identity from the dequeued message, not a pre-set field.
+       This makes `sender` correct even when multiple actors enqueue
+       messages to this actor concurrently. *)
+    actor.last_sender <- msg.from;
     set_current_actor_name (Some actor.name);
     set_current_msg_id msg.msg_id;
     (try
@@ -1074,6 +1101,8 @@ and actor_loop actor = (
           | Some s -> s
           | None -> "<no-id>"
         in
+          Printf.eprintf "[FAILED] actor=%s msg_id=%s reason=%s\n%!"
+            actor.name id (Printexc.to_string exn);
           push_web_evt (Printf.sprintf "[FAILED] id=%s to=%s reason=runtime:%s"
             id actor.name (Printexc.to_string exn))
     );

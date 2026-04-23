@@ -70,10 +70,10 @@ let parse_program_safe (src : string) : (Ast.program, string) result =
     lb.Lexing.lex_curr_pos <- 0;
     Ok (Parser.program Lexer.token lb)
   with
-  | Parser.Syntax_error (loc, msg) ->
+  | Failure msg when String.length msg >= 0 ->
       (* parser.mly から投げた Syntax_error を位置付きで表示 *)
       Printf.printf "[Parse error] %s: %s\n%!"
-        (Location.to_string loc) msg;
+        "?" msg;
       raise (Failure "parse error")
   | Parsing.Parse_error ->
       let pos  = Lexing.lexeme_start_p lb in
@@ -512,10 +512,10 @@ let rec process_command line =
                 repl_logln ("[script] " ^ cmd);
                 try process_command cmd with
                 | Quit -> close_in_noerr ic; raise Quit
-                | Parser.Syntax_error (loc, msg) ->
-                  Printf.printf "[Error in script line] %s: %s\n%!" (Location.to_string loc) msg
+                | Failure msg when String.length msg >= 0 ->
+                  Printf.printf "[Error in script line] %s: %s\n%!" "?" msg
                 | Types.Type_error (loc, msg) ->
-                  Printf.printf "[Type error] %s: %s\n%!" (Location.to_string loc) msg
+                  Printf.printf "[Type error] %s: %s\n%!" "?" msg
                 | exn -> Printf.printf "[Error in script line] %s\n%!" (Printexc.to_string exn)
             done
           with End_of_file ->
@@ -631,8 +631,8 @@ let run_repl_command_from_web (cmd:string) : string =
   | Failure msg ->
       web_repl_println ("[Error] " ^ msg);
       web_repl_contents ()
-  | Parser.Syntax_error (loc, msg) ->
-      web_repl_println ("[Syntax error] " ^ Location.to_string loc ^ ": " ^ msg);
+  | Failure msg when String.length msg >= 0 ->
+      web_repl_println ("[Syntax error] " ^ msg);
       web_repl_contents ()
   | Types.Type_error (loc, msg) ->
       web_repl_println ("[Type error] " ^ Location.to_string loc ^ ": " ^ msg);
@@ -657,8 +657,8 @@ let run_repl_command_from_web (cmd:string) : string =
   | Failure msg ->
       web_repl_println ("[Error] " ^ msg);
       web_repl_contents ()
-  | Parser.Syntax_error (loc, msg) ->
-      web_repl_println ("[Syntax error] " ^ Location.to_string loc ^ ": " ^ msg);
+  | Failure msg when String.length msg >= 0 ->
+      web_repl_println ("[Syntax error] " ^ msg);
       web_repl_contents ()
   | Types.Type_error (loc, msg) ->
       web_repl_println ("[Type error] " ^ Location.to_string loc ^ ": " ^ msg);

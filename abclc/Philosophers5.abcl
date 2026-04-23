@@ -1,0 +1,311 @@
+// 5 Dining Philosophers — OCaml/SDL coloured wireframe with moving forks.
+//
+// Visual language:
+//   Philosopher : concentric coloured squares (1=THINK, 2=HUNGRY, 3=EAT).
+//                 Each philosopher has its own colour.
+//   Fork (FREE) : short horizontal white line at the fork's rest position,
+//                 midway between the table centre and the philosopher ring.
+//   Fork (HELD) : the fork shifts 80 % of the way from its rest position to
+//                 the holder, adopts the holder's colour, and an arrow with
+//                 an arrowhead points at the holder — so you can see BOTH
+//                 that the fork is held AND which philosopher is holding it.
+
+class Fork {
+  var id       = 0;
+  var fx       = 0;      // resting position x
+  var fy       = 0;      // resting position y
+  // Current holder info (used to draw the held visual and to erase it later)
+  var hx       = 0.0;
+  var hy       = 0.0;
+  var hr       = 255;
+  var hg       = 255;
+  var hb       = 255;
+  // Pending-waiter info (so that waiter visuals don't clobber current holder)
+  var wx       = 0.0;
+  var wy       = 0.0;
+  var wr       = 255;
+  var wg       = 255;
+  var wb       = 255;
+  var taken    = 0;
+  var waiter   = "";
+  var waiterId = 0;
+  // 0 = nothing drawn, 1 = free-line drawn, 2 = held-with-arrow drawn
+  var drawn    = 0;
+
+  method init(myId, x, y) {
+    id = myId;
+    fx = x;
+    fy = y;
+    send self.draw_free();
+  }
+
+  // ---- Erase whatever is currently on screen for this fork ----
+  // Erasing for `drawn == 2` recomputes the lines using the stored
+  // hx, hy, so it must be called BEFORE hx, hy are updated to the new holder.
+  // Erase the current "held" drawing using the stored hx, hy.
+  // Geometry constants here must match those in draw_held below.
+  method erase_held() {
+    var dx  = hx - fx;
+    var dy  = hy - fy;
+    var len = sqrt(dx * dx + dy * dy);
+    var ux  = dx / len;
+    var uy  = dy / len;
+    var pnx = 0.0 - uy;
+    var pny = ux;
+    var sX  = fx + dx * 0.5;
+    var sY  = fy + dy * 0.5;
+    var asX = sX + ux * 4.0;
+    var asY = sY + uy * 4.0;
+    var ex  = hx - ux * 26.0;
+    var ey  = hy - uy * 26.0;
+    var abx = ex - ux * 10.0;
+    var aby = ey - uy * 10.0;
+    call sdl_erase_line(sX - pnx * 7.0, sY - pny * 7.0,
+                        sX + pnx * 7.0, sY + pny * 7.0);
+    call sdl_erase_line(asX, asY, ex, ey);
+    call sdl_erase_line(ex, ey, abx + pnx * 6.0, aby + pny * 6.0);
+    call sdl_erase_line(ex, ey, abx - pnx * 6.0, aby - pny * 6.0);
+  }
+
+  method draw_free() {
+    // Erase whatever was previously drawn (in-line; don't self-send).
+    if (drawn == 1) {
+      call sdl_erase_line(fx - 12, fy, fx + 12, fy);
+    }
+    if (drawn == 2) {
+      // erase_held is called synchronously via evalStmt on the Call path —
+      // but `call erase_held()` only works for primitives. Use the inlined
+      // formulas here instead. (self-send would run asynchronously.)
+      var dx  = hx - fx;
+      var dy  = hy - fy;
+      var len = sqrt(dx * dx + dy * dy);
+      var ux  = dx / len;
+      var uy  = dy / len;
+      var pnx = 0.0 - uy;
+      var pny = ux;
+      var sX  = fx + dx * 0.5;
+      var sY  = fy + dy * 0.5;
+      var asX = sX + ux * 4.0;
+      var asY = sY + uy * 4.0;
+      var ex  = hx - ux * 26.0;
+      var ey  = hy - uy * 26.0;
+      var abx = ex - ux * 10.0;
+      var aby = ey - uy * 10.0;
+      call sdl_erase_line(sX - pnx * 7.0, sY - pny * 7.0,
+                          sX + pnx * 7.0, sY + pny * 7.0);
+      call sdl_erase_line(asX, asY, ex, ey);
+      call sdl_erase_line(ex, ey, abx + pnx * 6.0, aby + pny * 6.0);
+      call sdl_erase_line(ex, ey, abx - pnx * 6.0, aby - pny * 6.0);
+    }
+    call sdl_line(fx - 12, fy, fx + 12, fy);
+    drawn = 1;
+    call sdl_present();
+  }
+
+  method draw_held(phx, phy, cr, cg, cb) {
+    // ---- erase previous drawing using OLD state ----
+    if (drawn == 1) {
+      call sdl_erase_line(fx - 12, fy, fx + 12, fy);
+    }
+    if (drawn == 2) {
+      var odx  = hx - fx;
+      var ody  = hy - fy;
+      var olen = sqrt(odx * odx + ody * ody);
+      var oux  = odx / olen;
+      var ouy  = ody / olen;
+      var opnx = 0.0 - ouy;
+      var opny = oux;
+      var osX  = fx + odx * 0.5;
+      var osY  = fy + ody * 0.5;
+      var oasX = osX + oux * 4.0;
+      var oasY = osY + ouy * 4.0;
+      var oex  = hx - oux * 26.0;
+      var oey  = hy - ouy * 26.0;
+      var oabx = oex - oux * 10.0;
+      var oaby = oey - ouy * 10.0;
+      call sdl_erase_line(osX - opnx * 7.0, osY - opny * 7.0,
+                          osX + opnx * 7.0, osY + opny * 7.0);
+      call sdl_erase_line(oasX, oasY, oex, oey);
+      call sdl_erase_line(oex, oey, oabx + opnx * 6.0, oaby + opny * 6.0);
+      call sdl_erase_line(oex, oey, oabx - opnx * 6.0, oaby - opny * 6.0);
+    }
+    // ---- commit new holder state ----
+    hx = phx; hy = phy;
+    hr = cr;  hg = cg;  hb = cb;
+    // ---- draw the new "held" visual ----
+    //   bar           : perpendicular to the fork-to-holder line, 14 wide
+    //   arrow shaft   : from the bar to near the holder's circle edge
+    //   arrowhead     : open V at the holder end
+    var dx  = hx - fx;
+    var dy  = hy - fy;
+    var len = sqrt(dx * dx + dy * dy);
+    var ux  = dx / len;
+    var uy  = dy / len;
+    var pnx = 0.0 - uy;
+    var pny = ux;
+    var sX  = fx + dx * 0.5;            // fork shifts 50 % toward holder
+    var sY  = fy + dy * 0.5;
+    var asX = sX + ux * 4.0;            // arrow starts just past the bar
+    var asY = sY + uy * 4.0;
+    var ex  = hx - ux * 26.0;           // arrow tip, just outside the circle
+    var ey  = hy - uy * 26.0;
+    var abx = ex - ux * 10.0;           // arrowhead base (10 back from tip)
+    var aby = ey - uy * 10.0;
+    call sdl_line_c(sX - pnx * 7.0, sY - pny * 7.0,
+                    sX + pnx * 7.0, sY + pny * 7.0, hr, hg, hb);
+    call sdl_line_c(asX, asY, ex, ey, hr, hg, hb);
+    call sdl_line_c(ex, ey, abx + pnx * 6.0, aby + pny * 6.0, hr, hg, hb);
+    call sdl_line_c(ex, ey, abx - pnx * 6.0, aby - pny * 6.0, hr, hg, hb);
+    drawn = 2;
+    call sdl_present();
+  }
+
+  method take(reqId, phx, phy, cr, cg, cb) {
+    if (taken == 0) {
+      taken = 1;
+      send self.draw_held(phx, phy, cr, cg, cb);
+      send sender.fork_granted();
+    } else {
+      waiter   = sender;
+      waiterId = reqId;
+      wx = phx; wy = phy;
+      wr = cr;  wg = cg;  wb = cb;
+    }
+  }
+
+  method release() {
+    if (waiter == "") {
+      taken = 0;
+      send self.draw_free();
+    } else {
+      // Transfer: keep taken=1, hand off to the stashed waiter.
+      send waiter.fork_granted();
+      send self.draw_held(wx, wy, wr, wg, wb);
+      waiter = "";
+    }
+  }
+}
+
+class Philosopher {
+  var id         = 0;
+  var px         = 0;
+  var py         = 0;
+  var cr         = 255;
+  var cg         = 255;
+  var cb         = 255;
+  var lowFork    = "";
+  var highFork   = "";
+  var state      = 0;
+  var drawnState = 0;
+  var hasLow     = 0;
+  var eatCount   = 0;
+
+  method init(myId, x, y, red, green, blue, lo, hi) {
+    id = myId;
+    px = x;
+    py = y;
+    cr = red; cg = green; cb = blue;
+    lowFork  = lo;
+    highFork = hi;
+    send self.refresh();
+    send self.think();
+  }
+
+  method refresh() {
+    // Erase previously-drawn concentric squares
+    call sdl_erase_line(px - 8, py - 8, px + 8, py - 8);
+    call sdl_erase_line(px + 8, py - 8, px + 8, py + 8);
+    call sdl_erase_line(px + 8, py + 8, px - 8, py + 8);
+    call sdl_erase_line(px - 8, py + 8, px - 8, py - 8);
+    if (drawnState > 0) {
+      call sdl_erase_line(px - 14, py - 14, px + 14, py - 14);
+      call sdl_erase_line(px + 14, py - 14, px + 14, py + 14);
+      call sdl_erase_line(px + 14, py + 14, px - 14, py + 14);
+      call sdl_erase_line(px - 14, py + 14, px - 14, py - 14);
+    }
+    if (drawnState > 1) {
+      call sdl_erase_line(px - 20, py - 20, px + 20, py - 20);
+      call sdl_erase_line(px + 20, py - 20, px + 20, py + 20);
+      call sdl_erase_line(px + 20, py + 20, px - 20, py + 20);
+      call sdl_erase_line(px - 20, py + 20, px - 20, py - 20);
+    }
+    // Draw concentric squares in philosopher's colour
+    call sdl_line_c(px - 8, py - 8, px + 8, py - 8, cr, cg, cb);
+    call sdl_line_c(px + 8, py - 8, px + 8, py + 8, cr, cg, cb);
+    call sdl_line_c(px + 8, py + 8, px - 8, py + 8, cr, cg, cb);
+    call sdl_line_c(px - 8, py + 8, px - 8, py - 8, cr, cg, cb);
+    if (state > 0) {
+      call sdl_line_c(px - 14, py - 14, px + 14, py - 14, cr, cg, cb);
+      call sdl_line_c(px + 14, py - 14, px + 14, py + 14, cr, cg, cb);
+      call sdl_line_c(px + 14, py + 14, px - 14, py + 14, cr, cg, cb);
+      call sdl_line_c(px - 14, py + 14, px - 14, py - 14, cr, cg, cb);
+    }
+    if (state > 1) {
+      call sdl_line_c(px - 20, py - 20, px + 20, py - 20, cr, cg, cb);
+      call sdl_line_c(px + 20, py - 20, px + 20, py + 20, cr, cg, cb);
+      call sdl_line_c(px + 20, py + 20, px - 20, py + 20, cr, cg, cb);
+      call sdl_line_c(px - 20, py + 20, px - 20, py - 20, cr, cg, cb);
+    }
+    drawnState = state;
+    call sdl_present();
+  }
+
+  method think() {
+    state = 0;
+    send self.refresh();
+    call wait(700);
+    send self.hungry();
+  }
+
+  method hungry() {
+    state = 1;
+    send self.refresh();
+    hasLow = 0;
+    send lowFork.take(id, px, py, cr, cg, cb);
+  }
+
+  method fork_granted() {
+    if (hasLow == 0) {
+      hasLow = 1;
+      send highFork.take(id, px, py, cr, cg, cb);
+    } else {
+      send self.eat();
+    }
+  }
+
+  method eat() {
+    state = 2;
+    send self.refresh();
+    eatCount = eatCount + 1;
+    call wait(900);
+    send self.eat_done();
+  }
+
+  method eat_done() {
+    send lowFork.release();
+    send highFork.release();
+    send self.think();
+  }
+}
+
+sdl_init(500, 500);
+
+// Fork rest positions are the midpoints of the pentagon edges:
+//   fork i sits exactly between philosopher i and philosopher (i+1)%5.
+// When held, the fork shifts 50 % of the way from rest to the holder,
+// then an arrow points the rest of the way at the holder's circle.
+var fork0 = new Fork(0, 322, 152);   // midpoint of edge P0–P1
+var fork1 = new Fork(1, 366, 288);   // midpoint of edge P1–P2
+var fork2 = new Fork(2, 250, 371);   // midpoint of edge P2–P3
+var fork3 = new Fork(3, 135, 288);   // midpoint of edge P3–P4
+var fork4 = new Fork(4, 178, 152);   // midpoint of edge P4–P0
+
+// 5 philosophers at pentagon vertices (radius ≈ 150 from centre (250,250)).
+// Fork i sits between philosopher i and (i+1)%5, so philosopher i's adjacent
+// forks are fork i (right) and fork (i-1)%5 (left).
+// Resource hierarchy: always take the lower-numbered fork first (no deadlock).
+var p0 = new Philosopher(0, 250, 100, 255,  85, 102, "fork0", "fork4");  // red
+var p1 = new Philosopher(1, 393, 204, 255, 168,  51, "fork0", "fork1");  // orange
+var p2 = new Philosopher(2, 338, 371,  61, 220, 110, "fork1", "fork2");  // green
+var p3 = new Philosopher(3, 162, 371,  58, 168, 255, "fork2", "fork3");  // blue
+var p4 = new Philosopher(4, 107, 204, 199, 101, 255, "fork3", "fork4");  // magenta

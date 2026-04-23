@@ -1,1 +1,1 @@
-src/types.ml: Hashtbl Int List Printf Set String
+src/types.ml: Char Hashtbl Int List Location Printf Set String

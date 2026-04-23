@@ -44,17 +44,23 @@ let prelude () : env =
   let a1 = fresh_tvar () in
   add_poly e "print" (Forall ([(!a1).id], TFun ([TVar a1], TUnit)));
 
-  (* 2.5.1) 二項算術 *)
+  (* 2.5.1) 二項算術 — int と float の混在は float に昇格 *)
   let add_f2 f = add_mono e f (TFun ([TFloat; TFloat], TFloat)) in
   List.iter add_f2 [ "+"; "-"; "*"; "/" ];
   let add_f3 f = add_mono e f (TFun ([TInt; TInt], TInt)) in
   List.iter add_f3 [ "+"; "-"; "*"; "/" ];
+  let add_mx1 f = add_mono e f (TFun ([TInt; TFloat], TFloat)) in
+  List.iter add_mx1 [ "+"; "-"; "*"; "/" ];
+  let add_mx2 f = add_mono e f (TFun ([TFloat; TInt], TFloat)) in
+  List.iter add_mx2 [ "+"; "-"; "*"; "/" ];
 
   (* 2.5.2) 二項関係 *)
   let add_f4 f = add_mono e f (TFun ([TFloat; TFloat], TBool)) in
-  List.iter add_f4 [ ">"; "<"; "<="; ">=" ];
+  List.iter add_f4 [ ">"; "<"; "<="; ">="; "=="; "!=" ];
   let add_f5 f = add_mono e f (TFun ([TInt; TInt], TBool)) in
-  List.iter add_f5 [ ">"; "<"; "<="; ">=" ];
+  List.iter add_f5 [ ">"; "<"; "<="; ">="; "=="; "!=" ];
+  let add_f6 f = add_mono e f (TFun ([TString; TString], TBool)) in
+  List.iter add_f6 [ "=="; "!=" ];
 
   (* 2.6) 文字列連結: 片側が string なら string *)
   let a = fresh_tvar () in
@@ -77,6 +83,10 @@ let prelude () : env =
   (* ---- wait: sleep milliseconds ---- *)
   add_mono e "wait" (TFun ([TInt],   TUnit));
   add_mono e "wait" (TFun ([TFloat], TUnit));
+
+  (* ---- SDL colour line (7 numeric args) ---- *)
+  let any7 = TFun ([TAny; TAny; TAny; TAny; TAny; TAny; TAny], TUnit) in
+  add_mono e "sdl_line_c" any7;
 
   (* sdl_init : (float,float) -> unit  と (int,int) -> unit *)
   add_mono e "sdl_init" (TFun ([TFloat; TFloat], TUnit));

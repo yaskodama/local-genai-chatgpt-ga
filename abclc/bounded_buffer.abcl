@@ -1,0 +1,151 @@
+// Bounded-Buffer (producer / consumer) — capacity = 4.
+//
+// One Producer actor and one Consumer actor share a Buffer actor.
+// The producer emits 12 integers back-to-back; the consumer drains them
+// more slowly, so the buffer fills and the producer has to block. When a
+// slot frees up the queued producer is released. Symmetric logic on the
+// other side: a consumer that hits an empty buffer is queued and is
+// released as soon as a new item arrives.
+//
+// All synchronisation is expressed in ABCL's native asynchronous-message
+// style: "block" means "store the sender and return, then hand-deliver
+// a reply when the guard becomes satisfiable".
+
+class Buffer {
+  var cap   = 4;
+  var s0    = 0;
+  var s1    = 0;
+  var s2    = 0;
+  var s3    = 0;
+  var head  = 0;         // next slot to read
+  var tail  = 0;         // next slot to write
+  var count = 0;         // items currently buffered
+
+  var pwaiter = "";      // at most one queued producer
+  var pitem   = 0;
+  var cwaiter = "";      // at most one queued consumer
+
+  method put(item) {
+    if (cwaiter != "") {
+      // A consumer was already waiting on an empty buffer — hand the
+      // item straight to them without touching a slot.
+      send sender.put_ok();
+      send cwaiter.got(item);
+      print("[BUF] passthrough put=" + item);
+      cwaiter = "";
+    } else {
+      if (count == cap) {
+        // Buffer full: stash the producer until a consumer takes.
+        pwaiter = sender;
+        pitem   = item;
+        print("[BUF] FULL  -- queued put=" + item);
+      } else {
+        if (tail == 0) { s0 = item; }
+        if (tail == 1) { s1 = item; }
+        if (tail == 2) { s2 = item; }
+        if (tail == 3) { s3 = item; }
+        tail = tail + 1;
+        if (tail == cap) { tail = 0; }
+        count = count + 1;
+        print("[BUF] put=" + item + "   count=" + count);
+        send sender.put_ok();
+      }
+    }
+  }
+
+  method get() {
+    if (count == 0) {
+      // Buffer empty: stash the consumer until a producer puts.
+      cwaiter = sender;
+      print("[BUF] EMPTY -- queued get");
+    } else {
+      if (head == 0) { send sender.got(s0); }
+      if (head == 1) { send sender.got(s1); }
+      if (head == 2) { send sender.got(s2); }
+      if (head == 3) { send sender.got(s3); }
+      head = head + 1;
+      if (head == cap) { head = 0; }
+      count = count - 1;
+      print("[BUF] get   count=" + count);
+      if (pwaiter != "") {
+        // Freed a slot — accept the queued producer's pending item.
+        if (tail == 0) { s0 = pitem; }
+        if (tail == 1) { s1 = pitem; }
+        if (tail == 2) { s2 = pitem; }
+        if (tail == 3) { s3 = pitem; }
+        tail = tail + 1;
+        if (tail == cap) { tail = 0; }
+        count = count + 1;
+        print("[BUF] accepted queued put=" + pitem);
+        send pwaiter.put_ok();
+        pwaiter = "";
+      }
+    }
+  }
+}
+
+class Producer {
+  var id    = 0;
+  var buf   = "";
+  var n     = 0;
+  var max   = 0;
+
+  method init(myId, b, limit) {
+    id  = myId;
+    buf = b;
+    max = limit;
+    send self.produce();
+  }
+
+  method produce() {
+    if (n == max) {
+      print("[P" + id + "] DONE");
+    } else {
+      n = n + 1;
+      print("[P" + id + "] -> put " + n);
+      send buf.put(n);
+    }
+  }
+
+  method put_ok() {
+    call wait(120);
+    send self.produce();
+  }
+}
+
+class Consumer {
+  var id    = 0;
+  var buf   = "";
+  var taken = 0;
+  var max   = 0;
+
+  method init(myId, b, limit) {
+    id  = myId;
+    buf = b;
+    max = limit;
+    send buf.get();
+  }
+
+  method got(item) {
+    taken = taken + 1;
+    print("[C" + id + "] got " + item + "   (total=" + taken + ")");
+    if (taken == max) {
+      print("[C" + id + "] DONE");
+    } else {
+      // Delay via self-send. In the JS runtime `wait` only postpones the
+      // next dispatch of THIS actor, so the timed gap must precede a
+      // self-send, not a cross-actor send. OCaml's `wait` blocks the
+      // actor thread so either pattern works there.
+      call wait(420);
+      send self.do_get();
+    }
+  }
+
+  method do_get() {
+    send buf.get();
+  }
+}
+
+var buf = new Buffer();
+var p0  = new Producer(0, buf, 12);
+var c0  = new Consumer(0, buf, 12);

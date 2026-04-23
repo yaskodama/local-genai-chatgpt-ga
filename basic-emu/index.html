@@ -1,0 +1,878 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<title>BASIC Emulator — free-cursor editor</title>
+<style>
+  html, body { margin: 0; padding: 0; background: #000; color: #ddd;
+               font-family: 'Menlo','Courier New', monospace; }
+  #wrap { width: 644px; margin: 14px auto; }
+  #hint { color: #888; font-size: 11px; margin: 0 0 6px 2px; line-height: 1.5; }
+  #hint b { color: #ffd; }
+  #frame { position: relative; width: 640px; height: 400px;
+           border: 2px solid #225; background: #00004a; }
+  canvas { position: absolute; left: 0; top: 0;
+           width: 640px; height: 400px; image-rendering: pixelated; }
+</style>
+</head>
+<body>
+<div id="wrap">
+  <div id="hint">
+    <b>Arrow keys</b>: move cursor freely &nbsp;
+    <b>Enter</b>: register / execute the line under the cursor &nbsp;
+    <b>Backspace</b>: erase previous &nbsp; <b>ESC</b>: stop RUN<br>
+    Direct-mode commands: <b>FILES</b> / <b>LOAD "name"</b> / <b>RUN</b> /
+    <b>LIST</b> / <b>NEW</b>. &nbsp; Numbered lines (e.g. <b>10 PRINT "HI"</b>)
+    are stored; unnumbered lines are executed immediately.
+  </div>
+  <div id="frame">
+    <canvas id="gfx" width="640" height="400"></canvas>
+    <canvas id="txt" width="640" height="400"></canvas>
+  </div>
+</div>
+
+<script>
+'use strict';
+
+/* ===================== Screen ===================== */
+const COLS = 40, ROWS = 20, CELL_W = 16, CELL_H = 20;
+const gfx = document.getElementById('gfx').getContext('2d');
+const txt = document.getElementById('txt').getContext('2d');
+
+const PAL = [
+  "#000000","#0000AA","#00AA00","#00AAAA",
+  "#AA0000","#AA00AA","#AA5500","#AAAAAA",
+  "#555555","#5555FF","#55FF55","#55FFFF",
+  "#FF5555","#FF55FF","#FFFF55","#FFFFFF",
+];
+
+const screen = Array.from({length: ROWS}, () => new Array(COLS).fill(' '));
+let curR = 0, curC = 0, fgColor = 15, bgColor = 1;
+let blinkOn = true;
+
+function clsAll() {
+  for (let r = 0; r < ROWS; r++) for (let c = 0; c < COLS; c++) screen[r][c] = ' ';
+  gfx.fillStyle = PAL[bgColor]; gfx.fillRect(0, 0, 640, 400);
+  curR = 0; curC = 0;
+  render();
+}
+
+function render() {
+  txt.clearRect(0, 0, 640, 400);
+  txt.font = "bold 16px 'Menlo','Courier New',monospace";
+  txt.textBaseline = 'top';
+  for (let r = 0; r < ROWS; r++) {
+    for (let c = 0; c < COLS; c++) {
+      const ch = screen[r][c];
+      if (ch !== ' ') {
+        txt.fillStyle = PAL[fgColor];
+        txt.fillText(ch, c * CELL_W + 1, r * CELL_H + 2);
+      }
+    }
+  }
+  if (blinkOn) {
+    txt.fillStyle = PAL[fgColor];
+    txt.fillRect(curC * CELL_W, curR * CELL_H + CELL_H - 3, CELL_W, 3);
+  }
+}
+setInterval(() => { blinkOn = !blinkOn; render(); }, 400);
+
+function scrollUp() {
+  for (let r = 0; r < ROWS - 1; r++) {
+    for (let c = 0; c < COLS; c++) screen[r][c] = screen[r + 1][c];
+  }
+  for (let c = 0; c < COLS; c++) screen[ROWS - 1][c] = ' ';
+}
+function putChar(ch) {
+  if (curC >= COLS) { curC = 0; curR++; }
+  if (curR >= ROWS) { scrollUp(); curR = ROWS - 1; }
+  screen[curR][curC] = ch;
+  curC++;
+}
+function newline() {
+  curC = 0; curR++;
+  if (curR >= ROWS) { scrollUp(); curR = ROWS - 1; }
+}
+function printStr(s) {
+  for (const ch of String(s)) {
+    if (ch === '\n') newline(); else putChar(ch);
+  }
+}
+function printValue(v) {
+  if (typeof v === 'number') {
+    if (!isFinite(v)) { printStr(String(v)); return; }
+    let s = Number.isInteger(v) ? v.toString()
+                                : parseFloat(v.toFixed(6)).toString();
+    printStr((v >= 0 ? ' ' : '') + s + ' ');
+  } else {
+    printStr(String(v));
+  }
+}
+
+/* ===================== Graphics ===================== */
+function drawLine(x1, y1, x2, y2, col) {
+  gfx.strokeStyle = PAL[Math.floor(col) & 15];
+  gfx.lineWidth = 1;
+  gfx.beginPath();
+  gfx.moveTo(Math.floor(x1) + 0.5, Math.floor(y1) + 0.5);
+  gfx.lineTo(Math.floor(x2) + 0.5, Math.floor(y2) + 0.5);
+  gfx.stroke();
+}
+function drawPset(x, y, col) {
+  gfx.fillStyle = PAL[Math.floor(col) & 15];
+  gfx.fillRect(Math.floor(x), Math.floor(y), 2, 2);
+}
+function drawCircle(x, y, r, col) {
+  gfx.strokeStyle = PAL[Math.floor(col) & 15];
+  gfx.beginPath();
+  gfx.arc(x, y, r, 0, Math.PI * 2);
+  gfx.stroke();
+}
+
+/* ===================== Tokenizer ===================== */
+const KEYWORDS = new Set([
+  'REM','LET','PRINT','INPUT','IF','THEN','ELSE','GOTO','GOSUB','RETURN',
+  'FOR','TO','STEP','NEXT','END','STOP','CLS','LINE','CIRCLE','PSET','COLOR',
+  'RUN','LIST','NEW','FILES','LOAD','SAVE','BYE',
+  'AND','OR','NOT','MOD',
+  'INT','ABS','SGN','SQR','SIN','COS','TAN','ATN','LOG','EXP','RND',
+  'CHR$','STR$','ASC','LEN','VAL',
+]);
+
+function tokenize(src) {
+  const t = []; let i = 0;
+  while (i < src.length) {
+    const c = src[i];
+    if (c === ' ' || c === '\t') { i++; continue; }
+    if (c >= '0' && c <= '9' ||
+        (c === '.' && src[i + 1] >= '0' && src[i + 1] <= '9')) {
+      let j = i;
+      while (j < src.length && /[0-9]/.test(src[j])) j++;
+      if (src[j] === '.') { j++; while (j < src.length && /[0-9]/.test(src[j])) j++; }
+      if (src[j] === 'E' || src[j] === 'e') {
+        j++;
+        if (src[j] === '+' || src[j] === '-') j++;
+        while (j < src.length && /[0-9]/.test(src[j])) j++;
+      }
+      t.push({ type: 'NUM', value: parseFloat(src.substring(i, j)) });
+      i = j; continue;
+    }
+    if (c === '"') {
+      let j = i + 1;
+      while (j < src.length && src[j] !== '"') j++;
+      t.push({ type: 'STR', value: src.substring(i + 1, j) });
+      i = (src[j] === '"' ? j + 1 : j); continue;
+    }
+    if (/[A-Za-z]/.test(c)) {
+      let j = i;
+      while (j < src.length && /[A-Za-z0-9]/.test(src[j])) j++;
+      let word = src.substring(i, j).toUpperCase();
+      if (src[j] === '$') { word += '$'; j++; }
+      if (KEYWORDS.has(word)) {
+        // 'REM' eats rest of line
+        if (word === 'REM') {
+          t.push({ type: 'KW', value: 'REM' });
+          t.push({ type: 'STR', value: src.substring(j).trim() });
+          return t;
+        }
+        t.push({ type: 'KW', value: word });
+      } else {
+        t.push({ type: 'ID', value: word });
+      }
+      i = j; continue;
+    }
+    if (c === '<' && src[i + 1] === '=') { t.push({ type: 'OP', value: '<=' }); i += 2; continue; }
+    if (c === '>' && src[i + 1] === '=') { t.push({ type: 'OP', value: '>=' }); i += 2; continue; }
+    if (c === '<' && src[i + 1] === '>') { t.push({ type: 'OP', value: '<>' }); i += 2; continue; }
+    if ('+-*/^=<>(),;:'.includes(c)) { t.push({ type: 'OP', value: c }); i++; continue; }
+    i++;
+  }
+  return t;
+}
+
+/* ===================== Variables ===================== */
+const vars = {};
+function getVar(name) { return name in vars ? vars[name] : (name.endsWith('$') ? '' : 0); }
+function setVar(name, v) { vars[name] = v; }
+
+/* ===================== Expression parser ===================== */
+class EP {
+  constructor(tokens, start) { this.t = tokens; this.p = start; }
+  peek() { return this.t[this.p]; }
+  eat()  { return this.t[this.p++]; }
+  isOp(v) { const k = this.peek(); return k && k.type === 'OP' && k.value === v; }
+  isKw(v) { const k = this.peek(); return k && k.type === 'KW' && k.value === v; }
+  expr() { return this.or(); }
+  or()  { let l = this.and(); while (this.isKw('OR'))  { this.eat(); l = (l || this.and()) ? 1 : 0; } return l; }
+  and() { let l = this.not(); while (this.isKw('AND')) { this.eat(); l = (l && this.not()) ? 1 : 0; } return l; }
+  not() { if (this.isKw('NOT')) { this.eat(); return this.not() ? 0 : 1; } return this.cmp(); }
+  cmp() {
+    let l = this.sum();
+    while (this.peek() && this.peek().type === 'OP' &&
+           ['=', '<>', '<', '<=', '>', '>='].includes(this.peek().value)) {
+      const op = this.eat().value;
+      const r = this.sum();
+      let b;
+      switch (op) {
+        case '=':  b = l === r; break;
+        case '<>': b = l !== r; break;
+        case '<':  b = l <  r;  break;
+        case '<=': b = l <= r;  break;
+        case '>':  b = l >  r;  break;
+        case '>=': b = l >= r;  break;
+      }
+      l = b ? 1 : 0;
+    }
+    return l;
+  }
+  sum() {
+    let l = this.term();
+    while (this.isOp('+') || this.isOp('-')) {
+      const op = this.eat().value;
+      const r = this.term();
+      if (op === '+') l = (typeof l === 'string' || typeof r === 'string') ? String(l) + String(r) : l + r;
+      else l = l - r;
+    }
+    return l;
+  }
+  term() {
+    let l = this.pow();
+    while (this.isOp('*') || this.isOp('/') || this.isKw('MOD')) {
+      const op = this.eat().value;
+      const r = this.pow();
+      if (op === '*') l = l * r;
+      else if (op === '/') l = l / r;
+      else l = l - Math.floor(l / r) * r;  // MOD
+    }
+    return l;
+  }
+  pow() {
+    let l = this.unary();
+    while (this.isOp('^')) { this.eat(); l = Math.pow(l, this.unary()); }
+    return l;
+  }
+  unary() {
+    if (this.isOp('-')) { this.eat(); return -this.unary(); }
+    if (this.isOp('+')) { this.eat(); return this.unary(); }
+    return this.atom();
+  }
+  atom() {
+    const k = this.eat();
+    if (!k) throw new Error('unexpected end of expression');
+    if (k.type === 'NUM') return k.value;
+    if (k.type === 'STR') return k.value;
+    if (k.type === 'OP' && k.value === '(') {
+      const v = this.expr();
+      if (!this.isOp(')')) throw new Error('missing )');
+      this.eat();
+      return v;
+    }
+    if (k.type === 'ID') {
+      if (this.isOp('(')) {       // array-style call — treated as function
+        return this.callFunc(k.value);
+      }
+      return getVar(k.value);
+    }
+    if (k.type === 'KW') {
+      if (this.isOp('(')) return this.callFunc(k.value);
+    }
+    throw new Error('unexpected token: ' + JSON.stringify(k));
+  }
+  callFunc(name) {
+    this.eat(); // (
+    const args = [];
+    if (!this.isOp(')')) {
+      args.push(this.expr());
+      while (this.isOp(',')) { this.eat(); args.push(this.expr()); }
+    }
+    if (!this.isOp(')')) throw new Error('missing )');
+    this.eat();
+    switch (name) {
+      case 'INT':  return Math.floor(args[0]);
+      case 'ABS':  return Math.abs(args[0]);
+      case 'SGN':  return Math.sign(args[0]);
+      case 'SQR':  return Math.sqrt(args[0]);
+      case 'SIN':  return Math.sin(args[0]);
+      case 'COS':  return Math.cos(args[0]);
+      case 'TAN':  return Math.tan(args[0]);
+      case 'ATN':  return Math.atan(args[0]);
+      case 'LOG':  return Math.log(args[0]);
+      case 'EXP':  return Math.exp(args[0]);
+      case 'RND':  return Math.random();
+      case 'CHR$': return String.fromCharCode(Math.floor(args[0]));
+      case 'ASC':  return String(args[0]).charCodeAt(0);
+      case 'LEN':  return String(args[0]).length;
+      case 'VAL':  return parseFloat(args[0]) || 0;
+      case 'STR$': return String(args[0]);
+    }
+    throw new Error('unknown function: ' + name);
+  }
+}
+
+/* ===================== Program storage / execution ===================== */
+const program = new Map();
+let programLines = [];
+let pcIndex = 0;
+let running = false;
+let stopRequested = false;
+const forStack = [];
+const gosubStack = [];
+
+function listProgram() {
+  const lines = [...program.keys()].sort((a, b) => a - b);
+  for (const n of lines) printStr(n + ' ' + program.get(n) + '\n');
+}
+
+function findMatchingNext(fromPc) {
+  let depth = 1;
+  for (let i = fromPc + 1; i < programLines.length; i++) {
+    const tks = tokenize(program.get(programLines[i]));
+    for (const tk of tks) {
+      if (tk.type === 'KW' && tk.value === 'FOR')  depth++;
+      else if (tk.type === 'KW' && tk.value === 'NEXT') {
+        depth--;
+        if (depth === 0) return i;
+      }
+    }
+  }
+  return -1;
+}
+
+async function runCommand(src) {
+  const m = src.match(/^\s*(\d+)\s*(.*)$/);
+  if (m) {
+    const n = parseInt(m[1], 10);
+    const rest = m[2];
+    if (rest.trim() === '') program.delete(n); else program.set(n, rest);
+    return;
+  }
+  await execLine(src);
+}
+
+async function execLine(src) {
+  const tokens = tokenize(src);
+  let i = 0;
+  while (i < tokens.length) {
+    const r = await execStmt(tokens, i);
+    if (r.jump) return r;
+    i = r.next;
+    if (tokens[i] && tokens[i].type === 'OP' && tokens[i].value === ':') i++;
+  }
+  return { next: i };
+}
+
+async function execStmt(tokens, start) {
+  let i = start;
+  const tk = tokens[i];
+  if (!tk) return { next: i };
+
+  const kw = (tk.type === 'KW') ? tk.value
+           : (tk.type === 'ID' && tokens[i + 1] && tokens[i + 1].type === 'OP' && tokens[i + 1].value === '=')
+               ? 'LET_IMPLICIT' : null;
+
+  switch (kw) {
+    case 'REM': return { next: tokens.length };
+
+    case 'PRINT': {
+      i++;
+      let trailing = null;
+      while (i < tokens.length && !(tokens[i].type === 'OP' && tokens[i].value === ':')) {
+        if (tokens[i].type === 'OP' && tokens[i].value === ';') { trailing = ';'; i++; continue; }
+        if (tokens[i].type === 'OP' && tokens[i].value === ',') { trailing = ','; printStr('\t'); i++; continue; }
+        const p = new EP(tokens, i);
+        const v = p.expr();
+        i = p.p;
+        printValue(v);
+        trailing = null;
+      }
+      if (trailing === null) newline();
+      render();
+      return { next: i };
+    }
+
+    case 'LET':
+    case 'LET_IMPLICIT': {
+      if (kw === 'LET') i++;
+      const name = tokens[i++].value;
+      if (!(tokens[i] && tokens[i].type === 'OP' && tokens[i].value === '=')) throw new Error('= expected');
+      i++;
+      const p = new EP(tokens, i);
+      const v = p.expr();
+      i = p.p;
+      setVar(name, v);
+      return { next: i };
+    }
+
+    case 'IF': {
+      i++;
+      const p = new EP(tokens, i);
+      const cond = p.expr();
+      i = p.p;
+      if (!(tokens[i] && tokens[i].type === 'KW' && tokens[i].value === 'THEN')) throw new Error('THEN expected');
+      i++;
+      if (cond) {
+        if (tokens[i] && tokens[i].type === 'NUM') {
+          return { jump: { goto: tokens[i].value }, next: tokens.length };
+        }
+        return await execStmt(tokens, i);
+      }
+      return { next: tokens.length };
+    }
+
+    case 'GOTO': {
+      i++;
+      const p = new EP(tokens, i);
+      const target = p.expr();
+      return { jump: { goto: target }, next: tokens.length };
+    }
+
+    case 'GOSUB': {
+      i++;
+      const p = new EP(tokens, i);
+      const target = p.expr();
+      return { jump: { gosub: target }, next: tokens.length };
+    }
+
+    case 'RETURN':
+      return { jump: { ret: true }, next: tokens.length };
+
+    case 'FOR': {
+      i++;
+      const name = tokens[i++].value;
+      if (!(tokens[i] && tokens[i].type === 'OP' && tokens[i].value === '=')) throw new Error('FOR =');
+      i++;
+      const p1 = new EP(tokens, i); const start0 = p1.expr(); i = p1.p;
+      if (!(tokens[i] && tokens[i].type === 'KW' && tokens[i].value === 'TO')) throw new Error('FOR TO');
+      i++;
+      const p2 = new EP(tokens, i); const limit = p2.expr(); i = p2.p;
+      let step = 1;
+      if (tokens[i] && tokens[i].type === 'KW' && tokens[i].value === 'STEP') {
+        i++;
+        const p3 = new EP(tokens, i); step = p3.expr(); i = p3.p;
+      }
+      setVar(name, start0);
+      const skip = step >= 0 ? start0 > limit : start0 < limit;
+      if (skip) {
+        const np = findMatchingNext(pcIndex);
+        if (np < 0) throw new Error('FOR without NEXT');
+        return { jump: { gotoIndex: np + 1 }, next: tokens.length };
+      }
+      forStack.push({ name, limit, step, returnPc: pcIndex + 1 });
+      return { next: i };
+    }
+
+    case 'NEXT': {
+      i++;
+      if (tokens[i] && tokens[i].type === 'ID') i++;
+      const top = forStack[forStack.length - 1];
+      if (!top) throw new Error('NEXT without FOR');
+      const nv = getVar(top.name) + top.step;
+      setVar(top.name, nv);
+      const done = top.step >= 0 ? nv > top.limit : nv < top.limit;
+      if (!done) return { jump: { gotoIndex: top.returnPc }, next: tokens.length };
+      forStack.pop();
+      return { next: i };
+    }
+
+    case 'END':
+    case 'STOP': return { jump: { stop: true }, next: tokens.length };
+
+    case 'CLS': clsAll(); return { next: i + 1 };
+
+    case 'LINE':   return drawCmd(tokens, i + 1, 'LINE');
+    case 'PSET':   return drawCmd(tokens, i + 1, 'PSET');
+    case 'CIRCLE': return drawCmd(tokens, i + 1, 'CIRCLE');
+
+    case 'COLOR': {
+      i++;
+      const args = readArgs(tokens, i); i = args.next;
+      if (args.v[0] !== undefined) fgColor = Math.floor(args.v[0]) & 15;
+      if (args.v[1] !== undefined) bgColor = Math.floor(args.v[1]) & 15;
+      return { next: i };
+    }
+
+    case 'INPUT': {
+      i++;
+      let prompt = '? ';
+      if (tokens[i] && tokens[i].type === 'STR') {
+        prompt = tokens[i].value + '? ';
+        i++;
+        if (tokens[i] && tokens[i].type === 'OP' && (tokens[i].value === ';' || tokens[i].value === ',')) i++;
+      }
+      const name = tokens[i++].value;
+      printStr(prompt); render();
+      const s = await readInputLine();
+      setVar(name, name.endsWith('$') ? s : (parseFloat(s) || 0));
+      return { next: i };
+    }
+
+    case 'RUN':   { i++; await cmdRun(); return { next: i }; }
+    case 'LIST':  { i++; listProgram();   return { next: i }; }
+    case 'NEW':   { i++; program.clear(); for (const k of Object.keys(vars)) delete vars[k]; return { next: i }; }
+    case 'FILES': { i++; showFiles();     return { next: i }; }
+    case 'LOAD': {
+      i++;
+      let name = '';
+      if (tokens[i] && tokens[i].type === 'STR') { name = tokens[i++].value; }
+      else if (tokens[i] && (tokens[i].type === 'ID' || tokens[i].type === 'KW')) { name = tokens[i++].value; }
+      loadFile(name);
+      return { next: i };
+    }
+    case 'SAVE': i++; printStr('SAVE not supported\n'); return { next: i };
+    case 'BYE':  i++; printStr('Bye!\n');               return { next: i };
+  }
+  throw new Error('syntax error near: ' + JSON.stringify(tk));
+}
+
+function readArgs(tokens, start) {
+  const p = new EP(tokens, start);
+  const v = [];
+  if (p.peek() && !(p.peek().type === 'OP' && p.peek().value === ':')) {
+    v.push(p.expr());
+    while (p.isOp(',')) { p.eat(); v.push(p.expr()); }
+  }
+  return { v, next: p.p };
+}
+
+function drawCmd(tokens, start, which) {
+  const a = readArgs(tokens, start);
+  const v = a.v;
+  if (which === 'LINE') {
+    const col = v[4] !== undefined ? v[4] : fgColor;
+    drawLine(v[0], v[1], v[2], v[3], col);
+  } else if (which === 'PSET') {
+    const col = v[2] !== undefined ? v[2] : fgColor;
+    drawPset(v[0], v[1], col);
+  } else if (which === 'CIRCLE') {
+    const col = v[3] !== undefined ? v[3] : fgColor;
+    drawCircle(v[0], v[1], v[2], col);
+  }
+  return { next: a.next };
+}
+
+async function cmdRun() {
+  programLines = [...program.keys()].sort((a, b) => a - b);
+  pcIndex = 0;
+  running = true;
+  stopRequested = false;
+  forStack.length = 0;
+  gosubStack.length = 0;
+  try {
+    let yieldTick = 0;
+    while (running && !stopRequested && pcIndex < programLines.length) {
+      const n = programLines[pcIndex];
+      const src = program.get(n);
+      const r = await execLine(src);
+      if (r.jump) {
+        if (r.jump.stop) break;
+        if (r.jump.goto !== undefined) {
+          const idx = programLines.indexOf(r.jump.goto);
+          if (idx < 0) throw new Error('Undefined line ' + r.jump.goto);
+          pcIndex = idx;
+        } else if (r.jump.gosub !== undefined) {
+          const idx = programLines.indexOf(r.jump.gosub);
+          if (idx < 0) throw new Error('Undefined line ' + r.jump.gosub);
+          gosubStack.push(pcIndex + 1);
+          pcIndex = idx;
+        } else if (r.jump.ret) {
+          if (gosubStack.length === 0) throw new Error('RETURN without GOSUB');
+          pcIndex = gosubStack.pop();
+        } else if (r.jump.gotoIndex !== undefined) {
+          pcIndex = r.jump.gotoIndex;
+        } else {
+          pcIndex++;
+        }
+      } else {
+        pcIndex++;
+      }
+      if (++yieldTick % 64 === 0) await new Promise(r => setTimeout(r, 0));
+      else await Promise.resolve();
+    }
+  } catch (e) {
+    printStr('ERROR: ' + e.message + '\n');
+  }
+  running = false;
+  render();
+}
+
+/* ===================== Keyboard / editor ===================== */
+let inputResolver = null;
+function readInputLine() { return new Promise(res => { inputResolver = res; }); }
+
+window.addEventListener('keydown', async (e) => {
+  if (running) {
+    if (e.key === 'Escape') { stopRequested = true; e.preventDefault(); }
+    return;
+  }
+  const k = e.key;
+  if (k === 'ArrowLeft')  { if (curC > 0) curC--;       else if (curR > 0)      { curR--; curC = COLS - 1; } e.preventDefault(); render(); return; }
+  if (k === 'ArrowRight') { if (curC < COLS - 1) curC++; else if (curR < ROWS - 1) { curR++; curC = 0; }       e.preventDefault(); render(); return; }
+  if (k === 'ArrowUp')    { if (curR > 0) curR--;       e.preventDefault(); render(); return; }
+  if (k === 'ArrowDown')  { if (curR < ROWS - 1) curR++; e.preventDefault(); render(); return; }
+  if (k === 'Home')       { curC = 0;        e.preventDefault(); render(); return; }
+  if (k === 'End')        { curC = COLS - 1; e.preventDefault(); render(); return; }
+  if (k === 'Backspace') {
+    if (curC > 0) { curC--; screen[curR][curC] = ' '; }
+    else if (curR > 0) { curR--; curC = COLS - 1; screen[curR][curC] = ' '; }
+    e.preventDefault(); render(); return;
+  }
+  if (k === 'Delete') { screen[curR][curC] = ' '; e.preventDefault(); render(); return; }
+  if (k === 'Enter') {
+    e.preventDefault();
+    const lineStr = screen[curR].join('').trimEnd();
+    newline(); render();
+    if (inputResolver) { const r = inputResolver; inputResolver = null; r(lineStr); return; }
+    if (lineStr.length > 0) {
+      try { await runCommand(lineStr); }
+      catch (err) { printStr('ERROR: ' + err.message + '\n'); }
+    }
+    printStr('Ok\n'); render();
+    return;
+  }
+  if (k.length === 1 && !e.ctrlKey && !e.metaKey) {
+    putChar(k.length === 1 ? k.toUpperCase() : k);
+    e.preventDefault(); render();
+  }
+});
+
+/* ===================== Sample programs ===================== */
+const FILES = {
+  "HELLO": `10 PRINT "HELLO, WORLD!"
+20 PRINT "WELCOME TO BASIC EMULATOR"
+30 END`,
+
+  "COUNT": `10 FOR I=1 TO 10
+20 PRINT I
+30 NEXT I
+40 END`,
+
+  "TABLE": `10 FOR I=1 TO 9
+20 FOR J=1 TO 9
+30 PRINT I*J;
+40 NEXT J
+50 PRINT
+60 NEXT I
+70 END`,
+
+  "SQUARES": `10 FOR I=1 TO 10
+20 PRINT I;" SQ =";I*I
+30 NEXT I
+40 END`,
+
+  "FIB": `10 LET A=0
+20 LET B=1
+30 FOR I=1 TO 15
+40 PRINT A;
+50 LET C=A+B
+60 LET A=B
+70 LET B=C
+80 NEXT I
+90 PRINT
+100 END`,
+
+  "PRIME": `10 FOR N=2 TO 50
+20 LET F=1
+30 FOR D=2 TO N-1
+40 IF N-D*INT(N/D)=0 THEN LET F=0
+50 NEXT D
+60 IF F=1 THEN PRINT N;
+70 NEXT N
+80 PRINT
+90 END`,
+
+  "DICE": `10 FOR I=1 TO 5
+20 LET R=INT(RND(1)*6)+1
+30 PRINT "DICE";I;"=";R
+40 NEXT I
+50 END`,
+
+  "PYRAMID": `10 FOR I=1 TO 8
+20 FOR S=1 TO 8-I
+30 PRINT " ";
+40 NEXT S
+50 FOR J=1 TO 2*I-1
+60 PRINT "*";
+70 NEXT J
+80 PRINT
+90 NEXT I
+100 END`,
+
+  "REVERSE": `10 FOR I=20 TO 1 STEP -1
+20 PRINT I;
+30 NEXT I
+40 PRINT
+50 PRINT "BOOM!"
+60 END`,
+
+  "SEARCHLIGHT": `10 REM ROTATING SEARCHLIGHT (LINE-ONLY, INFINITE)
+20 CLS
+30 LET P=3.14159
+40 LET T=0
+50 LET A=T*P/180
+60 LET X1=320+240*COS(A-0.08)
+70 LET Y1=200-240*SIN(A-0.08)
+80 LET X2=320+240*COS(A+0.08)
+90 LET Y2=200-240*SIN(A+0.08)
+100 LINE 320,200,X1,Y1,14
+110 LINE 320,200,X2,Y2,14
+120 LINE X1,Y1,X2,Y2,14
+130 FOR D=1 TO 40
+140 NEXT D
+150 LINE 320,200,X1,Y1,1
+160 LINE 320,200,X2,Y2,1
+170 LINE X1,Y1,X2,Y2,1
+180 LET T=T+3
+190 IF T>=360 THEN LET T=0
+200 GOTO 50`,
+
+  "FAN": `10 CLS
+20 LET P=3.14159
+30 FOR T=-80 TO 80 STEP 8
+40 LET A=T*P/180
+50 LET X=120+400*COS(A)
+60 LET Y=200+400*SIN(A)
+70 LINE 120,200,X,Y
+80 NEXT T
+90 END`,
+
+  "STAR": `10 CLS
+20 LET P=3.14159
+30 FOR I=0 TO 4
+40 LET J=I+2
+50 IF J>4 THEN LET J=J-5
+60 LET A=I*72*P/180-P/2
+70 LET B=J*72*P/180-P/2
+80 LINE 320+180*COS(A),200+180*SIN(A),320+180*COS(B),200+180*SIN(B)
+90 NEXT I
+100 END`,
+
+  "WAVE": `10 CLS
+20 LET P=3.14159
+30 LET PY=200
+40 FOR X=0 TO 639 STEP 4
+50 LET Y=200+150*SIN(X*P/80)
+60 IF X>0 THEN LINE X-4,PY,X,Y
+70 LET PY=Y
+80 NEXT X
+90 END`,
+
+  "WINDMILL": `10 CLS
+20 LET P=3.14159
+30 FOR B=0 TO 7
+40 LET A=B*45*P/180
+50 LINE 320,200,320+220*COS(A),200+180*SIN(A)
+60 NEXT B
+70 LINE 120,20,520,380
+80 LINE 520,20,120,380
+90 END`,
+
+  "RADAR": `10 CLS
+20 LET P=3.14159
+30 FOR T=0 TO 360 STEP 10
+40 LET A=T*P/180
+50 LINE 320,200,320+200*COS(A),200-200*SIN(A)
+60 NEXT T
+70 FOR T=0 TO 350 STEP 10
+80 LET A=T*P/180
+90 LET B=(T+10)*P/180
+100 LINE 320+200*COS(A),200-200*SIN(A),320+200*COS(B),200-200*SIN(B)
+110 NEXT T
+120 END`,
+
+  "CLOCK": `10 CLS
+20 LET P=3.14159
+30 FOR T=0 TO 330 STEP 30
+40 LET A=T*P/180
+50 LINE 320+160*COS(A),200-160*SIN(A),320+180*COS(A),200-180*SIN(A)
+60 NEXT T
+70 REM 10:10 POSITION
+80 LET H=(90-10*30-10*0.5)*P/180
+90 LINE 320,200,320+80*COS(H),200-80*SIN(H)
+100 LET M=(90-10*6)*P/180
+110 LINE 320,200,320+140*COS(M),200-140*SIN(M)
+120 END`,
+
+  "SPIRAL": `10 CLS
+20 LET P=3.14159
+30 LET PX=320
+40 LET PY=200
+50 FOR T=0 TO 1080 STEP 6
+60 LET A=T*P/180
+70 LET R=T/8
+80 LET X=320+R*COS(A)
+90 LET Y=200+R*SIN(A)
+100 LINE PX,PY,X,Y
+110 LET PX=X
+120 LET PY=Y
+130 NEXT T
+140 END`,
+
+  "BOX": `10 CLS
+20 FOR S=20 TO 200 STEP 20
+30 LINE 320-S,200-S,320+S,200-S
+40 LINE 320+S,200-S,320+S,200+S
+50 LINE 320+S,200+S,320-S,200+S
+60 LINE 320-S,200+S,320-S,200-S
+70 NEXT S
+80 END`,
+
+  "DRUNK": `10 CLS
+20 LET X=320
+30 LET Y=200
+40 FOR I=1 TO 500
+50 LET X2=X+INT(RND(1)*21)-10
+60 LET Y2=Y+INT(RND(1)*21)-10
+70 LINE X,Y,X2,Y2
+80 LET X=X2
+90 LET Y=Y2
+100 NEXT I
+110 END`,
+
+  "LISSA": `10 CLS
+20 LET P=3.14159
+30 LET PX=320
+40 LET PY=200
+50 FOR T=0 TO 720 STEP 3
+60 LET U=T*P/180
+70 LET X=320+220*SIN(3*U)
+80 LET Y=200+150*SIN(2*U)
+90 IF T>0 THEN LINE PX,PY,X,Y
+100 LET PX=X
+110 LET PY=Y
+120 NEXT T
+130 END`,
+};
+
+function showFiles() {
+  const names = Object.keys(FILES).sort();
+  let col = 0;
+  for (const n of names) {
+    const pad = n.length < 12 ? n + ' '.repeat(12 - n.length) : n + ' ';
+    printStr(pad);
+    if (++col === 3) { newline(); col = 0; }
+  }
+  if (col !== 0) newline();
+}
+
+function loadFile(name) {
+  const upper = String(name || '').toUpperCase();
+  if (!FILES[upper]) { printStr('FILE NOT FOUND: ' + upper + '\n'); return; }
+  program.clear();
+  for (const line of FILES[upper].split('\n')) {
+    const m = line.match(/^\s*(\d+)\s*(.*)$/);
+    if (m) program.set(parseInt(m[1], 10), m[2]);
+  }
+  printStr('LOADED ' + upper + '\n');
+}
+
+/* ===================== Boot ===================== */
+clsAll();
+printStr('BASIC EMULATOR\n');
+printStr('MOVE CURSOR WITH ARROWS. ENTER REGISTERS / RUNS A LINE.\n');
+printStr('TYPE  FILES  TO LIST SAMPLES.\n');
+printStr('Ok\n');
+render();
+window.focus();
+</script>
+</body>
+</html>

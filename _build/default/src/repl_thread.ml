@@ -6,17 +6,85 @@ open Thread
 
 exception Quit
 
+(* --- Web console output capture --- *)
+let web_repl_buffer = Buffer.create 4096
+
+let web_repl_clear () =
+  Buffer.clear web_repl_buffer
+
+let web_repl_contents () =
+  Buffer.contents web_repl_buffer
+
+let web_repl_print (s:string) =
+  Buffer.add_string web_repl_buffer s
+
+let web_repl_println (s:string) =
+  Buffer.add_string web_repl_buffer s;
+  Buffer.add_char web_repl_buffer '\n'
+
+let repl_logf fmt =
+  Printf.ksprintf
+    (fun s ->
+      print_string s;
+      flush stdout;
+      web_repl_print s)
+    fmt
+
+let repl_logln s = print_endline s; web_repl_println s
+
+let repl_log_after = ref (-1)
+
+let flush_logs_to_repl () =
+  let (next_id, lines) = Eval_thread.get_web_logs_since !repl_log_after in
+  repl_log_after := next_id;
+  List.iter (fun line ->
+    Printf.printf "%s\n%!" line;
+    web_repl_println line
+  ) lines
+
+(* --- REPL: show replies pushed as events --- *)
+let repl_evt_after = ref (-1)
+
+let flush_replies_to_repl () =
+  let (next_id, lines) = Eval_thread.get_web_evts_since !repl_evt_after in
+  repl_evt_after := next_id;
+  List.iter (fun line ->
+    if String.length line >= 7 && String.sub line 0 7 = "[REPLY]" then begin
+      Printf.printf "%s\n%!" line;
+      web_repl_println line
+    end
+  ) lines
+
+let flush_replies_to_repl () =
+  let (next_id, lines) = Eval_thread.get_web_evts_since !repl_evt_after in
+  repl_evt_after := next_id;
+  List.iter (fun line ->
+    (* reply だけ REPL に表示 *)
+    if String.length line >= 7 && String.sub line 0 7 = "[REPLY]" then
+      Printf.printf "%s\n%!" line
+  ) lines
+
 let parse_program_safe (src : string) : (Ast.program, string) result =
+  let lb = Lexing.from_string src in
   try
-    let lb = Lexing.from_string src in
     lb.Lexing.lex_curr_pos <- 0;
     Ok (Parser.program Lexer.token lb)
   with
+  | Failure msg when String.length msg >= 0 ->
+      (* parser.mly から投げた Syntax_error を位置付きで表示 *)
+      Printf.printf "[Parse error] %s: %s\n%!"
+        "?" msg;
+      raise (Failure "parse error")
+  | Parsing.Parse_error ->
+      let pos  = Lexing.lexeme_start_p lb in
+      let line = pos.Lexing.pos_lnum in
+      let col  = pos.Lexing.pos_cnum - pos.Lexing.pos_bol + 1 in
+      Printf.printf "[Parse error] line %d, col %d\n%!" line col;
+      raise (Failure "parse error")
   | exn -> Error (Printexc.to_string exn)
 
 let pp_token = function
   | CLASS     -> "CLASS"
-  | OBJECT    -> "OBJECT"
   | METHOD    -> "METHOD"
   | FLOAT     -> "FLOAT"
   | VAR       -> "VAR"
@@ -49,6 +117,15 @@ let pp_token = function
   | INTLIT n   -> Printf.sprintf "INT(%d)" n
   | EQ         -> "EQ"
   | DOT        -> "DOT"
+  | UNSAFESEND -> "UNSAFESEND"
+  | GT         -> "GT"
+  | LT         -> "LT"
+  | SELECT     -> "SELECT"
+  | CASE       -> "CASE"
+  | TIMEOUT    -> "TIMEOUT"
+  | ARROW      -> "ARROW"
+  | REMOTE     -> "REMOTE"
+  | BECOME     -> "BECOME"
   | EOF       -> "EOF"
 
 let dump_tokens_of_string (src:string) =
@@ -71,7 +148,7 @@ let is_command_line (s:string) =
   let s = String.trim s in
   s = "" ||
   List.exists (fun p -> starts_with s p)
-    ["help"; "exit"; "quit"; "load "; "compile"; "list"; "vlist";
+    ["help"; "exit"; "quit"; "load "; "compile"; "list"; "vlist"; "actors";
      "send "; "ssend "; "ast "; "pprint "; "pprint "; "clear"; "reset"; "script "]
 
 let delta_brace (line : string) : int =
@@ -108,10 +185,10 @@ let parse_arg_token (t : string) : Ast.expr =
   let t = trim t in
   let n = String.length t in
   if n >= 2 && t.[0] = '"' && t.[n-1] = '"' then
-    Ast.String (String.sub t 1 (n - 2))
+    Ast.mk_expr(Ast.String (String.sub t 1 (n - 2)))
   else
     (* 数値 or 識別子 *)
-    (try Ast.Float (float_of_string t) with _ -> Ast.Var t)
+    (try Ast.mk_expr(Ast.Float (float_of_string t)) with _ -> Ast.mk_expr(Ast.Var t))
 
 let split_args (s : string) : string list =
   (* カンマ区切り（クォート内のカンマは今回非対応：必要なら強化） *)
@@ -144,14 +221,12 @@ let parse_input (s : string) : Ast.program =
   lb.Lexing.lex_curr_p <- { lb.Lexing.lex_curr_p with Lexing.pos_fname = "<repl>" };
   Parser.program token lb
 
-(* 文字列入力を parse_input でパースして例外を Result に包む *)
 let parse_input_safe (s : string) : (Ast.program, string) result =
   try Ok (parse_input s) with
   | Failure msg -> Error (Printf.sprintf "Failure: %s" msg)
   | Parsing.Parse_error -> Error "Parse error"
   | exn -> Error (Printexc.to_string exn)
 
-(* ファイルを読み込んで parse_input に渡す（位置は出ないが確実に動く） *)
 let parse_file_safe (filename : string) : (Ast.program, string) result =
   try
     let ic = open_in filename in
@@ -162,15 +237,12 @@ let parse_file_safe (filename : string) : (Ast.program, string) result =
   with
   | Sys_error e -> Error (Printf.sprintf "Sys_error: %s" e)
 
-(* ==== REPL セッション状態 ==== *)
 type session = {
   mutable ast      : Ast.program option;  (* 直近にロード/パース成功した AST *)
   mutable filename : string option;       (* 直近に成功したファイル名 *)
 }
 
 let sess = { ast = None; filename = None }
-
-(* 既に作ってある parse_file_safe / parse_input_safe を流用します *)
 
 let load_decls ?filename (decls : Ast.program) =
   if not (Typecheck.run decls) then
@@ -194,14 +266,13 @@ let load_file (fname : string) : Ast.program option =
     (* === 追加: トークン列を表示 === *)
     Printf.printf "[Token stream]\n%!";
     let lexbuf = Lexing.from_string src in
-    let rec show_tokens () =
+    let rec _show_tokens () =
       match token lexbuf with
       | EOF ->
           Printf.printf "EOF\n%!"
       | t ->
           (match t with
            | CLASS -> print_endline "Token: CLASS"
-           | OBJECT -> print_endline "Token: OBJECT"
            | METHOD -> print_endline "Token: METHOD"
            | FLOAT -> print_endline "Token: FLOAT"
            | VAR -> print_endline "Token: VAR"
@@ -223,7 +294,6 @@ let load_file (fname : string) : Ast.program option =
            | SEMICOLON -> print_endline "Token: SEMICOLON"
            | COMMA -> print_endline "Token: COMMA"
            | NEW -> print_endline "Token: NEW"
-           | CLASS -> print_endline "Token: CLASS"
            | SELF -> print_endline "Token: SELF"
            | SENDER -> print_endline "Token: SENDER"
            | IF -> print_endline "Token: IF"
@@ -233,11 +303,9 @@ let load_file (fname : string) : Ast.program option =
            | DO -> print_endline "Token: DO"
            | _ -> print_endline "Token: (other)"
           );
-          show_tokens ()
+          _show_tokens ()
     in
 (*    show_tokens (); *)
-
-    (* === AST 表示 === *)
     let decls =
       let lb = Lexing.from_string src in
       Parser.program Lexer.token lb
@@ -252,54 +320,55 @@ let load_file (fname : string) : Ast.program option =
       Printf.printf "[Abort] Type error while loading %s\n%!" fname;
       None
     end
-
   with Sys_error msg ->
     Printf.printf "[Error] could not load %s\n%s\n%!" fname msg;
     None
 
 let usage_msg = "Usage: abclrepl_thread [-f script_file]"
 
-let rec string_of_expr = function
+let rec string_of_expr (e : Ast.expr) =
+  match e.desc with
   | Float f -> string_of_float f
-  | String s -> "\"" ^ s ^ "\""
+  | String s -> s
   | Var v -> v
   | Binop (op, e1, e2) -> "(" ^ string_of_expr e1 ^ " " ^ op ^ " " ^ string_of_expr e2 ^ ")"
   | Call (fname, args) -> fname ^ "(" ^ String.concat ", " (List.map string_of_expr args) ^ ")"
   | Expr e -> (string_of_expr e)
   | Int i -> string_of_int i
   | New (cls, args) -> cls ^ "(" ^ String.concat ", " (List.map string_of_expr args) ^ ")"
+  | Array (_,_) -> "array"
+  
+let string_of_send_target = function
+  | LocalTarget t -> t
+  | RemoteTarget (hp, a) -> "remote(" ^ hp ^ ", " ^ a ^ ")"
 
-let rec string_of_stmt = function
+let rec string_of_stmt (st: Ast.stmt) =
+  match st.sdesc with
   | Assign (v, e) -> v ^ " = " ^ string_of_expr e
   | CallStmt (fname, args) -> "call " ^ fname ^ "(" ^ String.concat ", " (List.map string_of_expr args) ^ ")"
-  | Send (tgt, msg, args) -> "send " ^ tgt ^ " " ^ msg ^ "(" ^ String.concat ", " (List.map string_of_expr args) ^ ")"
+  | Send (tgt, msg, args) -> "send " ^ (string_of_send_target tgt) ^
+    " " ^ msg ^ "(" ^ String.concat ", " (List.map string_of_expr args) ^ ")"
   | Seq stmts -> String.concat "; " (List.map string_of_stmt stmts)
   | If (cond, t, f) -> "if " ^ string_of_expr cond ^ " then (" ^ string_of_stmt t ^ ") else (" ^ string_of_stmt f ^ ")"
   | While (cond, body) -> "while " ^ string_of_expr cond ^ " do (" ^ string_of_stmt body ^ ")"
   | VarDecl (vname, e) -> vname ^ " = " ^ string_of_expr e
-  | SSend (t,m,args) -> "ssend " ^ (string_of_expr t) ^ "." ^ m ^ "(" ^ String.concat ", " (List.map string_of_expr args) ^ ")"
+  | UnsafeSend (tgt, msg, args) -> "send! " ^ (string_of_send_target tgt) ^ "." ^ msg ^ "(" ^
+      String.concat ", " (List.map string_of_expr args) ^ ")"
+  | Become (cls, args) -> "become " ^ cls ^ "(" ^
+      String.concat ", " (List.map string_of_expr args) ^ ")"
+  | Select (_cases, (_to_ms_opt, _to_body_opt)) -> "select { ... }"
 
 let string_of_decl = function
   | Class obj ->
-    let fields =
-    obj.fields
-    |> List.filter_map (function
+    let fields = obj.fields
+    |> List.filter_map (fun (st: Ast.stmt) ->
+       match st.sdesc with
        | VarDecl(n,e) -> Some (" float " ^ n ^ " = " ^ string_of_expr e)
        | _ -> None) in
     let methods = List.map (fun m -> "  method " ^ m.mname ^ "() { " ^ string_of_stmt m.body ^ " }") obj.methods in
     "object " ^ obj.cname ^ " {\n" ^ String.concat "\n" (fields @ methods) ^ "\n}"
-  | Instantiate (cls, var) -> cls ^ " " ^ var ^ ";"
-  | InstantiateInit (cls, var, inits) ->
-      let init_strs =
-      inits
-      |> List.filter_map (function
-        | VarDecl(k,v) -> Some (k ^ " = " ^ string_of_expr v)
-	| _ -> None) in
-        cls ^ " " ^ var ^ " = { " ^ String.concat ", " init_strs ^ " };"
-  | InstantiateArgs (cls, var, args) ->
-    let as_ = String.concat ", " (List.map string_of_expr args) in
-      cls ^ " " ^ var ^ "(" ^ as_ ^ ");"
-
+  | Global st -> "global " ^ string_of_stmt st
+  
 let pending_global_sends : (unit -> unit) list ref = ref []
 
 let program_buffer = ref []
@@ -307,147 +376,109 @@ let compiled = ref false
 
 let rec process_command line =
   if line = "exit" || line = "quit" then (
-(*    print_endline exit_banner; *)
     (try Sdl_helper.sdl_quit () with _ -> ());
     raise Quit
   )
   else if String.trim line = "" then ()
   else if String.length line >= 4 && String.sub line 0 4 = "help" then begin
-    print_endline "Commands:";
-    print_endline "  load <file.abcl>      - load a source file (shows tokens & AST; typechecks)";
-    print_endline "  compile               - build/spawn from the loaded program";
-    print_endline "  list                  - list active objects";
-    print_endline "  send obj.method(args) - send async message";
-    print_endline "  ssend obj.method(args)- send with expr receiver (if supported)";
-    print_endline "  ast <name>            - show AST of a class or instance's class";
-    print_endline "  pprint <name>         - pretty-print the class source";
-    print_endline "  script <file>         - run REPL commands from file";
-    print_endline "  exit / quit           - exit REPL";
+    repl_logln "Commands:";
+    repl_logln "  load <file.abcl>      - load a source file (shows tokens & AST; typechecks)";
+    repl_logln "  compile               - build/spawn from the loaded program";
+    repl_logln "  list                  - list active objects";
+    repl_logln "  send obj.method(args) - send async message";
+    repl_logln "  ast <name>            - show AST of a class or instance's class";
+    repl_logln "  pprint <name>         - pretty-print the class source";
+    repl_logln "  script <file>         - run REPL commands from file";
+    repl_logln "  exit / quit           - exit REPL";
   end
   else if line = "compile" then (
     compiled := true;
-  (* pass1: クラス登録だけ先にやる *)
     List.iter (function
     | Class obj ->
       Printf.printf "[Defined class %s]\n%!" obj.cname;
-      Eval_thread.register_class obj
+      Eval_thread.register_class obj;
+      let ms_arity : (string * int) list =
+        obj.methods |> List.map (fun (md:Ast.method_decl) -> (md.mname, List.length md.params))
+      in
+        Types.register_class_auto obj.cname ms_arity;
+        Printf.printf "[Registered types for class %s: %s]\n%!" obj.cname
+        (String.concat ", " (List.map (fun (m,a)-> Printf.sprintf "%s/%d" m a) ms_arity));
     | _ -> ()
     ) !program_buffer;
     List.iter (function
-    | Instantiate (cls, var) ->
-      if Hashtbl.mem Eval_thread.actor_table var then
-        Printf.printf "[Error] Instance '%s' already exists]\n" var
-      else
-        (let cobj = Eval_thread.find_class_exn cls in
-	  Eval_thread.register_instance_source var cobj;
-          match List.find_opt (function Class c -> c.cname = cls | _ -> false) !program_buffer with
-          | Some (Class cobj) -> (
-	    let obj = { cobj with cname = var } in
-              spawn_actor obj)
-	  | _ -> Printf.printf "[Error] Class %s not found\n" cls)
-    | InstantiateInit (cls, var, initvals) ->
-      if Hashtbl.mem Eval_thread.actor_table var then
-        Printf.printf "[Error] Instance '%s' already exists]\n" var
-      else
-        (let cobj = Eval_thread.find_class_exn cls in
-          Eval_thread.register_instance_source var cobj;  (* ★ 追加 *)
-          match List.find_opt (function Class c -> c.cname = cls | _ -> false) !program_buffer with
-          | Some (Class cobj) ->
-	    let obj = { cobj with cname = var } in
-	      Printf.printf "------[Defined class %s]\n" cobj.cname;
-	      Eval_thread.spawn_actor obj
-          | _ -> Printf.printf "[Error] Class %s not found\n" cls)
-    | InstantiateArgs (cls, var, args) ->
-      if Hashtbl.mem Eval_thread.actor_table var then
-        Printf.printf "[Error] Instance '%s' already exists]\n" var
-      else
-        (let cobj = Eval_thread.find_class_exn cls in
-	  Eval_thread.register_instance_source var cobj;  (* ★ 追加 *)
-          match List.find_opt (function Class c -> c.cname = cls | _ -> false) !program_buffer with
-          | Some (Class cobj) ->
-            let obj = { cobj with cname = var } in
-              (* 1) まず生成 *)
-              Eval_thread.spawn_actor obj;
-              (* 2) 生成直後に一度だけ init(...) を送る *)
-              Eval_thread.send_message ~from:"<ctor>" var (CallStmt ("init", args))
-          | _ -> Printf.printf "[Error] Class %s not found\n" cls)
-    | Global (VarDecl (name, New (cls, args))) ->
-              let cobj = Eval_thread.find_class_exn cls in
-	        Eval_thread.register_instance_source name cobj;  (* ★ 追加 *)
-	        let obj  = { cobj with cname = name } in
-                let actor_inst = Eval_thread.create_actor obj.cname in
-                (* フィールド初期化 *)
-                  List.iter (function
-                  | VarDecl (k, init) ->
-                    let v = Eval_thread.eval_expr actor_inst init in
-                      Hashtbl.replace actor_inst.env k v
-                  | _ -> ()
-                  ) obj.fields;
-                (* メソッド登録 *)
-                  List.iter (fun (m:method_decl) ->
-                    Hashtbl.replace actor_inst.methods m.mname m
-                  ) obj.methods;
-                (* 登録＆起動 *)
-                  Hashtbl.add Eval_thread.actor_table obj.cname actor_inst;
-                  ignore (Thread.create (fun () -> Eval_thread.actor_loop actor_inst) ());
-                (*  ここから：init があるときだけ、個数が合うときだけ送る ★ *)
-                  let init_opt =
-                    List.find_opt (fun (m:Ast.method_decl) -> m.mname = "init") obj.methods
-                in
-                  (match init_opt with
-                  | None ->
-                    (* init 未定義なら何もしない（静かにスキップ／ログするなら下行のコメントを外す） *)
-                    Printf.printf "[Actor] %s: no init; skipped\n%!" name;
-                  ()
-                  | Some m ->
-                    let need = List.length m.params
-                    and got  = List.length args in
-                      if need <> got then
-                        (* 個数不一致でも落とさずスキップ（警告だけにする） *)
-                        Printf.printf "[Actor] %s.init arity mismatch: expected %d but %d given — skipped\n%!"
-                        name need got
-                      else
-                        (* 引数は expr のまま送り、受信側 CallStmt で評価→束縛する *)
-                        Eval_thread.send_message ~from:"<new>" name (CallStmt ("init", args))
-                  )
-    | Global (Send (tgt, mname, args)) ->
-              pending_global_sends := (fun () ->
-                Eval_thread.send_message ~from:"<top>" tgt (CallStmt (mname, args))
-              ) :: !pending_global_sends
-    | Global (SSend (recv_term, mname, args)) ->
-      (match recv_term with
-      | Var id ->
+    | Global s -> (
+      match s.sdesc with
+      | VarDecl (name, rhs) -> (
+        match rhs.desc with
+        | New (cls, args) -> (
+          let cobj = Eval_thread.find_class_exn cls in
+            Eval_thread.register_instance_source name cobj;
+            let obj  = { cobj with cname = cls } in
+            let actor_inst = Eval_thread.create_actor name cls in
+            List.iter (fun (st:Ast.stmt) ->
+              match st.sdesc with
+              | VarDecl (k, init) ->
+                let v = Eval_thread.eval_expr actor_inst init in
+                Hashtbl.replace actor_inst.env k v
+              | _ -> ()
+            ) obj.fields;
+            List.iter (fun (m:method_decl) -> Hashtbl.replace actor_inst.methods m.mname m
+            ) obj.methods;
+            Hashtbl.add Eval_thread.actor_table name actor_inst;
+            ignore (Thread.create (fun () -> Eval_thread.actor_loop actor_inst) ());
+            let init_opt = List.find_opt (fun (m:Ast.method_decl) -> m.mname = "init") obj.methods in
+            (match init_opt with
+            | None ->
+              Printf.printf "[Actor] %s: no init; skipped\n%!" name; ()
+            | Some m ->
+              let need = List.length m.params and got  = List.length args in
+                if need <> got then
+                  Printf.printf "[Actor] %s.init arity mismatch: expected %d but %d given — skipped\n%!"
+                    name need got
+                else
+                  Eval_thread.send_message ~from:"<new>" name (mk_stmt (CallStmt ("init", args)))
+		  ));
+        | _ -> ())
+      | Send (tgt, mname, args) -> (
         pending_global_sends := (fun () ->
-        (* 受信者は名前で解決してそのまま送る *)
-          Eval_thread.send_message ~from:"<top>" id (CallStmt (mname, args))
-        ) :: !pending_global_sends
-      | _ ->
-        Printf.printf "[Warn] top-level ssend: receiver must be a name (Var id)\n%!"
-      )
-    | Global _ -> ()
+          Eval_thread.send_message ~from:"<top>" (string_of_send_target tgt) (mk_stmt (CallStmt (mname, args)))
+          ) :: !pending_global_sends)
+      | UnsafeSend (tgt, mname, args) -> (
+        pending_global_sends := (fun () ->
+          Eval_thread.send_message ~from:"<top>" (string_of_send_target tgt) (mk_stmt (CallStmt (mname, args)))
+          ) :: !pending_global_sends)
+      | CallStmt (fname, args) -> (
+          (* Top-level call (for prims like web_listen / web_expose / print) *)
+          let dummy = Eval_thread.create_actor "<top>" "<top>" in
+          try
+            let vs = List.map (Eval_thread.eval_expr dummy) args in
+            ignore (Eval_thread.call_prim fname vs)
+          with exn ->
+            Printf.printf "[Top-level CallStmt error] %s\n%!" (Printexc.to_string exn)
+        )
+      | _ -> ())
     | Class _ -> ()
-    | _ -> ()
     ) !program_buffer;
     List.iter (fun thunk -> thunk ()) (List.rev !pending_global_sends);
     pending_global_sends := [];
-    print_endline "[Compiled]"
+    repl_logln "[Compiled]"
   )
   else if String.length line > 6 && String.sub line 0 6 = "ssend " then (
             let parts = String.split_on_char '.' (String.sub line 6 (String.length line - 6)) in
               match parts with
-              | [obj; meth] -> send_message ~from:"main" obj (CallStmt (meth, []))
-              | _ -> print_endline "[Error] Invalid ssend syntax"
+              | [obj; meth] -> send_message ~from:"main" obj (mk_stmt (CallStmt (meth, [])))
+              | _ -> repl_logln "[Error] Invalid ssend syntax"
           )
           else if String.length line > 5 && String.sub line 0 5 = "send " then (
             let payload = String.sub line 5 (String.length line - 5) |> trim in
             let lparen =
               try String.index payload '(' with Not_found ->
-                print_endline "[Error] Invalid send syntax: missing '('"; -1
+                repl_logln "[Error] Invalid send syntax: missing '('"; -1
             in
               if lparen >= 0 then (
                 let rparen =
                   try String.rindex payload ')' with Not_found ->
-                    print_endline "[Error] Invalid send syntax: missing ')'"; -1
+                    repl_logln "[Error] Invalid send syntax: missing ')'"; -1
                 in
                   if rparen > lparen then (
                     let head = String.sub payload 0 lparen |> trim in
@@ -457,9 +488,9 @@ let rec process_command line =
                         match parts with
                         | [obj; meth] ->
                           let args = parse_args_list args_inside in
-                          send_message ~from:"main" obj (CallStmt (meth, args))
+                          send_message ~from:"main" obj (mk_stmt (CallStmt (meth, args)))
                         | _ ->
-                        print_endline "[Error] Invalid send target (use obj.method(...))"
+                        repl_logln "[Error] Invalid send target (use obj.method(...))"
                   ) else
                     ()
               ) else
@@ -478,14 +509,18 @@ let rec process_command line =
           try
             while true do
               let cmd = input_line ic in
-                print_endline ("[script] " ^ cmd);
+                repl_logln ("[script] " ^ cmd);
                 try process_command cmd with
                 | Quit -> close_in_noerr ic; raise Quit
-		| exn -> Printf.printf "[Error in script line] %s\n%!" (Printexc.to_string exn)
+                | Failure msg when String.length msg >= 0 ->
+                  Printf.printf "[Error in script line] %s: %s\n%!" "?" msg
+                | Types.Type_error (loc, msg) ->
+                  Printf.printf "[Type error] %s: %s\n%!" "?" msg
+                | exn -> Printf.printf "[Error in script line] %s\n%!" (Printexc.to_string exn)
             done
           with End_of_file ->
             close_in ic;
-            print_endline "[Script execution completed]"
+            repl_logln "[Script execution completed]"
       with Sys_error msg ->
         Printf.printf "[Error] Could not open script file: %s\n" msg
   )
@@ -505,47 +540,138 @@ let rec process_command line =
             Printf.printf "[Error] no AST found for '%s' (not an instance nor a class)\n%!" name)
         )
   else if line = "list" then (
-    print_endline "Active objects:";
-    Hashtbl.iter (fun name _ -> Printf.printf " - %s\n" name) Eval_thread.actor_table
+  repl_logln "[Registered actors and types]";
+    (* すでに生きているアクタ（actor_table）から “変数名” と “クラス名” を確実に取得 *)
+    Eval_thread.iter_actor_table (fun aname a ->
+      let cls_name = Eval_thread.actor_class_name aname a in
+      let methods  =
+        match Types.lookup_class_methods_inst cls_name with  (* or lookup_class_methods_inst *)
+        | ms -> ms                                               (* if your function name differs, adjust *)
+        (* if your lookup raises Not_found, wrap it: *)
+        (* | exception Not_found -> [] *)
+      in
+      let ty   = Types.TActor (cls_name, methods) in
+      let show = Types.string_of_ty_pretty ty in
+      Printf.printf "- %s : %s\n%!" aname show
+    );
+    flush stdout;
+  )
+  else if line = "actors" then (
+    repl_logln "[actor_table]";
+    Eval_thread.iter_actor_table (fun aname a ->
+      let cls_name = Eval_thread.actor_class_name aname a in
+      let ty_str =
+        let ms = Types.lookup_class_methods_inst cls_name in
+        if ms = [] then
+          "actor(" ^ cls_name ^ ")"
+        else
+          Types.string_of_ty_pretty (Types.TActor (cls_name, ms))
+      in
+      let mbox_n = Eval_thread.mailbox_len a in
+      let mnames =
+        match Eval_thread.method_names a with
+        | [] -> "(no methods)"
+        | xs -> String.concat ", " xs
+      in
+      Printf.printf "- %s : %s\n    mbox: %d\n    methods: %s\n%!"
+        aname ty_str mbox_n mnames
+    );
+    flush stdout;
   )
   else if line = "vlist" then (
-            print_endline "Active objects:";
-            Hashtbl.iter (fun name (actor:Eval_thread.actor) ->
-            (* 見出し：オブジェクト名のみ *)
-            Printf.printf "- %s\n" name;
-            (* 変数（状態） *)
-            if Hashtbl.length actor.env = 0 then
-              Printf.printf "    (no vars)\n"
-            else
-              Hashtbl.iter (fun key v ->
-                Printf.printf "    var %s = %s\n" key (string_of_value v)
-              ) actor.env;
-              (* メソッド一覧：methods のキーを列挙 *)
-            let method_names =
-              Hashtbl.fold (fun mname _ acc -> mname :: acc) actor.methods []
-              |> List.sort String.compare
-            in
-              Printf.printf "    methods: %s\n" (String.concat ", " method_names);
-            ) Eval_thread.actor_table
+    repl_logln "Active objects:";
+    Hashtbl.iter (fun name (actor:Eval_thread.actor) ->
+    (* 見出し：オブジェクト名のみ *)
+    Printf.printf "- %s\n" name;
+    (* 変数（状態） *)
+    if Hashtbl.length actor.env = 0 then
+      Printf.printf "    (no vars)\n"
+    else
+      Hashtbl.iter (fun key v ->
+      Printf.printf "    var %s = %s\n" key (string_of_value v)
+      ) actor.env;
+      (* メソッド一覧：methods のキーを列挙 *)
+      let method_names =
+        Hashtbl.fold (fun mname _ acc -> mname :: acc) actor.methods []
+        |> List.sort String.compare
+      in
+        Printf.printf "    methods: %s\n" (String.concat ", " method_names);
+    ) Eval_thread.actor_table
   )    
   else if String.length line > 7 && String.sub line 0 7 = "pprint " then (
-            let name = String.trim (String.sub line 7 (String.length line - 7)) in
-              match Eval_thread.get_instance_source name with
-              | Some cdecl ->
-                print_endline (Ast.pprint_class cdecl)
-              | None ->
-              (* クラス名として検索 *)
-              (match Hashtbl.find_opt Eval_thread.class_env name with
-                | Some cdecl ->
-                  print_endline (Ast.pprint_class cdecl)
-                | None ->
-                  Printf.printf "[Error] cannot find source for '%s'\n%!" name)
+    let name = String.trim (String.sub line 7 (String.length line - 7)) in
+      match Eval_thread.get_instance_source name with
+      | Some cdecl ->
+        repl_logln (Ast.pprint_class cdecl)
+      | None ->
+        (match Hashtbl.find_opt Eval_thread.class_env name with
+        | Some cdecl ->
+          repl_logln (Ast.pprint_class cdecl)
+        | None ->
+          Printf.printf "[Error] cannot find source for '%s'\n%!" name)
   )
 
+let run_repl_command_from_web (cmd:string) : string =
+  web_repl_clear ();
+  try
+    repl_logf "ABCL/c+> %s\n" cmd;
+    process_command cmd;
+
+    for _i = 1 to 10 do
+      Thread.delay 0.05;
+      flush_logs_to_repl ();
+      flush_replies_to_repl ();
+    done;
+    let out = web_repl_contents () in
+    if out = "" then "OK" else out
+  with
+  | Quit ->
+      web_repl_println "Quit";
+      web_repl_contents ()
+  | Failure msg ->
+      web_repl_println ("[Error] " ^ msg);
+      web_repl_contents ()
+  | Failure msg when String.length msg >= 0 ->
+      web_repl_println ("[Syntax error] " ^ msg);
+      web_repl_contents ()
+  | Types.Type_error (loc, msg) ->
+      web_repl_println ("[Type error] " ^ Location.to_string loc ^ ": " ^ msg);
+      web_repl_contents ()
+  | exn ->
+      web_repl_println ("[Error] " ^ Printexc.to_string exn);
+      web_repl_contents ()
+
+let run_repl_command_from_web (cmd:string) : string =
+  web_repl_clear ();
+  try
+    repl_logf "ABCL/c+> %s\n" cmd;
+    process_command cmd;
+    flush_replies_to_repl ();
+    let out = web_repl_contents () in
+    if out = "" then "OK" else out
+  with
+  | Quit ->
+      let msg = "Quit\n" in
+      web_repl_print msg;
+      web_repl_contents ()
+  | Failure msg ->
+      web_repl_println ("[Error] " ^ msg);
+      web_repl_contents ()
+  | Failure msg when String.length msg >= 0 ->
+      web_repl_println ("[Syntax error] " ^ msg);
+      web_repl_contents ()
+  | Types.Type_error (loc, msg) ->
+      web_repl_println ("[Type error] " ^ Location.to_string loc ^ ": " ^ msg);
+      web_repl_contents ()
+  | exn ->
+      web_repl_println ("[Error] " ^ Printexc.to_string exn);
+      web_repl_contents ()
+
 let start_repl () =
-  let building = ref false in           (* 今、プログラム入力中か？ *)
+  let building = ref false in
   let buf = Buffer.create 4096 in
   let depth = ref 0 in
+  Web_gateway.set_repl_command_handler run_repl_command_from_web;
   let prompt () =
     if !building then print_string "... "
     else print_string "ABCL/c+> ";
@@ -559,11 +685,12 @@ let start_repl () =
       let s = String.trim line in
       if (not !building) && is_command_line s then (
           (try
-            process_command line   (* ←従来の関数名に合わせて呼び出し *)
+            process_command line
           with
           | Quit -> raise Quit
           | Failure msg -> Printf.printf "[Error] %s\n%!" msg
           | exn -> Printf.printf "[Error] %s\n%!" (Printexc.to_string exn));
+          flush_replies_to_repl();
           loop ()
       ) else begin
         Buffer.add_string buf line; Buffer.add_char buf '\n';
@@ -579,7 +706,6 @@ let start_repl () =
         in
           back !i
         in
-      (* まだブレース開いている or セミコロン/クローズ無しなら続行 *)
           if (!depth > 0) || (not last_nonspace_is_term) then (
           building := true;
           loop ()
@@ -592,7 +718,6 @@ let start_repl () =
               match parse_program_safe src with
               | Error msg ->
                 Printf.printf "[Parse error] %s\n%!" msg;
-            (* 失敗しても REPL へ戻る *)
                 loop ()
               | Ok decls ->
             (* AST表示（既存のダンプ関数を使う） *)
@@ -630,12 +755,19 @@ let repl_thread_fun () =
   with
   | Quit ->
       print_endline exit_banner;
-      (* 例: SDL を止めたい場合 *)
       (try Sdl_helper.sdl_quit () with _ -> ());
       ()
   | exn ->
-      (* REPLスレッドの予期しない例外はログだけ出して終了 *)
       Printf.printf "[REPL thread error] %s\n%!" (Printexc.to_string exn)
+
+let prim_reply (args : value list) : value =
+  match args with
+  | [v] ->
+      let s = string_of_value v in
+      push_web_evt ("[REPLY] " ^ s);
+      VUnit
+  | _ ->
+      failwith "reply(x): arity 1 expected"
 
 let () =
   Arg.parse speclist (fun _ -> ()) "Usage: abclrepl_thread [-f script_file]";
@@ -648,13 +780,44 @@ let () =
     | [] -> make_array [||]
     | _  -> failwith "array_empty(): arity 0 expected");
 
+  (* --- Web gateway (demo) ---
+     web_listen(port)
+     web_expose("/calc", "calc")
+     Then open: http://localhost:port/ and send messages from your browser.
+  *)
+  add_prim "web_listen" (function
+    | [VInt p] -> Web_gateway.start ~port:p; VUnit
+    | [VFloat f] -> Web_gateway.start ~port:(int_of_float f); VUnit
+    | _ -> failwith "web_listen(port): arity 1 expected (int/float)");
+
+  add_prim "web_expose" (function
+    | [VString path; VString actor_name] ->
+        let key =
+          let p = String.trim path in
+          if p <> "" && p.[0] = '/' then String.sub p 1 (String.length p - 1) else p
+        in
+        if key = "" then failwith "web_expose: empty path";
+        Web_gateway.expose ~key ~actor_name;
+        VUnit
+    | _ -> failwith "web_expose(path, actor): arity 2 expected (string,string)");
+
+  add_prim "reply" (function
+  | [v] ->
+      let s = string_of_value v in
+      (match get_current_msg_id () with
+       | Some id -> push_web_evt (Printf.sprintf "[REPLY] id=%s value=%s" id s)
+       | None    -> push_web_evt (Printf.sprintf "[REPLY] value=%s" s));
+      VUnit
+  | _ -> failwith "reply(x): arity 1 expected");
+
+  add_prim "spawn" (function
+  | [VString class_name; VString actor_name] ->
+      Eval_thread.spawn_actor ~class_name ~actor_name;  (* これを実装 *)
+      VUnit
+  | _ -> failwith "spawn(class, name): arity 2 expected (string,string)");
+						    
   let repl_thr = Thread.create (fun () -> repl_thread_fun ()) () in
 
-  (* SDL を使う設計なら：メインで SDL をブロック実行 *)
   Sdl_helper.main_loop ();
-
   (try Thread.join repl_thr with _ -> ());
-
-  (* SDL を使わない場合は、代わりに join でブロック：
-     Thread.join _thr *)
   Stdlib.exit 0

@@ -5,6 +5,10 @@ export class Interpreter {
     this.runtime = new Runtime(printer);
   }
 
+  setCanvas(canvas) {
+    this.runtime.setCanvas(canvas);
+  }
+
   runProgram(ast) {
     this.runtime.reset();
     for (const cls of ast.classes) {
@@ -13,5 +17,7 @@ export class Interpreter {
     for (const st of ast.statements) {
       this.runtime.evalStmt(st, {});
     }
+    // Start all actor threads (setTimeout-based)
+    this.runtime.scheduleAllActors();
   }
 }

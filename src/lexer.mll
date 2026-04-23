@@ -45,6 +45,7 @@ rule token = parse
 | "timeout"    { TIMEOUT }
 | "->"         { ARROW }
 | "=="         { EQ }
+| "!="         { NEQ }
 | ">="         { GE }
 | "<="         { LE }
 | ">"          { GT }

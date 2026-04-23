@@ -1,0 +1,95 @@
+// Heavy tracing to diagnose the deadlock
+class Fork {
+  var id     = 0;
+  var taken  = 0;
+  var waiter = "";
+
+  method init(myId) { id = myId; }
+
+  method take() {
+    if (taken == 0) {
+      taken = 1;
+      print("F" + id + ".take from " + sender + " GRANT  [t=1,w=]");
+      send sender.fork_granted();
+    } else {
+      print("F" + id + ".take from " + sender + " QUEUE  [t=" + taken + ",old_waiter=" + waiter + " -> new=" + sender + "]");
+      waiter = sender;
+    }
+  }
+
+  method release() {
+    if (waiter == "") {
+      print("F" + id + ".release from " + sender + " FREE   [was t=" + taken + "]");
+      taken = 0;
+    } else {
+      print("F" + id + ".release from " + sender + " XFER to " + waiter + " [t stays 1]");
+      send waiter.fork_granted();
+      waiter = "";
+    }
+  }
+}
+
+class Philosopher {
+  var id       = 0;
+  var lowFork  = "";
+  var highFork = "";
+  var hasLow   = 0;
+  var eatCount = 0;
+
+  method init(myId, lo, hi) {
+    id = myId;
+    lowFork  = lo;
+    highFork = hi;
+    send self.think();
+  }
+
+  method think() {
+    print("P" + id + ".think (hasLow=" + hasLow + ")");
+    call wait(700);
+    send self.hungry();
+  }
+
+  method hungry() {
+    print("P" + id + ".hungry RESET hasLow=0, take " + lowFork);
+    hasLow = 0;
+    send lowFork.take();
+  }
+
+  method fork_granted() {
+    print("P" + id + ".fork_granted from " + sender + " (hasLow=" + hasLow + ")");
+    if (hasLow == 0) {
+      hasLow = 1;
+      print("P" + id + "   -> got low, take " + highFork);
+      send highFork.take();
+    } else {
+      print("P" + id + "   -> got high, send self.eat");
+      send self.eat();
+    }
+  }
+
+  method eat() {
+    eatCount = eatCount + 1;
+    print("P" + id + ".eat #" + eatCount);
+    call wait(900);
+    send self.eat_done();
+  }
+
+  method eat_done() {
+    print("P" + id + ".eat_done release " + lowFork + "," + highFork);
+    send lowFork.release();
+    send highFork.release();
+    send self.think();
+  }
+}
+
+var fork0 = new Fork(0);
+var fork1 = new Fork(1);
+var fork2 = new Fork(2);
+var fork3 = new Fork(3);
+var fork4 = new Fork(4);
+
+var p0 = new Philosopher(0, "fork0", "fork1");
+var p1 = new Philosopher(1, "fork1", "fork2");
+var p2 = new Philosopher(2, "fork2", "fork3");
+var p3 = new Philosopher(3, "fork3", "fork4");
+var p4 = new Philosopher(4, "fork0", "fork4");

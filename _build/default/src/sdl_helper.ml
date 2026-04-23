@@ -4,6 +4,8 @@ open Tsdl
 type cmd =
   | Init of int * int * string
   | Line of int * int * int * int
+  | LineRGB of int * int * int * int * int * int * int
+      (* x1 y1 x2 y2  r g b *)
   | Clear
   | Present
   | Quit
@@ -21,6 +23,7 @@ let post cmd =
 (* 外部公開 API：他スレッドからはこれだけ呼ぶ *)
 let sdl_init ~w ~h ~title = post (Init (w,h,title))
 let sdl_draw_line x1 y1 x2 y2 = post (Line (x1,y1,x2,y2))
+let sdl_draw_line_rgb x1 y1 x2 y2 r g b = post (LineRGB (x1,y1,x2,y2,r,g,b))
 let sdl_clear () = post Clear
 let sdl_present () = post Present
 let sdl_quit () = post Quit
@@ -110,6 +113,13 @@ let main_loop () =
             | None -> ()
             | Some r ->
 		ignore (Sdl.render_draw_line r x1 y1 x2 y2);
+                ignore (Sdl.set_render_draw_color r 255 255 255 255))
+       | Some (LineRGB (x1,y1,x2,y2,cr,cg,cb)) ->
+           (match !renderer with
+            | None -> ()
+            | Some r ->
+                ignore (Sdl.set_render_draw_color r cr cg cb 255);
+                ignore (Sdl.render_draw_line r x1 y1 x2 y2);
                 ignore (Sdl.set_render_draw_color r 255 255 255 255))
        | Some Clear ->
 (*           log "Clear";    *)

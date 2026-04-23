@@ -1,0 +1,167 @@
+// Drone Return-Route Support Simulator — ABCL/c+ (JavaScript version)
+// Adaptation of Taga et al. (2016) "Multi-agent Approach for Return Route
+// Support System Simulation" where the smartphones of stranded commuters are
+// replaced by a swarm of disaster-relief drones flying toward a safe zone.
+//
+// Each Drone actor combines the paper's IA + NA + RA + IDA roles:
+//   * flies toward the destination (IA: route derivation, simplified)
+//   * scans its surroundings for impassable points  (drone_scan → IDA creation)
+//   * broadcasts newly-discovered obstacles to drones within comm range
+//     (drone_broadcast → pheromone-like diffusion, ACO style)
+//   * drones that receive the info detour around the obstacle perpendicular
+//     to the line-of-flight (Dijkstra substitute for the preliminary sim)
+
+class Drone {
+  var id       = 0;
+  var x        = 0.0;
+  var y        = 0.0;
+  var destX    = 700.0;
+  var destY    = 550.0;
+  var speed    = 2.5;
+  var arrived  = 0;
+  var dead     = 0;
+  var battery  = 300;
+  var obsKnown = 0;
+  var obsId    = 0;
+  var obsX     = 0.0;
+  var obsY     = 0.0;
+  var obsR     = 0.0;
+
+  method init(myId, startX, startY, dx, dy, startBatt) {
+    id      = myId;
+    x       = startX;
+    y       = startY;
+    destX   = dx;
+    destY   = dy;
+    battery = startBatt;
+    call drone_register(id);
+    call drone_pos(id, x, y);
+    call drone_state(id, 0);
+    send self.step();
+  }
+
+  method step() {
+    if (arrived == 0) {
+      if (dead == 0) {
+        battery = battery - 1;
+        if (battery <= 0) {
+          dead = 1;
+          call drone_state(id, 2);
+        }
+        if (dead == 0) {
+          call drone_scan(id, x, y);
+          var ddx  = destX - x;
+          var ddy  = destY - y;
+          var dist = sqrt(ddx * ddx + ddy * ddy);
+          if (dist < speed) {
+            x = destX;
+            y = destY;
+            arrived = 1;
+            call drone_pos(id, x, y);
+            call drone_state(id, 1);
+          } else {
+            var moveX = ddx / dist * speed;
+            var moveY = ddy / dist * speed;
+            if (obsKnown == 1) {
+              var odx   = obsX - x;
+              var ody   = obsY - y;
+              var odist = sqrt(odx * odx + ody * ody);
+              var marg  = obsR + 32.0;
+              if (odist < marg) {
+                var nx  = odx / odist;
+                var ny  = ody / odist;
+                var tx1 = 0.0 - ny;
+                var ty1 = nx;
+                var tx2 = ny;
+                var ty2 = 0.0 - nx;
+                var dot1 = ddx * tx1 + ddy * ty1;
+                if (dot1 > 0.0) {
+                  moveX = tx1 * speed;
+                  moveY = ty1 * speed;
+                } else {
+                  moveX = tx2 * speed;
+                  moveY = ty2 * speed;
+                }
+              }
+            }
+            x = x + moveX;
+            y = y + moveY;
+            call drone_pos(id, x, y);
+          }
+          call wait(55);
+          send self.step();
+        }
+      }
+    }
+  }
+
+  method learn_obstacle(newObsId, ox, oy, oR) {
+    if (obsKnown == 0) {
+      obsKnown = 1;
+      obsId    = newObsId;
+      obsX     = ox;
+      obsY     = oy;
+      obsR     = oR;
+      call drone_remember(id, newObsId);
+      call drone_broadcast(id, newObsId, ox, oy, oR);
+    } else {
+      if (obsId != newObsId) {
+        var dNew = sqrt((ox - x) * (ox - x) + (oy - y) * (oy - y));
+        var dOld = sqrt((obsX - x) * (obsX - x) + (obsY - y) * (obsY - y));
+        if (dNew < dOld) {
+          obsId = newObsId;
+          obsX  = ox;
+          obsY  = oy;
+          obsR  = oR;
+        }
+        call drone_remember(id, newObsId);
+        call drone_broadcast(id, newObsId, ox, oy, oR);
+      }
+    }
+  }
+}
+
+// Sequential spawner — ABCL/c+ has no loop syntax, so each Drone is created
+// inside a self-recursive spawn_next() method. Using `new Drone(...)` inside
+// a print() expression lets the interpreter auto-generate unique actor names
+// (drone1, drone2, ...).
+class Spawner {
+  var count = 0;
+  var total = 0;
+  var destX = 700.0;
+  var destY = 550.0;
+
+  method init(n, dx, dy) {
+    total = n;
+    destX = dx;
+    destY = dy;
+    send self.spawn_next();
+  }
+
+  method spawn_next() {
+    if (count < total) {
+      var sx   = 30.0 + rand(90);
+      var sy   = 30.0 + rand(120);
+      var batt = 400 + rand(400);
+      print(new Drone(count, sx, sy, destX, destY, batt));
+      count = count + 1;
+      call wait(25);
+      send self.spawn_next();
+    } else {
+      print("spawner: all drones dispatched");
+    }
+  }
+}
+
+// ---- World setup (canvas 800x600, comm range 110 px, view range 55 px) ----
+call world_setup(800, 600, 110, 55);
+call place_safe(720.0, 540.0, 38.0);
+
+// Disaster zones — impassable points
+call place_obstacle(1, 280.0, 220.0, 55.0);
+call place_obstacle(2, 480.0, 380.0, 65.0);
+call place_obstacle(3, 200.0, 450.0, 48.0);
+call place_obstacle(4, 560.0, 180.0, 42.0);
+
+// Spawn 14 drones from the upper-left "city center"
+var spawner = new Spawner(14, 720.0, 540.0);

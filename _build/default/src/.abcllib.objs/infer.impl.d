@@ -1,1 +1,1 @@
-src/infer.ml: Ast Hashtbl List Obj String Types Typing_env
+src/infer.ml: Ast Hashtbl List Location Obj Printf String Types Typing_env

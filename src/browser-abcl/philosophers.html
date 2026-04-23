@@ -1,0 +1,204 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>ABCL/c+ — 5 Dining Philosophers</title>
+  <style>
+    body { margin: 0; background: #0d0d1a; color: #ccc; font-family: monospace; display: flex; flex-direction: column; align-items: center; }
+    h2 { margin: 12px 0 4px; font-size: 1rem; color: #8af; }
+    #info { font-size: 0.75rem; color: #666; margin-bottom: 8px; max-width: 500px; text-align: center; }
+    canvas { border: 1px solid #333; display: block; }
+    #controls { margin: 10px 0; display: flex; gap: 8px; }
+    button { padding: 6px 14px; background: #222; color: #aef; border: 1px solid #446; cursor: pointer; font-family: monospace; }
+    button:hover { background: #334; }
+    #legend { display: flex; gap: 14px; font-size: 0.75rem; margin: 4px 0; }
+    .sw { display: inline-block; width: 10px; height: 10px; vertical-align: middle; margin-right: 4px; border: 2px solid; }
+    #log { width: 500px; height: 140px; background: #050510; color: #4a4; font-size: 0.7rem; overflow-y: auto; padding: 6px; margin-top: 6px; white-space: pre-wrap; }
+    nav { margin: 6px; font-size: 0.8rem; }
+    nav a { color: #6af; margin: 0 6px; }
+  </style>
+</head>
+<body>
+  <h2>ABCL/c+ — 5 Dining Philosophers</h2>
+  <div id="info">
+    5 philosopher actors + 5 fork actors, each running in its own setTimeout thread.
+    Deadlock is avoided by resource hierarchy (every philosopher takes the lower-numbered fork first).
+  </div>
+  <canvas id="canvas" width="500" height="500"></canvas>
+  <div id="legend">
+    <span><span class="sw" style="background:#334;"></span>THINK</span>
+    <span><span class="sw" style="background:#ffcc40;"></span>HUNGRY</span>
+    <span><span class="sw" style="background:#40e070;"></span>EAT</span>
+    <span style="color:#888;">&nbsp;|&nbsp;</span>
+    <span><span class="sw" style="border-color:#ff5566;"></span>P0</span>
+    <span><span class="sw" style="border-color:#ffa833;"></span>P1</span>
+    <span><span class="sw" style="border-color:#3ddc6e;"></span>P2</span>
+    <span><span class="sw" style="border-color:#3aa8ff;"></span>P3</span>
+    <span><span class="sw" style="border-color:#c765ff;"></span>P4</span>
+    <span style="color:#888;">&nbsp;|&nbsp;fork adopts holder's colour and points →&nbsp;at its holder</span>
+  </div>
+  <div id="controls">
+    <button id="btnRun">▶ Run</button>
+    <button id="btnStop">■ Stop</button>
+    <button id="btnShowSrc">Show ABCL source</button>
+  </div>
+  <div id="log"></div>
+  <nav>
+    <a href="/browser_console.html">Console</a> |
+    <a href="/rotate4lines.html">← Rotate 4 Lines</a>
+  </nav>
+
+  <script src="/src/parser/parser.js"></script>
+  <script type="module">
+    import * as AST from "/src/ast.js";
+    import { Interpreter } from "/src/interpreter.js";
+
+    const ABCL_SOURCE = `\
+class Fork {
+  var id       = 0;
+  var taken    = 0;
+  var waiter   = "";
+  var waiterId = 0;
+
+  method init(myId) { id = myId; }
+
+  method take(reqId) {
+    if (taken == 0) {
+      taken = 1;
+      call fork_held(id, reqId);
+      send sender.fork_granted();
+    } else {
+      waiter   = sender;
+      waiterId = reqId;
+    }
+  }
+
+  method release() {
+    if (waiter == "") {
+      taken = 0;
+      call fork_free(id);
+    } else {
+      send waiter.fork_granted();
+      call fork_held(id, waiterId);
+      waiter = "";
+    }
+  }
+}
+
+class Philosopher {
+  var id       = 0;
+  var lowFork  = "";
+  var highFork = "";
+  var hasLow   = 0;
+  var eatCount = 0;
+
+  method init(myId, lo, hi) {
+    id = myId;
+    lowFork  = lo;
+    highFork = hi;
+    send self.think();
+  }
+
+  method think() {
+    call philo_state(id, 0);
+    call wait(700);
+    send self.hungry();
+  }
+
+  method hungry() {
+    call philo_state(id, 1);
+    hasLow = 0;
+    send lowFork.take(id);
+  }
+
+  method fork_granted() {
+    if (hasLow == 0) {
+      hasLow = 1;
+      send highFork.take(id);
+    } else {
+      send self.eat();
+    }
+  }
+
+  method eat() {
+    call philo_state(id, 2);
+    eatCount = eatCount + 1;
+    call wait(900);
+    send self.eat_done();
+  }
+
+  method eat_done() {
+    send lowFork.release();
+    send highFork.release();
+    send self.think();
+  }
+}
+
+var fork0 = new Fork(0);
+var fork1 = new Fork(1);
+var fork2 = new Fork(2);
+var fork3 = new Fork(3);
+var fork4 = new Fork(4);
+
+// Fork i sits between philosopher i and (i+1)%5; so philosopher i's adjacent
+// forks are fork i (right) and fork (i-1)%5 (left). Resource hierarchy:
+// every philosopher takes the lower-numbered fork first → no deadlock.
+var p0 = new Philosopher(0, fork0, fork4);   // right=fork0, left=fork4
+var p1 = new Philosopher(1, fork0, fork1);   // left=fork0,  right=fork1
+var p2 = new Philosopher(2, fork1, fork2);
+var p3 = new Philosopher(3, fork2, fork3);
+var p4 = new Philosopher(4, fork3, fork4);
+`;
+
+    const canvas = document.getElementById("canvas");
+    const logDiv = document.getElementById("log");
+    let activeTimers = [], running = false;
+
+    const _origSetTimeout = window.setTimeout.bind(window);
+    window.setTimeout = function(fn, ms, ...rest) {
+      const id = _origSetTimeout(fn, ms, ...rest);
+      if (running) activeTimers.push(id);
+      return id;
+    };
+
+    function appendLog(line) {
+      if (line === undefined || line === null) return;
+      const s = String(line);
+      if (s.startsWith("[send]")) return;   // hide spam
+      logDiv.textContent += s + "\n";
+      logDiv.scrollTop = logDiv.scrollHeight;
+    }
+
+    function stopAll() {
+      running = false;
+      activeTimers.forEach(id => clearTimeout(id));
+      activeTimers = [];
+    }
+
+    function runProgram() {
+      stopAll();
+      logDiv.textContent = "";
+      const parser = window.parser;
+      if (!parser) { appendLog("[ERROR] parser not loaded"); return; }
+      parser.yy = AST;
+      running = true;
+      const interp = new Interpreter(appendLog);
+      interp.setCanvas(canvas);
+      try {
+        const ast = parser.parse(ABCL_SOURCE);
+        appendLog("[parse ok]");
+        interp.runProgram(ast);
+        appendLog("[10 actors started: 5 Fork + 5 Philosopher]");
+      } catch (e) {
+        running = false;
+        appendLog("[ERROR] " + e);
+      }
+    }
+
+    document.getElementById("btnRun").addEventListener("click", runProgram);
+    document.getElementById("btnStop").addEventListener("click", () => { stopAll(); appendLog("[stopped]"); });
+    document.getElementById("btnShowSrc").addEventListener("click", () => { logDiv.textContent = ABCL_SOURCE; });
+    window.addEventListener("load", runProgram);
+  </script>
+</body>
+</html>

@@ -1,0 +1,99 @@
+// 5-philosophers with fork-holder visualisation.
+// Each Philosopher passes its id when requesting a Fork, and each Fork
+// notifies the visualisation runtime of its current holder's id.
+
+class Fork {
+  var id       = 0;
+  var taken    = 0;
+  var waiter   = "";    // actor name of waiting philosopher
+  var waiterId = 0;     // philosopher id of waiting philosopher
+
+  method init(myId) { id = myId; }
+
+  method take(reqId) {
+    if (taken == 0) {
+      taken = 1;
+      call fork_held(id, reqId);
+      send sender.fork_granted();
+    } else {
+      waiter   = sender;
+      waiterId = reqId;
+    }
+  }
+
+  method release() {
+    if (waiter == "") {
+      taken = 0;
+      call fork_free(id);
+    } else {
+      // Transfer ownership directly — fork stays taken, holder changes.
+      send waiter.fork_granted();
+      call fork_held(id, waiterId);
+      waiter = "";
+    }
+  }
+}
+
+class Philosopher {
+  var id       = 0;
+  var lowFork  = "";
+  var highFork = "";
+  var hasLow   = 0;
+  var eatCount = 0;
+
+  method init(myId, lo, hi) {
+    id = myId;
+    lowFork  = lo;
+    highFork = hi;
+    send self.think();
+  }
+
+  method think() {
+    call philo_state(id, 0);
+    call wait(700);
+    send self.hungry();
+  }
+
+  method hungry() {
+    call philo_state(id, 1);
+    hasLow = 0;
+    send lowFork.take(id);
+  }
+
+  method fork_granted() {
+    if (hasLow == 0) {
+      hasLow = 1;
+      send highFork.take(id);
+    } else {
+      send self.eat();
+    }
+  }
+
+  method eat() {
+    call philo_state(id, 2);
+    eatCount = eatCount + 1;
+    call wait(900);
+    send self.eat_done();
+  }
+
+  method eat_done() {
+    send lowFork.release();
+    send highFork.release();
+    send self.think();
+  }
+}
+
+var fork0 = new Fork(0);
+var fork1 = new Fork(1);
+var fork2 = new Fork(2);
+var fork3 = new Fork(3);
+var fork4 = new Fork(4);
+
+// Geometric layout: fork i sits between philosopher i and philosopher (i+1)%5,
+// so philosopher i's two adjacent forks are fork i (RIGHT) and fork (i-1)%5 (LEFT).
+// Resource hierarchy: every philosopher takes the lower-numbered fork first.
+var p0 = new Philosopher(0, fork0, fork4);   // right=fork0, left=fork4
+var p1 = new Philosopher(1, fork0, fork1);   // left=fork0,  right=fork1
+var p2 = new Philosopher(2, fork1, fork2);
+var p3 = new Philosopher(3, fork2, fork3);
+var p4 = new Philosopher(4, fork3, fork4);

@@ -1,0 +1,38 @@
+// Rotate4Lines — four actor threads, each rotating around a different centre.
+// The four centres form the vertices of a square.
+class Line {
+  var cx = 0.0;
+  var cy = 0.0;
+  var angle = 0.0;
+  var len = 60.0;
+
+  method init(startCx, startCy, startAngle) {
+    cx = startCx;
+    cy = startCy;
+    angle = startAngle;
+  }
+
+  method rotate() {
+    angle = angle + 3.0;
+    var rad = angle * 3.14159 / 180.0;
+    var dx = cos(rad) * len;
+    var dy = sin(rad) * len;
+    var x1 = cx - dx;
+    var y1 = cy - dy;
+    var x2 = cx + dx;
+    var y2 = cy + dy;
+    call canvas_line(x1, y1, x2, y2);
+    call wait(32);
+    send self.rotate();
+  }
+}
+
+// Square vertices on a 400×400 canvas
+var li1 = new Line(100.0, 100.0,   0.0);
+var li2 = new Line(300.0, 100.0,  90.0);
+var li3 = new Line(100.0, 300.0, 180.0);
+var li4 = new Line(300.0, 300.0, 270.0);
+send li1.rotate();
+send li2.rotate();
+send li3.rotate();
+send li4.rotate();
