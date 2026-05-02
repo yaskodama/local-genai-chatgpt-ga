@@ -22,7 +22,10 @@ _gemini_client = None
 
 DEFAULT_GEMINI_MODEL = "gemini-2.5-flash"
 DEFAULT_ANTHROPIC_MODEL = "claude-opus-4-7"
-DEFAULT_MAX_TOKENS = 1024
+# Enough headroom for visible output even when the model spends part of
+# its budget on internal thinking tokens (gemini-2.5 thinks by default,
+# Opus 4.7 thinks adaptively).
+DEFAULT_MAX_TOKENS = 4096
 
 
 def _select_provider() -> str:
@@ -82,7 +85,17 @@ def call_claude(
         "messages": [{"role": "user", "content": prompt}],
     }
     if system is not None:
-        kwargs["system"] = system
+        # Tag the system block as cacheable.  Anthropic prompt caching
+        # is a prefix match: a second call with the same system text
+        # served from cache costs ~0.1x the first call's system tokens
+        # (~1.25x on the first call to write).  Useful when one actor
+        # processes many requests with a fixed persona — e.g.
+        # samples-ai/Reviewer.abcl.  No effect for system prompts
+        # below the model's minimum cacheable size (1024 tokens for
+        # Opus 4.7); the request just runs uncached.
+        kwargs["system"] = [
+            {"type": "text", "text": system, "cache_control": {"type": "ephemeral"}}
+        ]
     response = _anthropic_client.messages.create(**kwargs)
     return "".join(b.text for b in response.content if getattr(b, "type", None) == "text")
 

@@ -1,0 +1,23 @@
+// Specialist-actor pattern: one CodeReviewer instance handles many
+// snippets, all with the same fixed system prompt.  Anthropic auto-
+// caches the system prefix after the first call so each subsequent
+// review costs ~0.1x its system-prompt tokens (visible savings only
+// when the persona crosses the 1024-token cache threshold; this short
+// demo persona stays uncached but the wiring works the same way).
+//
+// Try also using `now` to drive the calls synchronously and collect
+// returned values, or `future` to dispatch in parallel.
+class CodeReviewer {
+  var persona = "You are a senior code reviewer.  For each code snippet, reply with a single bullet point identifying the most important issue.  Be concise.  No preamble.";
+
+  method review(snippet) {
+    var feedback = ai_call_with_system(persona, snippet);
+    print("[review] " + snippet);
+    print("         " + feedback);
+  }
+}
+
+var r = new CodeReviewer();
+send r.review("password = \"admin123\"");
+send r.review("query = f\"SELECT * FROM users WHERE id={user_id}\"");
+send r.review("for i in range(len(items)): print(items[i])");

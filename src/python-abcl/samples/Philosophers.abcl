@@ -64,6 +64,10 @@ class Philosopher {
 var f0 = new Fork();
 var f1 = new Fork();
 var f2 = new Fork();
+// Ordered acquisition: every philosopher requests the lower-id fork
+// first, breaking the circular-wait condition.  Without this, three
+// philosophers grabbing their "left" simultaneously livelock under our
+// refused/retry strategy.
 var p0 = new Philosopher(0, f0, f1, 2);
 var p1 = new Philosopher(1, f1, f2, 2);
-var p2 = new Philosopher(2, f2, f0, 2);
+var p2 = new Philosopher(2, f0, f2, 2);
