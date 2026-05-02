@@ -1,0 +1,69 @@
+// 3-philosophers dining problem.  Forks are actors that hand out
+// permission via `granted` / `refused` messages; philosophers eat a
+// bounded number of times and then stop, so the program terminates.
+class Fork {
+  var held = 0;
+
+  method request() {
+    if (held == 0) {
+      held = 1;
+      send sender.granted();
+    } else {
+      send sender.refused();
+    }
+  }
+  method release() {
+    held = 0;
+  }
+}
+
+class Philosopher {
+  var id = 0;
+  var left = 0;
+  var right = 0;
+  var meals = 2;
+  var got_left = 0;
+
+  method init(my_id, l, r, n) {
+    id = my_id;
+    left = l;
+    right = r;
+    meals = n;
+    got_left = 0;
+    send self.try_left();
+  }
+
+  method try_left() {
+    if (meals > 0) { send left.request(); }
+  }
+
+  method granted() {
+    if (got_left == 0) {
+      got_left = 1;
+      send right.request();
+    } else {
+      print("[phil " + id + "] eating, meals=" + meals);
+      meals = meals - 1;
+      got_left = 0;
+      send left.release();
+      send right.release();
+      if (meals > 0) { send self.try_left(); }
+      else           { print("[phil " + id + "] done"); }
+    }
+  }
+
+  method refused() {
+    if (got_left == 1) {
+      send left.release();
+      got_left = 0;
+    }
+    send self.try_left();
+  }
+}
+
+var f0 = new Fork();
+var f1 = new Fork();
+var f2 = new Fork();
+var p0 = new Philosopher(0, f0, f1, 2);
+var p1 = new Philosopher(1, f1, f2, 2);
+var p2 = new Philosopher(2, f2, f0, 2);

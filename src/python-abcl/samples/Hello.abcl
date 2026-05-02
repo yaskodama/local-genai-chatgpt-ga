@@ -1,0 +1,23 @@
+// Smallest meaningful actor: counts greetings.
+class Hello {
+  float count = 0.;
+
+  method init(n) {
+    count = n;
+    print("Hello object initialized with " + n);
+  }
+
+  method greet() {
+    print("Hello! count = " + count);
+  }
+
+  method inc() {
+    count = count + 1.;
+    print("count incremented to " + count);
+  }
+}
+
+var h = new Hello(5);
+send h.greet();
+send h.inc();
+send h.greet();

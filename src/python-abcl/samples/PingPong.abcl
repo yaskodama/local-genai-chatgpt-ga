@@ -1,0 +1,35 @@
+// Two actors bouncing a bounded number of messages.  We use a counter
+// rather than infinite recursion so the smoke test can complete on its
+// own without relying on the wall-clock timeout.
+class Pinger {
+  var left = 5;
+  var partner = 0;
+
+  method init(n) {
+    left = n;
+  }
+
+  method bind(p) {
+    partner = p;
+    send partner.ping();
+  }
+
+  method pong() {
+    print("Pinger got pong, left=" + left);
+    left = left - 1;
+    if (left > 0) {
+      send sender.ping();
+    }
+  }
+}
+
+class Ponger {
+  method ping() {
+    print("Ponger got ping");
+    send sender.pong();
+  }
+}
+
+var pinger = new Pinger(5);
+var ponger = new Ponger();
+send pinger.bind(ponger);

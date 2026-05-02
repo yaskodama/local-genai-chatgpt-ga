@@ -1,0 +1,71 @@
+// Single producer / single consumer over a small bounded buffer.  The
+// producer keeps trying until the buffer accepts; the consumer keeps
+// trying until the buffer has data.  Both stop after `total` items.
+class Buffer {
+  var cap = 3;
+  var size = 0;
+
+  method put() {
+    if (size < cap) {
+      size = size + 1;
+      print("[buf] put -> size=" + size);
+      send sender.put_ok();
+    } else {
+      send sender.put_full();
+    }
+  }
+
+  method take() {
+    if (size > 0) {
+      size = size - 1;
+      print("[buf] take -> size=" + size);
+      send sender.take_ok();
+    } else {
+      send sender.take_empty();
+    }
+  }
+}
+
+class Producer {
+  var left = 5;
+  var buf = 0;
+
+  method init(n, b) {
+    left = n;
+    buf = b;
+    send buf.put();
+  }
+  method put_ok() {
+    left = left - 1;
+    if (left > 0) { send buf.put(); }
+    else          { print("[producer] done"); }
+  }
+  method put_full() {
+    print("[producer] full, retrying");
+    send buf.put();
+  }
+}
+
+class Consumer {
+  var left = 5;
+  var buf = 0;
+
+  method init(n, b) {
+    left = n;
+    buf = b;
+    send buf.take();
+  }
+  method take_ok() {
+    left = left - 1;
+    if (left > 0) { send buf.take(); }
+    else          { print("[consumer] done"); }
+  }
+  method take_empty() {
+    print("[consumer] empty, retrying");
+    send buf.take();
+  }
+}
+
+var b = new Buffer();
+var p = new Producer(5, b);
+var c = new Consumer(5, b);

@@ -1,0 +1,15 @@
+// Counter that self-sends to demonstrate `send self.method(...)`.
+class Counter {
+  var count = 0;
+
+  method inc() {
+    count = count + 1;
+    print("count: " + count);
+    if (count < 3) {
+      send self.inc();
+    }
+  }
+}
+
+var c = new Counter();
+send c.inc();

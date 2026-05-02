@@ -1,0 +1,38 @@
+// Mini AI-OS-style pipeline: three "agent" actors chained together.
+// Each agent receives a string, "processes" it (here just appends a
+// stage marker), and forwards to the next stage.  This is a sketch of
+// the orchestration pattern the project plans to back with real
+// generative-AI calls later (HTTP bindings, prompt caching, etc.).
+class Agent {
+  var name = "?";
+  var next = 0;
+  var has_next = 0;
+
+  method init(my_name) {
+    name = my_name;
+    has_next = 0;
+  }
+
+  method link(n) {
+    next = n;
+    has_next = 1;
+  }
+
+  method handle(payload) {
+    var processed = payload + " | " + name;
+    print("[agent " + name + "] " + processed);
+    if (has_next == 1) {
+      send next.handle(processed);
+    } else {
+      print("[final] " + processed);
+    }
+  }
+}
+
+var stage1 = new Agent("planner");
+var stage2 = new Agent("solver");
+var stage3 = new Agent("reviewer");
+
+send stage1.link(stage2);
+send stage2.link(stage3);
+send stage1.handle("user-query");
