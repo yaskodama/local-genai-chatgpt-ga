@@ -24,7 +24,9 @@ the `ai_usage()` builtin.
 """
 
 import itertools
+import json
 import os
+import tempfile
 import threading
 from typing import Optional
 
@@ -50,6 +52,67 @@ class BudgetExceeded(RuntimeError):
 
 _usage_lock = threading.Lock()
 _usage = {"calls": 0, "input_tokens": 0, "output_tokens": 0, "cost_usd": 0.0}
+
+
+def _usage_file_path() -> Optional[str]:
+    p = os.environ.get("ABCL_AI_USAGE_FILE", "").strip()
+    return p or None
+
+
+def _load_persistent_usage() -> None:
+    """Load cumulative counters from ABCL_AI_USAGE_FILE if set.  Called
+    once on first ai_ai_call import; if the file is missing or
+    malformed we just start from zero."""
+    path = _usage_file_path()
+    if not path:
+        return
+    try:
+        with open(path) as f:
+            data = json.load(f)
+    except FileNotFoundError:
+        return
+    except (OSError, json.JSONDecodeError):
+        # Don't blow up startup over a corrupt file — start fresh.
+        return
+    for k in ("calls", "input_tokens", "output_tokens"):
+        v = data.get(k, 0)
+        if isinstance(v, int):
+            _usage[k] = v
+    cost = data.get("cost_usd", 0.0)
+    if isinstance(cost, (int, float)):
+        _usage["cost_usd"] = float(cost)
+
+
+def _save_persistent_usage_locked() -> None:
+    """Atomic JSON write.  Caller must hold _usage_lock so the snapshot
+    is consistent."""
+    path = _usage_file_path()
+    if not path:
+        return
+    snapshot = {
+        "calls":         _usage["calls"],
+        "input_tokens":  _usage["input_tokens"],
+        "output_tokens": _usage["output_tokens"],
+        "cost_usd":      _usage["cost_usd"],
+    }
+    dirn = os.path.dirname(os.path.abspath(path)) or "."
+    try:
+        os.makedirs(dirn, exist_ok=True)
+        fd, tmp = tempfile.mkstemp(prefix=".usage_", dir=dirn)
+        try:
+            with os.fdopen(fd, "w") as f:
+                json.dump(snapshot, f)
+            os.replace(tmp, path)
+        except Exception:
+            try: os.unlink(tmp)
+            except OSError: pass
+            raise
+    except OSError:
+        # Persistence is best-effort; don't fail the API call.
+        pass
+
+
+_load_persistent_usage()
 
 
 # Per-million-token pricing in USD, sourced from each provider's
@@ -189,6 +252,7 @@ def _record_usage(model: str, input_tokens: int, output_tokens: int) -> None:
         _usage["output_tokens"] += int(output_tokens or 0)
         _usage["cost_usd"]      += _cost_usd(model, input_tokens or 0,
                                              output_tokens or 0)
+        _save_persistent_usage_locked()
 
 
 def get_usage() -> dict:
