@@ -449,6 +449,117 @@ def call_openai(prompt: str, **kwargs) -> str:
 
 
 # ---------------------------------------------------------------------------
+# Multi-turn chat.  `messages` follows the OpenAI shape:
+#   [{"role": "user" | "assistant", "content": "..."} , ...]
+# Each provider's SDK reshapes as needed (Gemini swaps "assistant" ->
+# "model" and wraps in {parts: [{text}]}).
+
+def chat_ai(messages: list, *, system: Optional[str] = None,
+            model: Optional[str] = None,
+            max_tokens: int = DEFAULT_MAX_TOKENS) -> str:
+    _check_budget()
+    gate = _get_concurrency_gate()
+    if gate is not None:
+        gate.acquire()
+    try:
+        provider = _select_provider()
+        chosen = model or {
+            "gemini":    DEFAULT_GEMINI_MODEL,
+            "anthropic": DEFAULT_ANTHROPIC_MODEL,
+            "openai":    DEFAULT_OPENAI_MODEL,
+            "mock":      "mock",
+        }.get(provider, DEFAULT_GEMINI_MODEL)
+        if provider == "gemini":
+            return _chat_gemini(messages, system, chosen, max_tokens)
+        if provider == "anthropic":
+            return _chat_claude(messages, system, chosen, max_tokens)
+        if provider == "openai":
+            return _chat_openai(messages, system, chosen, max_tokens)
+        if provider == "mock":
+            last_user = next((m.get("content", "")
+                              for m in reversed(messages)
+                              if m.get("role") == "user"), "")
+            tag = "" if system is None else f" [sys={system[:18]}…]"
+            reply = f"[mock]{tag} ({len(messages)} turns) — re: {last_user[:60]}"
+            _record_usage(chosen, max(1, sum(len(m.get('content', '')) for m in messages) // 4),
+                          max(1, len(reply) // 4))
+            return reply
+        raise RuntimeError(f"Unknown ABCL_AI_PROVIDER: {provider!r}")
+    finally:
+        if gate is not None:
+            gate.release()
+
+
+def _chat_gemini(messages, system, model, max_tokens):
+    global _gemini_client
+    from google import genai  # type: ignore
+    from google.genai import types  # type: ignore
+    if _gemini_client is None:
+        _gemini_client = genai.Client()
+    contents = []
+    for m in messages:
+        role = "user" if m.get("role") == "user" else "model"
+        contents.append({"role": role,
+                         "parts": [{"text": m.get("content", "")}]})
+    cfg_kwargs = {"max_output_tokens": max_tokens}
+    if system is not None:
+        cfg_kwargs["system_instruction"] = system
+    response = _gemini_client.models.generate_content(
+        model=model, contents=contents,
+        config=types.GenerateContentConfig(**cfg_kwargs),
+    )
+    meta = getattr(response, "usage_metadata", None)
+    if meta is not None:
+        _record_usage(model,
+                      getattr(meta, "prompt_token_count", 0) or 0,
+                      getattr(meta, "candidates_token_count", 0) or 0)
+    return response.text or ""
+
+
+def _chat_claude(messages, system, model, max_tokens):
+    global _anthropic_client
+    import anthropic  # type: ignore
+    if _anthropic_client is None:
+        _anthropic_client = anthropic.Anthropic()
+    kwargs = {"model": model, "max_tokens": max_tokens, "messages": messages}
+    if system is not None:
+        kwargs["system"] = [{"type": "text", "text": system,
+                             "cache_control": {"type": "ephemeral"}}]
+    response = _anthropic_client.messages.create(**kwargs)
+    usage = getattr(response, "usage", None)
+    if usage is not None:
+        _record_usage(model,
+                      getattr(usage, "input_tokens", 0) or 0,
+                      getattr(usage, "output_tokens", 0) or 0)
+    return "".join(b.text for b in response.content
+                   if getattr(b, "type", None) == "text")
+
+
+def _chat_openai(messages, system, model, max_tokens):
+    global _openai_client
+    import openai  # type: ignore
+    if _openai_client is None:
+        _openai_client = openai.OpenAI()
+    msgs = []
+    if system is not None:
+        msgs.append({"role": "system", "content": system})
+    msgs.extend(messages)
+    response = _openai_client.chat.completions.create(
+        model=model, max_completion_tokens=max_tokens, messages=msgs,
+    )
+    usage = getattr(response, "usage", None)
+    if usage is not None:
+        _record_usage(model,
+                      getattr(usage, "prompt_tokens", 0) or 0,
+                      getattr(usage, "completion_tokens", 0) or 0)
+    choice = response.choices[0] if response.choices else None
+    if choice is None:
+        return ""
+    msg = getattr(choice, "message", None)
+    return (getattr(msg, "content", None) or "") if msg is not None else ""
+
+
+# ---------------------------------------------------------------------------
 # Streaming.  Each provider's SDK exposes a different streaming API;
 # we yield plain strings here so the interpreter can feed them
 # chunk-by-chunk into the calling actor.

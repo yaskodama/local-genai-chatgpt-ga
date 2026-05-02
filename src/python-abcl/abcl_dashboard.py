@@ -128,7 +128,9 @@ _HTML = """<!doctype html>
   #peers tr.bad td { color: #f88; }
   #peers tr.total td { color: #cde; border-top: 1px solid #223; font-weight: 700; }
 </style></head><body>
-<h1>ABCL/c+ AI-OS Dashboard <small style="color:#667"><a style="color:#6af" href="/ide">→ Web IDE</a></small></h1>
+<h1>ABCL/c+ AI-OS Dashboard
+  <small style="color:#667"><a style="color:#6af" href="/ide">→ Web IDE</a>
+  &nbsp;<a style="color:#6af" href="/chat">→ Chat</a></small></h1>
 <table id="t"></table>
 <small id="ts"></small>
 <h2>Cluster (this node + peers)</h2>
@@ -305,10 +307,16 @@ class _Handler(BaseHTTPRequestHandler):
             self._serve_ide_file_get()
         elif self.path == "/ide" or self.path.startswith("/ide?"):
             self._serve_ide_html()
+        elif self.path == "/chat" or self.path.startswith("/chat?"):
+            self._serve_chat_html()
         elif self.path == "/" or self.path.startswith("/?"):
             self._serve_html()
         else:
             self.send_error(404, "Not Found")
+
+    def _serve_chat_html(self):
+        body = _CHAT_HTML.encode("utf-8")
+        self._send_bytes(200, "text/html; charset=utf-8", body)
 
     # ---- IDE: list / read / write / run ----
 
@@ -353,8 +361,32 @@ class _Handler(BaseHTTPRequestHandler):
             self._handle_ide_save()
         elif self.path.startswith("/api/run"):
             self._handle_ide_run()
+        elif self.path.startswith("/api/chat/send"):
+            self._handle_chat_send()
         else:
             self.send_error(404, "Not Found")
+
+    def _handle_chat_send(self):
+        data = self._read_json_body()
+        if data is None:
+            return
+        messages = data.get("messages")
+        if not isinstance(messages, list):
+            return self.send_error(400, "messages must be an array")
+        system = data.get("system")
+        if system is not None and not isinstance(system, str):
+            return self.send_error(400, "system must be a string")
+        model = data.get("model")
+        try:
+            from abcl_ai import chat_ai, get_usage
+            reply = chat_ai(messages, system=system, model=model or None)
+            body = json.dumps({
+                "ok": True, "reply": reply, "usage": get_usage(),
+            }).encode("utf-8")
+            self._send_bytes(200, "application/json", body)
+        except Exception as e:
+            body = json.dumps({"ok": False, "error": str(e)}).encode("utf-8")
+            self._send_bytes(500, "application/json", body)
 
     def _read_json_body(self) -> "dict | None":
         try:
@@ -690,6 +722,158 @@ document.addEventListener('keydown', (e) => {
 });
 
 loadList();
+</script>
+</body></html>
+"""
+
+
+_CHAT_HTML = """<!doctype html>
+<html><head><meta charset="utf-8"><title>ABCL/c+ Chat</title>
+<style>
+  html, body { margin: 0; padding: 0; height: 100%;
+               font-family: ui-monospace, Menlo, Consolas, monospace;
+               color: #ddd; background: #0e1116; }
+  header { padding: 0.6rem 1rem; background: #11161e;
+           border-bottom: 1px solid #223;
+           display: flex; align-items: center; gap: 1rem; }
+  header h1 { font-size: 0.95rem; color: #8af; margin: 0; }
+  header a  { color: #6af; text-decoration: none; font-size: 0.85rem; }
+  #wrap { display: grid; grid-template-rows: auto 1fr auto;
+          height: calc(100% - 41px); }
+  #sysbar { padding: 0.4rem 0.8rem; border-bottom: 1px solid #223;
+            background: #11161e; font-size: 0.78rem; color: #889;
+            display: flex; gap: 0.5rem; align-items: center; }
+  #sysbar input { flex: 1; background: #050810; color: #cde;
+                  border: 1px solid #223; padding: 0.25rem 0.5rem;
+                  font: inherit; }
+  #sysbar select { background: #050810; color: #cde;
+                   border: 1px solid #223; padding: 0.2rem; font: inherit; }
+  #log { padding: 0.6rem 0.8rem; overflow-y: auto;
+         display: flex; flex-direction: column; gap: 0.6rem;
+         font-size: 0.85rem; }
+  .msg { padding: 0.55rem 0.8rem; border-radius: 0.4rem;
+         max-width: 70ch; white-space: pre-wrap; line-height: 1.4; }
+  .user { align-self: flex-end; background: #1c2a3e; color: #cde;
+          border: 1px solid #335; }
+  .ass  { align-self: flex-start; background: #122418; color: #cfe;
+          border: 1px solid #284; }
+  .err  { align-self: flex-start; background: #2a1212; color: #fcc;
+          border: 1px solid #844; }
+  .role { font-size: 0.7rem; color: #889; margin-bottom: 0.15rem; }
+  #compose { background: #11161e; border-top: 1px solid #223;
+             padding: 0.6rem 0.8rem; display: flex; gap: 0.5rem;
+             align-items: flex-end; }
+  #compose textarea { flex: 1; background: #050810; color: #cde;
+                      border: 1px solid #223; outline: 0;
+                      padding: 0.5rem; resize: none; min-height: 2.4rem;
+                      max-height: 10rem; font: 0.85rem ui-monospace, Menlo, monospace; }
+  #compose button { background: #1c2a3e; color: #cde;
+                    border: 1px solid #335; padding: 0.4rem 0.9rem;
+                    cursor: pointer; font: inherit; }
+  #compose button:disabled { opacity: 0.5; cursor: progress; }
+  #stat { font-size: 0.72rem; color: #667; padding: 0 0.8rem 0.4rem; }
+</style></head>
+<body>
+<header>
+  <h1>ABCL/c+ Chat</h1>
+  <a href="/">← dashboard</a>
+  <a href="/ide">→ Web IDE</a>
+</header>
+<div id="wrap">
+  <div id="sysbar">
+    system:
+    <input id="sys" placeholder="(optional system prompt — e.g. &quot;Reply in Japanese, briefly&quot;)"/>
+    model:
+    <input id="model" placeholder="(blank → provider default)" style="max-width:18rem"/>
+    <button id="reset">Reset</button>
+  </div>
+  <main id="log"></main>
+  <div id="compose">
+    <textarea id="msg" placeholder="Type a message — Enter to send, Shift-Enter for newline"></textarea>
+    <button id="send">Send</button>
+  </div>
+</div>
+<div id="stat"></div>
+<script>
+const log = document.getElementById('log');
+const stat = document.getElementById('stat');
+const sysIn = document.getElementById('sys');
+const modelIn = document.getElementById('model');
+const msgEl = document.getElementById('msg');
+const sendBtn = document.getElementById('send');
+
+let history = [];
+
+function bubble(role, text, klass) {
+  const div = document.createElement('div');
+  div.className = 'msg ' + klass;
+  const r = document.createElement('div');
+  r.className = 'role';
+  r.textContent = role;
+  const t = document.createElement('div');
+  t.textContent = text;
+  div.appendChild(r);
+  div.appendChild(t);
+  log.appendChild(div);
+  log.scrollTop = log.scrollHeight;
+  return t;
+}
+
+async function send() {
+  const text = msgEl.value.trim();
+  if (!text) return;
+  msgEl.value = '';
+  bubble('you', text, 'user');
+  history.push({ role: 'user', content: text });
+  sendBtn.disabled = true;
+  const placeholder = bubble('assistant…', '', 'ass');
+  try {
+    const r = await fetch('/api/chat/send', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({
+        messages: history,
+        system: sysIn.value || null,
+        model: modelIn.value || null,
+      }),
+    });
+    const d = await r.json();
+    if (d.ok) {
+      placeholder.textContent = d.reply;
+      history.push({ role: 'assistant', content: d.reply });
+      const u = d.usage || {};
+      stat.textContent = `calls=${u.calls||0} in=${u.input_tokens||0} out=${u.output_tokens||0} cost=$${(u.cost_usd||0).toFixed(6)}`;
+    } else {
+      placeholder.textContent = '[error] ' + (d.error || 'unknown');
+      placeholder.parentElement.className = 'msg err';
+      // Drop the failed user turn so retry doesn't double up
+      history.pop();
+    }
+  } catch (e) {
+    placeholder.textContent = '[error] ' + e;
+    placeholder.parentElement.className = 'msg err';
+    history.pop();
+  } finally {
+    sendBtn.disabled = false;
+    msgEl.focus();
+  }
+}
+
+sendBtn.addEventListener('click', send);
+msgEl.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter' && !e.shiftKey) {
+    e.preventDefault();
+    send();
+  }
+});
+
+document.getElementById('reset').addEventListener('click', () => {
+  history = [];
+  log.innerHTML = '';
+  stat.textContent = '';
+});
+
+msgEl.focus();
 </script>
 </body></html>
 """
