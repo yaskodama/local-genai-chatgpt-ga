@@ -518,6 +518,49 @@ def _b_ai_cost(args, frame, interp):
     return get_cost_usd()
 
 
+def _ai_retry_loop(max_attempts: int, do_call):
+    """Common retry loop used by ai_call_retry / ai_call_retry_with_system."""
+    import random as _rand
+    from abcl_ai import _is_retryable
+    last_exc = None
+    for i in range(max(1, max_attempts)):
+        try:
+            return do_call()
+        except Exception as e:
+            last_exc = e
+            if i == max_attempts - 1 or not _is_retryable(e):
+                raise
+            delay = (0.5 * (2 ** i)) + _rand.uniform(0, 0.25)
+            print(f"[ai_retry] attempt {i+1}/{max_attempts} "
+                  f"failed ({type(e).__name__}); retry in {delay:.2f}s",
+                  flush=True)
+            time.sleep(delay)
+    if last_exc is not None:
+        raise last_exc
+
+
+def _b_ai_call_retry(args, frame, interp):
+    """ai_call_retry(max_attempts, prompt) — retry on rate-limit /
+    transient errors with exponential backoff."""
+    from abcl_ai import call_ai
+    if len(args) < 2:
+        raise ValueError("ai_call_retry(max_attempts, prompt)")
+    max_attempts = int(args[0])
+    prompt = _to_str(args[1])
+    return _ai_retry_loop(max_attempts, lambda: call_ai(prompt))
+
+
+def _b_ai_call_retry_with_system(args, frame, interp):
+    """ai_call_retry_with_system(max_attempts, system, prompt)"""
+    from abcl_ai import call_ai
+    if len(args) < 3:
+        raise ValueError("ai_call_retry_with_system(max_attempts, system, prompt)")
+    max_attempts = int(args[0])
+    system = _to_str(args[1])
+    prompt = _to_str(args[2])
+    return _ai_retry_loop(max_attempts, lambda: call_ai(prompt, system=system))
+
+
 # ---------------------------------------------------------------------------
 # Distributed actor builtins.
 
@@ -657,6 +700,8 @@ _BUILTINS = {
     "ai_call_with_system":           _b_ai_call_with_system,
     "ai_call_priority":              _b_ai_call_priority,
     "ai_call_priority_with_system":  _b_ai_call_priority_with_system,
+    "ai_call_retry":                 _b_ai_call_retry,
+    "ai_call_retry_with_system":     _b_ai_call_retry_with_system,
     "ai_usage":                      _b_ai_usage,
     "ai_remaining":                  _b_ai_remaining,
     "ai_cost":                       _b_ai_cost,
