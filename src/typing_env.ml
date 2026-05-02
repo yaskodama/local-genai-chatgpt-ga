@@ -99,6 +99,9 @@ let prelude () : env =
   add_mono e "ai_call_with_system" (TFun ([TString; TString], TString));
   add_mono e "ai_usage"            (TFun ([], TString));
   add_mono e "ai_remaining"        (TFun ([], TInt));
+  add_mono e "ai_cost"             (TFun ([], TFloat));
+  add_mono e "ai_call_retry"             (TFun ([TInt; TString], TString));
+  add_mono e "ai_call_retry_with_system" (TFun ([TInt; TString; TString], TString));
 
   (* sdl_clear : unit -> unit *)
   add_mono e "sdl_clear" (TFun ([], TUnit));

@@ -881,6 +881,20 @@ let () =
   add_prim "ai_remaining" (function
   | [] -> VInt (Ai.get_remaining ())
   | _  -> failwith "ai_remaining(): arity 0 expected");
+
+  add_prim "ai_cost" (function
+  | [] -> VFloat (Ai.get_cost_usd ())
+  | _  -> failwith "ai_cost(): arity 0 expected");
+
+  add_prim "ai_call_retry" (function
+  | [VInt n; VString prompt] ->
+      VString (Ai.call_with_retry ~max_attempts:n prompt)
+  | _ -> failwith "ai_call_retry(max_attempts, prompt): arity 2 expected (int, string)");
+
+  add_prim "ai_call_retry_with_system" (function
+  | [VInt n; VString sys; VString prompt] ->
+      VString (Ai.call_with_retry ~system:(Some sys) ~max_attempts:n prompt)
+  | _ -> failwith "ai_call_retry_with_system(max_attempts, system, prompt): arity 3 expected (int,string,string)");
 						    
   let repl_thr = Thread.create (fun () -> repl_thread_fun ()) () in
 

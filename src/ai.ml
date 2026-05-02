@@ -42,12 +42,44 @@ module Sem = struct
 end
 
 (* ------------------------------------------------------------------ *)
+(* Per-million-token pricing in USD.  Cached 2026-04 from each
+   provider's rate card.  Unrecognised models contribute 0 to cost. *)
+
+let pricing : (string, float * float) Hashtbl.t = Hashtbl.create 16
+let () =
+  List.iter (fun (m, ip, op) -> Hashtbl.replace pricing m (ip, op)) [
+    (* Anthropic *)
+    "claude-opus-4-7",        5.00,  25.00;
+    "claude-opus-4-6",        5.00,  25.00;
+    "claude-sonnet-4-6",      3.00,  15.00;
+    "claude-haiku-4-5",       1.00,   5.00;
+    (* Gemini *)
+    "gemini-2.5-pro",         1.25,  10.00;
+    "gemini-2.5-flash",       0.075,  0.30;
+    "gemini-2.5-flash-lite",  0.10,   0.40;
+    (* OpenAI *)
+    "gpt-4o",                 2.50,  10.00;
+    "gpt-4o-mini",            0.15,   0.60;
+    "gpt-4-turbo",           10.00,  30.00;
+    "o1-mini",                1.10,   4.40;
+    "o3-mini",                1.10,   4.40;
+  ]
+
+let cost_for_model (model : string) (in_t : int) (out_t : int) : float =
+  match Hashtbl.find_opt pricing model with
+  | None -> 0.0
+  | Some (ip, op) ->
+      (float_of_int in_t  /. 1_000_000.0) *. ip
+   +. (float_of_int out_t /. 1_000_000.0) *. op
+
+(* ------------------------------------------------------------------ *)
 (* Live counters *)
 
 let counter_mutex = Mutex.create ()
 let total_calls         = ref 0
 let total_input_tokens  = ref 0
 let total_output_tokens = ref 0
+let total_cost_usd      = ref 0.0
 
 let int_env (name : string) (default : int) : int =
   try
@@ -70,19 +102,90 @@ let check_budget () =
         (Printf.sprintf "AI token budget exceeded: used=%d budget=%d" used budget))
   end
 
-let record_usage (in_t : int) (out_t : int) : unit =
+(* Persistent counters file (optional, ABCL_AI_USAGE_FILE). *)
+
+let usage_file_path () = Sys.getenv_opt "ABCL_AI_USAGE_FILE"
+
+let read_int_field path field default =
+  let cmd = Printf.sprintf "jq -r '.%s // %d' %s 2>/dev/null"
+    field default (Filename.quote path) in
+  let ic = Unix.open_process_in cmd in
+  let buf = Buffer.create 32 in
+  (try while true do Buffer.add_channel buf ic 32 done
+   with End_of_file -> ());
+  let _ = Unix.close_process_in ic in
+  let s = String.trim (Buffer.contents buf) in
+  try int_of_string s with _ -> default
+
+let read_float_field path field default =
+  let cmd = Printf.sprintf "jq -r '.%s // %g' %s 2>/dev/null"
+    field default (Filename.quote path) in
+  let ic = Unix.open_process_in cmd in
+  let buf = Buffer.create 32 in
+  (try while true do Buffer.add_channel buf ic 32 done
+   with End_of_file -> ());
+  let _ = Unix.close_process_in ic in
+  let s = String.trim (Buffer.contents buf) in
+  try float_of_string s with _ -> default
+
+let load_persistent_usage () =
+  match usage_file_path () with
+  | Some p when Sys.file_exists p ->
+      let calls = read_int_field   p "calls" 0 in
+      let in_t  = read_int_field   p "input_tokens" 0 in
+      let out_t = read_int_field   p "output_tokens" 0 in
+      let cost  = read_float_field p "cost_usd" 0.0 in
+      Mutex.lock counter_mutex;
+      total_calls         := calls;
+      total_input_tokens  := in_t;
+      total_output_tokens := out_t;
+      total_cost_usd      := cost;
+      Mutex.unlock counter_mutex
+  | _ -> ()
+
+let save_persistent_usage_locked () =
+  match usage_file_path () with
+  | None -> ()
+  | Some p ->
+      let body =
+        Printf.sprintf
+          {|{"calls":%d,"input_tokens":%d,"output_tokens":%d,"cost_usd":%.10f}|}
+          !total_calls !total_input_tokens !total_output_tokens
+          !total_cost_usd
+      in
+      let dir = Filename.dirname p in
+      let dir = if dir = "" then "." else dir in
+      (try Unix.mkdir dir 0o755 with _ -> ());
+      let tmp = Filename.temp_file ~temp_dir:dir ".usage_" "" in
+      let oc = open_out tmp in
+      output_string oc body;
+      close_out oc;
+      (try Sys.rename tmp p with _ -> (try Sys.remove tmp with _ -> ()))
+
+let () = load_persistent_usage ()
+
+let record_usage ?(model="") (in_t : int) (out_t : int) : unit =
+  let cost = if model = "" then 0.0 else cost_for_model model in_t out_t in
   Mutex.lock counter_mutex;
   incr total_calls;
   total_input_tokens  := !total_input_tokens  + in_t;
   total_output_tokens := !total_output_tokens + out_t;
+  total_cost_usd      := !total_cost_usd      +. cost;
+  save_persistent_usage_locked ();
   Mutex.unlock counter_mutex
+
+let get_cost_usd () : float =
+  Mutex.lock counter_mutex;
+  let c = !total_cost_usd in
+  Mutex.unlock counter_mutex;
+  c
 
 let get_usage_string () : string =
   Mutex.lock counter_mutex;
   let s =
-    Printf.sprintf "calls=%d in=%d out=%d total=%d"
+    Printf.sprintf "calls=%d in=%d out=%d total=%d cost=$%.6f"
       !total_calls !total_input_tokens !total_output_tokens
-      (!total_input_tokens + !total_output_tokens)
+      (!total_input_tokens + !total_output_tokens) !total_cost_usd
   in
   Mutex.unlock counter_mutex;
   s
@@ -171,7 +274,7 @@ let default_max_tokens = 4096
 let default_anthropic_model = "claude-opus-4-7"
 let default_openai_model    = "gpt-4o-mini"
 
-type provider = Gemini | Anthropic | OpenAI
+type provider = Gemini | Anthropic | OpenAI | Mock
 
 let select_provider () : provider =
   match Sys.getenv_opt "ABCL_AI_PROVIDER" with
@@ -180,13 +283,63 @@ let select_provider () : provider =
        | "anthropic" -> Anthropic
        | "openai"    -> OpenAI
        | "gemini"    -> Gemini
+       | "mock"      -> Mock
        | other -> failwith (Printf.sprintf "Unknown ABCL_AI_PROVIDER: %s" other))
   | None ->
       if Sys.getenv_opt "GEMINI_API_KEY"    <> None then Gemini
       else if Sys.getenv_opt "ANTHROPIC_API_KEY" <> None then Anthropic
       else if Sys.getenv_opt "OPENAI_API_KEY"    <> None then OpenAI
       else failwith
-        "ai_call: no provider key set (GEMINI_API_KEY / ANTHROPIC_API_KEY / OPENAI_API_KEY)"
+        "ai_call: no provider key set (GEMINI_API_KEY / ANTHROPIC_API_KEY / OPENAI_API_KEY) — or ABCL_AI_PROVIDER=mock for offline tests"
+
+(* Comma-separated fallback list; tried in order on retryable errors. *)
+let fallback_models () : string list =
+  match Sys.getenv_opt "ABCL_AI_FALLBACK_MODELS" with
+  | None | Some "" -> []
+  | Some raw ->
+      String.split_on_char ',' raw
+      |> List.map String.trim
+      |> List.filter (fun s -> s <> "")
+
+(* Crude retry classifier — match by substring in the exception
+   message.  Mirrors the Python _is_retryable shape. *)
+let str_contains haystack needle =
+  let nh = String.length haystack in
+  let nn = String.length needle in
+  if nn = 0 || nn > nh then false
+  else
+    let rec walk i =
+      if i + nn > nh then false
+      else if String.sub haystack i nn = needle then true
+      else walk (i + 1)
+    in
+    walk 0
+
+let is_retryable (msg : string) : bool =
+  let lower = String.lowercase_ascii msg in
+  List.exists (str_contains lower) [
+    "429"; "rate limit"; "rate_limit";
+    "500"; "502"; "503"; "504";
+    "overloaded"; "unavailable"; "deadline"; "timeout";
+  ]
+
+(* Mock provider — no network, no key.  Useful for offline smoke. *)
+let do_mock_request ~system ~model:_ ~max_tokens:_ (prompt:string)
+    : string * int * int =
+  let head =
+    let s = String.map (fun c -> if c = '\n' then ' ' else c) prompt in
+    if String.length s > 60 then String.sub s 0 60 else s
+  in
+  let sys_tag = match system with
+    | None -> ""
+    | Some s ->
+        let head_s = if String.length s > 18 then String.sub s 0 18 else s in
+        Printf.sprintf " sys=(%s...)" head_s
+  in
+  let response = Printf.sprintf "[mock] reply%s for: %s" sys_tag head in
+  let est_in  = max 1 (String.length prompt   / 4) in
+  let est_out = max 1 (String.length response / 4) in
+  (response, est_in, est_out)
 
 let do_gemini_request ~system ~model ~max_tokens (prompt : string)
     : string * int * int =
@@ -341,6 +494,22 @@ let do_openai_request ~system ~model ~max_tokens (prompt:string)
   (text, in_t, out_t)
 
 
+let dispatch_one ~provider ~system ~model ~max_tokens prompt =
+  match provider with
+  | Gemini    -> do_gemini_request    ~system ~model ~max_tokens prompt
+  | Anthropic -> do_anthropic_request ~system ~model ~max_tokens prompt
+  | OpenAI    -> do_openai_request    ~system ~model ~max_tokens prompt
+  | Mock      -> do_mock_request      ~system ~model ~max_tokens prompt
+
+let default_for_provider p = function
+  | Some m when m <> "" -> m
+  | _ ->
+      (match p with
+       | Gemini    -> default_model
+       | Anthropic -> default_anthropic_model
+       | OpenAI    -> default_openai_model
+       | Mock      -> "mock")
+
 let call_gemini ?(system : string option = None) ?(model : string = "")
                 ?(max_tokens : int = default_max_tokens) (prompt : string) : string =
   check_budget ();
@@ -349,24 +518,64 @@ let call_gemini ?(system : string option = None) ?(model : string = "")
   let result_or_exn =
     try
       let p = select_provider () in
-      let chosen = if model = "" then
-                     match p with
-                     | Gemini    -> default_model
-                     | Anthropic -> default_anthropic_model
-                     | OpenAI    -> default_openai_model
-                   else model
+      let primary = default_for_provider p (Some model) in
+      let chain = primary :: List.filter (fun m -> m <> primary) (fallback_models ()) in
+      let rec try_chain ms last_err =
+        match ms with
+        | [] -> (match last_err with Some e -> raise e | None -> failwith "no models")
+        | m :: rest ->
+            (try Ok (dispatch_one ~provider:p ~system ~model:m ~max_tokens prompt)
+             with e ->
+               if rest = [] || not (is_retryable (Printexc.to_string e))
+               then raise e
+               else begin
+                 let delay = 0.5 *. (2.0 ** float_of_int (List.length chain - List.length rest - 1)) in
+                 Printf.eprintf "[ai_fallback] %s failed (%s); retry %s after %.2fs\n%!"
+                   m (Printexc.to_string e) (List.hd rest) delay;
+                 Thread.delay (delay +. Random.float 0.25);
+                 try_chain rest (Some e)
+               end)
       in
-      let r = match p with
-        | Gemini    -> do_gemini_request    ~system ~model:chosen ~max_tokens prompt
-        | Anthropic -> do_anthropic_request ~system ~model:chosen ~max_tokens prompt
-        | OpenAI    -> do_openai_request    ~system ~model:chosen ~max_tokens prompt
-      in
-      Ok r
+      (match try_chain chain None with
+       | Ok r -> Ok r
+       | _ -> failwith "unreachable")
     with e -> Error e
   in
   (match sem with Some s -> Sem.release s | None -> ());
   match result_or_exn with
   | Error e -> raise e
   | Ok (text, in_t, out_t) ->
-      record_usage in_t out_t;
+      let model_used = default_for_provider (select_provider ()) (Some model) in
+      record_usage ~model:model_used in_t out_t;
       text
+
+(* Same-model retry (different from fallback chain which switches
+   models).  Used by the ai_call_retry primitive. *)
+let call_with_retry ?(system : string option = None) ?(model : string = "")
+                    ?(max_tokens : int = default_max_tokens)
+                    ~(max_attempts : int) (prompt : string) : string =
+  let last_err = ref None in
+  let result = ref None in
+  let n = max 1 max_attempts in
+  let i = ref 0 in
+  while !result = None && !i < n do
+    (try
+      result := Some (call_gemini ~system ~model ~max_tokens prompt)
+    with e ->
+      last_err := Some e;
+      let retryable = is_retryable (Printexc.to_string e) in
+      if !i < n - 1 && retryable then begin
+        let delay = 0.5 *. (2.0 ** float_of_int !i) +. Random.float 0.25 in
+        Printf.eprintf "[ai_retry] attempt %d/%d failed (%s); retry in %.2fs\n%!"
+          (!i + 1) n (Printexc.to_string e) delay;
+        Thread.delay delay
+      end else
+        raise e);
+    incr i
+  done;
+  match !result with
+  | Some t -> t
+  | None ->
+      (match !last_err with
+       | Some e -> raise e
+       | None -> failwith "no result")
