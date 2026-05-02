@@ -212,10 +212,19 @@ class _Handler(BaseHTTPRequestHandler):
             self._serve_topology()
         elif self.path.startswith("/events"):
             self._serve_events()
+        elif self.path.startswith("/healthz"):
+            self._serve_healthz()
         elif self.path == "/" or self.path.startswith("/?"):
             self._serve_html()
         else:
             self.send_error(404, "Not Found")
+
+    def _serve_healthz(self):
+        body = json.dumps({
+            "status": "ok",
+            "subscribers": abcl_events.subscriber_count(),
+        }).encode("utf-8")
+        self._send_bytes(200, "application/json", body)
 
     def _serve_topology(self):
         edges = abcl_events.topology_snapshot()

@@ -134,8 +134,17 @@ class _Handler(BaseHTTPRequestHandler):
             self._serve_index()
         elif self.path.startswith("/api/exposed"):
             self._serve_exposed()
+        elif self.path.startswith("/healthz"):
+            self._serve_healthz()
         else:
             self.send_error(404, "Not Found")
+
+    def _serve_healthz(self):
+        body = json.dumps({
+            "status": "ok",
+            "exposed": list_exposed_names(),
+        }).encode("utf-8")
+        self._send_bytes(200, "application/json", body)
 
     def do_POST(self):
         if self.path.startswith("/api/json/send"):
