@@ -725,6 +725,107 @@ def _b_save_state(args, frame, interp):
     return None
 
 
+# ---------------------------------------------------------------------------
+# Standard library (string + I/O + misc).  Keep these synchronous and
+# total — anything that can hit the filesystem returns "" / False on
+# error rather than raising, so an .abcl program can probe gracefully.
+
+def _b_str_len(args, frame, interp):
+    return len(_to_str(args[0])) if args else 0
+
+def _b_str_sub(args, frame, interp):
+    """str_sub(s, start) or str_sub(s, start, end_exclusive)."""
+    if not args:
+        return ""
+    s = _to_str(args[0])
+    if len(args) == 1:
+        return s
+    start = int(args[1])
+    if len(args) >= 3:
+        return s[start:int(args[2])]
+    return s[start:]
+
+def _b_str_contains(args, frame, interp):
+    if len(args) < 2:
+        return False
+    return _to_str(args[1]) in _to_str(args[0])
+
+def _b_str_index(args, frame, interp):
+    """str_index(haystack, needle) -> int (or -1)."""
+    if len(args) < 2:
+        return -1
+    return _to_str(args[0]).find(_to_str(args[1]))
+
+def _b_str_lower(args, frame, interp):
+    return _to_str(args[0]).lower() if args else ""
+
+def _b_str_upper(args, frame, interp):
+    return _to_str(args[0]).upper() if args else ""
+
+def _b_str_trim(args, frame, interp):
+    return _to_str(args[0]).strip() if args else ""
+
+def _b_str_replace(args, frame, interp):
+    if len(args) < 3:
+        return _to_str(args[0]) if args else ""
+    return _to_str(args[0]).replace(_to_str(args[1]), _to_str(args[2]))
+
+def _b_str_starts_with(args, frame, interp):
+    if len(args) < 2:
+        return False
+    return _to_str(args[0]).startswith(_to_str(args[1]))
+
+def _b_str_ends_with(args, frame, interp):
+    if len(args) < 2:
+        return False
+    return _to_str(args[0]).endswith(_to_str(args[1]))
+
+def _b_read_file(args, frame, interp):
+    if not args:
+        return ""
+    try:
+        with open(_to_str(args[0])) as f:
+            return f.read()
+    except OSError:
+        return ""
+
+def _b_write_file(args, frame, interp):
+    """write_file(path, content) -> 1 on success, 0 on failure."""
+    if len(args) < 2:
+        return 0
+    try:
+        with open(_to_str(args[0]), "w") as f:
+            f.write(_to_str(args[1]))
+        return 1
+    except OSError:
+        return 0
+
+def _b_append_file(args, frame, interp):
+    if len(args) < 2:
+        return 0
+    try:
+        with open(_to_str(args[0]), "a") as f:
+            f.write(_to_str(args[1]))
+        return 1
+    except OSError:
+        return 0
+
+def _b_file_exists(args, frame, interp):
+    import os.path
+    return 1 if (args and os.path.exists(_to_str(args[0]))) else 0
+
+def _b_env_get(args, frame, interp):
+    import os as _os
+    if not args:
+        return ""
+    default = _to_str(args[1]) if len(args) >= 2 else ""
+    return _os.environ.get(_to_str(args[0]), default)
+
+def _b_now_s(args, frame, interp):
+    """Wall-clock seconds since epoch as a float."""
+    return time.time()
+
+
 _BUILTINS = {
     "print":   _b_print,
     "println": _b_print,
@@ -765,4 +866,22 @@ _BUILTINS = {
     "serve_forever":                 _b_serve_forever,
     # Per-node persistent state
     "save_state":                    _b_save_state,
+    # ---- stdlib: strings ----
+    "str_len":                       _b_str_len,
+    "str_sub":                       _b_str_sub,
+    "str_contains":                  _b_str_contains,
+    "str_index":                     _b_str_index,
+    "str_lower":                     _b_str_lower,
+    "str_upper":                     _b_str_upper,
+    "str_trim":                      _b_str_trim,
+    "str_replace":                   _b_str_replace,
+    "str_starts_with":               _b_str_starts_with,
+    "str_ends_with":                 _b_str_ends_with,
+    # ---- stdlib: I/O + env + clock ----
+    "read_file":                     _b_read_file,
+    "write_file":                    _b_write_file,
+    "append_file":                   _b_append_file,
+    "file_exists":                   _b_file_exists,
+    "env_get":                       _b_env_get,
+    "now_s":                         _b_now_s,
 }
