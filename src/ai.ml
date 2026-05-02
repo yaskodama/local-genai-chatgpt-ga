@@ -168,6 +168,26 @@ let int_or_zero (s : string) : int =
 let default_model = "gemini-2.5-flash"
 let default_max_tokens = 4096
 
+let default_anthropic_model = "claude-opus-4-7"
+let default_openai_model    = "gpt-4o-mini"
+
+type provider = Gemini | Anthropic | OpenAI
+
+let select_provider () : provider =
+  match Sys.getenv_opt "ABCL_AI_PROVIDER" with
+  | Some s ->
+      (match String.lowercase_ascii (String.trim s) with
+       | "anthropic" -> Anthropic
+       | "openai"    -> OpenAI
+       | "gemini"    -> Gemini
+       | other -> failwith (Printf.sprintf "Unknown ABCL_AI_PROVIDER: %s" other))
+  | None ->
+      if Sys.getenv_opt "GEMINI_API_KEY"    <> None then Gemini
+      else if Sys.getenv_opt "ANTHROPIC_API_KEY" <> None then Anthropic
+      else if Sys.getenv_opt "OPENAI_API_KEY"    <> None then OpenAI
+      else failwith
+        "ai_call: no provider key set (GEMINI_API_KEY / ANTHROPIC_API_KEY / OPENAI_API_KEY)"
+
 let do_gemini_request ~system ~model ~max_tokens (prompt : string)
     : string * int * int =
   let api_key =
@@ -220,13 +240,128 @@ let do_gemini_request ~system ~model ~max_tokens (prompt : string)
 
   (text, in_t, out_t)
 
-let call_gemini ?(system : string option = None) ?(model : string = default_model)
+let do_anthropic_request ~system ~model ~max_tokens (prompt:string)
+    : string * int * int =
+  let api_key =
+    try Sys.getenv "ANTHROPIC_API_KEY"
+    with Not_found -> failwith "ai_call: ANTHROPIC_API_KEY not set"
+  in
+  let body_buf = Buffer.create 1024 in
+  Buffer.add_string body_buf "{\"model\":";
+  Buffer.add_string body_buf (json_escape_string model);
+  Buffer.add_string body_buf (Printf.sprintf ",\"max_tokens\":%d" max_tokens);
+  Buffer.add_string body_buf ",\"messages\":[{\"role\":\"user\",\"content\":";
+  Buffer.add_string body_buf (json_escape_string prompt);
+  Buffer.add_string body_buf "}]";
+  (match system with
+   | None -> ()
+   | Some s ->
+       Buffer.add_string body_buf ",\"system\":";
+       Buffer.add_string body_buf (json_escape_string s));
+  Buffer.add_string body_buf "}";
+  let body = Buffer.contents body_buf in
+
+  let req_file  = Filename.temp_file "abcl_ai_req"  ".json" in
+  let resp_file = Filename.temp_file "abcl_ai_resp" ".json" in
+  let oc = open_out req_file in
+  output_string oc body;
+  close_out oc;
+
+  let curl_cmd =
+    Printf.sprintf
+      "curl -s -X POST 'https://api.anthropic.com/v1/messages' \
+       -H 'x-api-key: %s' \
+       -H 'anthropic-version: 2023-06-01' \
+       -H 'Content-Type: application/json' \
+       -d @%s -o %s 2>/dev/null"
+      (Filename.quote api_key) (Filename.quote req_file) (Filename.quote resp_file)
+  in
+  ignore (Sys.command curl_cmd);
+
+  let text =
+    jq_extract resp_file
+      ".content[0].text // .error.message // \"<no response>\""
+  in
+  let in_t  = int_or_zero (jq_extract resp_file ".usage.input_tokens  // 0") in
+  let out_t = int_or_zero (jq_extract resp_file ".usage.output_tokens // 0") in
+
+  (try Sys.remove req_file  with _ -> ());
+  (try Sys.remove resp_file with _ -> ());
+  (text, in_t, out_t)
+
+
+let do_openai_request ~system ~model ~max_tokens (prompt:string)
+    : string * int * int =
+  let api_key =
+    try Sys.getenv "OPENAI_API_KEY"
+    with Not_found -> failwith "ai_call: OPENAI_API_KEY not set"
+  in
+  let body_buf = Buffer.create 1024 in
+  Buffer.add_string body_buf "{\"model\":";
+  Buffer.add_string body_buf (json_escape_string model);
+  Buffer.add_string body_buf
+    (Printf.sprintf ",\"max_completion_tokens\":%d" max_tokens);
+  Buffer.add_string body_buf ",\"messages\":[";
+  (match system with
+   | None -> ()
+   | Some s ->
+       Buffer.add_string body_buf "{\"role\":\"system\",\"content\":";
+       Buffer.add_string body_buf (json_escape_string s);
+       Buffer.add_string body_buf "},");
+  Buffer.add_string body_buf "{\"role\":\"user\",\"content\":";
+  Buffer.add_string body_buf (json_escape_string prompt);
+  Buffer.add_string body_buf "}]}";
+  let body = Buffer.contents body_buf in
+
+  let req_file  = Filename.temp_file "abcl_ai_req"  ".json" in
+  let resp_file = Filename.temp_file "abcl_ai_resp" ".json" in
+  let oc = open_out req_file in
+  output_string oc body;
+  close_out oc;
+
+  let curl_cmd =
+    Printf.sprintf
+      "curl -s -X POST 'https://api.openai.com/v1/chat/completions' \
+       -H 'Authorization: Bearer %s' \
+       -H 'Content-Type: application/json' \
+       -d @%s -o %s 2>/dev/null"
+      (Filename.quote api_key) (Filename.quote req_file) (Filename.quote resp_file)
+  in
+  ignore (Sys.command curl_cmd);
+
+  let text =
+    jq_extract resp_file
+      ".choices[0].message.content // .error.message // \"<no response>\""
+  in
+  let in_t  = int_or_zero (jq_extract resp_file ".usage.prompt_tokens     // 0") in
+  let out_t = int_or_zero (jq_extract resp_file ".usage.completion_tokens // 0") in
+
+  (try Sys.remove req_file  with _ -> ());
+  (try Sys.remove resp_file with _ -> ());
+  (text, in_t, out_t)
+
+
+let call_gemini ?(system : string option = None) ?(model : string = "")
                 ?(max_tokens : int = default_max_tokens) (prompt : string) : string =
   check_budget ();
   let sem = get_concurrency_sem () in
   (match sem with Some s -> Sem.acquire s | None -> ());
   let result_or_exn =
-    try Ok (do_gemini_request ~system ~model ~max_tokens prompt)
+    try
+      let p = select_provider () in
+      let chosen = if model = "" then
+                     match p with
+                     | Gemini    -> default_model
+                     | Anthropic -> default_anthropic_model
+                     | OpenAI    -> default_openai_model
+                   else model
+      in
+      let r = match p with
+        | Gemini    -> do_gemini_request    ~system ~model:chosen ~max_tokens prompt
+        | Anthropic -> do_anthropic_request ~system ~model:chosen ~max_tokens prompt
+        | OpenAI    -> do_openai_request    ~system ~model:chosen ~max_tokens prompt
+      in
+      Ok r
     with e -> Error e
   in
   (match sem with Some s -> Sem.release s | None -> ());
