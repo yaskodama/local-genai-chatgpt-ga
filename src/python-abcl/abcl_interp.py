@@ -548,6 +548,47 @@ def _b_remote_call(args, frame, interp):
     return None
 
 
+def _b_remote_now(args, frame, interp):
+    """remote_now(hostport, actor, method, ...args) — synchronous,
+    returns the receiver's reply(value).  Goes through Python's
+    /api/json/call endpoint; not supported by an OCaml peer (yet)."""
+    from abcl_remote import remote_call_sync
+    if len(args) < 3:
+        raise ValueError("remote_now(hostport, actor, method, ...args)")
+    hostport = _to_str(args[0])
+    to_actor = _to_str(args[1])
+    method = _to_str(args[2])
+    rest = list(args[3:])
+    sender_name = frame.actor.name if frame.actor is not None else "main"
+    return remote_call_sync(hostport, to_actor, method, rest, from_name=sender_name)
+
+
+def _b_remote_future(args, frame, interp):
+    """remote_future(hostport, actor, method, ...args) — like
+    remote_now but returns a Future immediately.  await(f) to get
+    the reply.  Lets the caller fan out parallel synchronous remote
+    calls without spinning up an explicit thread per call."""
+    from abcl_remote import remote_call_sync
+    from abcl_runtime import Future
+    if len(args) < 3:
+        raise ValueError("remote_future(hostport, actor, method, ...args)")
+    hostport = _to_str(args[0])
+    to_actor = _to_str(args[1])
+    method = _to_str(args[2])
+    rest = list(args[3:])
+    sender_name = frame.actor.name if frame.actor is not None else "main"
+    fut = Future()
+    def _runner():
+        try:
+            v = remote_call_sync(hostport, to_actor, method, rest, from_name=sender_name)
+            fut.set(v)
+        except Exception as e:
+            print(f"[remote_future] error: {e}")
+            fut.set(None)
+    threading.Thread(target=_runner, daemon=True).start()
+    return fut
+
+
 def _b_serve_forever(args, frame, interp):
     """Block the current thread.  Useful at the end of a server-style
     .abcl program after web_listen / web_expose so the process keeps
@@ -593,5 +634,7 @@ _BUILTINS = {
     "web_listen":                    _b_web_listen,
     "web_expose":                    _b_web_expose,
     "remote_call":                   _b_remote_call,
+    "remote_now":                    _b_remote_now,
+    "remote_future":                 _b_remote_future,
     "serve_forever":                 _b_serve_forever,
 }

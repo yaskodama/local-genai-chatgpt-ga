@@ -114,6 +114,8 @@ class _Handler(BaseHTTPRequestHandler):
     def do_POST(self):
         if self.path.startswith("/api/json/send"):
             self._handle_send()
+        elif self.path.startswith("/api/json/call"):
+            self._handle_call()
         else:
             self.send_error(404, "Not Found")
 
@@ -180,6 +182,61 @@ class _Handler(BaseHTTPRequestHandler):
         body_ok = b'{"ok":true}'
         self._send_bytes(200, "application/json", body_ok)
 
+    def _handle_call(self):
+        """Synchronous remote call: dispatch with a Future and block
+        the HTTP response until the actor's reply() arrives (or the
+        method returns without one — then reply is null).  Wire shape:
+
+          POST /api/json/call
+          body: {"to":"name","method":"m","args":[...],"from":"who"}
+          resp 200 application/json: {"ok": true, "reply": <value>}
+
+        Optional `?timeout_ms=N` query (default 30 000)."""
+        try:
+            length = int(self.headers.get("Content-Length", "0") or "0")
+        except ValueError:
+            length = 0
+        body = self.rfile.read(length).decode("utf-8") if length > 0 else ""
+        try:
+            payload = json.loads(body) if body else {}
+        except (json.JSONDecodeError, ValueError) as e:
+            return self.send_error(400, f"bad json: {e}")
+        if not isinstance(payload, dict):
+            return self.send_error(400, "json body must be an object")
+
+        to_name = str(payload.get("to", ""))
+        method = str(payload.get("method", ""))
+        args = payload.get("args", []) or []
+        if not isinstance(args, list):
+            return self.send_error(400, "args must be an array")
+        from_name = str(payload.get("from", ""))
+
+        timeout_ms = 30_000
+        if "?" in self.path:
+            from urllib.parse import parse_qs, urlsplit
+            q = parse_qs(urlsplit(self.path).query)
+            if q.get("timeout_ms"):
+                try:
+                    timeout_ms = int(q["timeout_ms"][0])
+                except ValueError:
+                    pass
+
+        actor = find_actor(to_name)
+        if actor is None:
+            return self.send_error(404, f"no exposed actor: {to_name}")
+
+        from abcl_runtime import Future
+        fut = Future()
+        print(f"[gateway] (call) -> {to_name}.{method}({args}) from={from_name!r}")
+        try:
+            actor.send_method(method, list(args), sender=None, reply_future=fut)
+        except Exception as e:
+            return self.send_error(500, f"dispatch failed: {e}")
+
+        value = fut.get(timeout=timeout_ms / 1000.0)
+        body_resp = json.dumps({"ok": True, "reply": value}).encode("utf-8")
+        self._send_bytes(200, "application/json", body_resp)
+
 
 def start_gateway(port: int, *, host: str = "0.0.0.0") -> None:
     """Start the HTTP gateway on a daemon thread.  Returns once the
@@ -223,3 +280,30 @@ def remote_send(hostport: str, to_actor: str, method: str,
         print(f"[remote_send] {hostport}/{to_actor}.{method} HTTP {e.code}: {e.reason}")
     except urllib.error.URLError as e:
         print(f"[remote_send] {hostport}/{to_actor}.{method} failed: {e.reason}")
+
+
+def remote_call_sync(hostport: str, to_actor: str, method: str,
+                     args: list, from_name: str = "",
+                     timeout_s: float = 30.0):
+    """Synchronous remote call: blocks until the receiver's actor
+    method calls reply(value) (or returns without one — then None).
+    Returns the JSON-decoded reply value."""
+    url = f"http://{hostport}/api/json/call?timeout_ms={int(timeout_s * 1000)}"
+    payload = json.dumps({
+        "to":     to_actor,
+        "method": method,
+        "args":   list(args),
+        "from":   from_name,
+    }).encode("utf-8")
+    req = urllib.request.Request(
+        url, data=payload, method="POST",
+        headers={"Content-Type": "application/json"},
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=timeout_s + 5) as resp:
+            data = json.loads(resp.read().decode("utf-8"))
+        return data.get("reply")
+    except urllib.error.HTTPError as e:
+        raise RuntimeError(f"remote_call {hostport}/{to_actor}.{method} HTTP {e.code}: {e.reason}")
+    except urllib.error.URLError as e:
+        raise RuntimeError(f"remote_call {hostport}/{to_actor}.{method} failed: {e.reason}")
