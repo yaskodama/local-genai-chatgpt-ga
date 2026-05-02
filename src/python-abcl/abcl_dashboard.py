@@ -93,6 +93,7 @@ _HTML = """<!doctype html>
   <th>node</th><th>calls</th><th>in</th><th>out</th><th>total</th><th>cost</th>
 </tr></thead><tbody id="peers-body"></tbody></table>
 <h2>Observed traffic (this node)</h2>
+<svg id="graph" width="600" height="380" style="border:1px solid #223;background:#050810;display:block;margin-bottom:0.5rem"></svg>
 <table id="topo"><thead><tr>
   <th>src</th><th>dst</th><th>method</th><th>count</th><th>last</th>
 </tr></thead><tbody id="topo-body"></tbody></table>
@@ -168,6 +169,47 @@ async function refreshTopo() {
 }
 refreshTopo();
 setInterval(refreshTopo, 2000);
+
+async function refreshGraph() {
+  let t;
+  try {
+    t = await (await fetch('/topology.json', { cache: 'no-store' })).json();
+  } catch (_) { return; }
+  const svg = document.getElementById('graph');
+  const W = 600, H = 380, cx = W/2, cy = H/2, R = Math.min(W,H)/2 - 50;
+  if (!t.edges.length) {
+    svg.innerHTML = '<text x="20" y="30" fill="#667" font-size="12">no traffic yet</text>';
+    return;
+  }
+  const nodes = Array.from(new Set(t.edges.flatMap(e => [e.src, e.dst])));
+  const pos = {};
+  nodes.forEach((n, i) => {
+    const a = 2 * Math.PI * i / nodes.length - Math.PI/2;
+    pos[n] = { x: cx + R*Math.cos(a), y: cy + R*Math.sin(a) };
+  });
+  const maxCount = Math.max(1, ...t.edges.map(e => e.count));
+  let svgInner =
+    '<defs><marker id="ah" viewBox="0 0 10 10" refX="14" refY="5" ' +
+    'markerWidth="7" markerHeight="7" orient="auto">' +
+    '<path d="M0,0 L10,5 L0,10 z" fill="#8a8"/></marker></defs>';
+  // edges first so circles draw on top
+  for (const e of t.edges) {
+    const s = pos[e.src], d = pos[e.dst];
+    if (!s || !d) continue;
+    const w = 1 + 5 * (e.count / maxCount);
+    svgInner += `<line x1="${s.x}" y1="${s.y}" x2="${d.x}" y2="${d.y}" ` +
+                `stroke="#688" stroke-width="${w.toFixed(1)}" ` +
+                `opacity="0.7" marker-end="url(#ah)"/>`;
+  }
+  for (const n of nodes) {
+    const p = pos[n];
+    svgInner += `<circle cx="${p.x}" cy="${p.y}" r="22" fill="#162a3e" stroke="#6f8" stroke-width="2"/>`;
+    svgInner += `<text x="${p.x}" y="${p.y+4}" text-anchor="middle" font-size="11" fill="#cde">${n.slice(0,16)}</text>`;
+  }
+  svg.innerHTML = svgInner;
+}
+refreshGraph();
+setInterval(refreshGraph, 2000);
 
 const events = document.getElementById('events');
 function appendEvent(evt) {
