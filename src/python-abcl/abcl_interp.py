@@ -734,6 +734,30 @@ def _b_register_with(args, frame, interp):
         return f"error: {e}"
 
 
+def _b_inspect(args, frame, interp):
+    """inspect(actor) -> multi-line string with name + class + fields."""
+    if not args:
+        return ""
+    a = args[0]
+    if not isinstance(a, Actor):
+        return f"<not-an-actor: {type(a).__name__}>"
+    lines = [f"{a.name} : {a.cls.name}"]
+    for k, v in a.fields.items():
+        lines.append(f"  {k} = {_to_str(v)}")
+    return "\n".join(lines)
+
+
+def _b_actors(args, frame, interp):
+    """actors() -> array of every locally-registered actor name."""
+    return [a.name for a in interp.scheduler.all()]
+
+
+def _b_inspect_all(args, frame, interp):
+    """inspect_all() -> dump of every actor's name, class, and fields."""
+    return "\n".join(_b_inspect([a], frame, interp)
+                     for a in interp.scheduler.all())
+
+
 def _b_save_state(args, frame, interp):
     """Persist every actor's int/float/string/bool fields to
     ABCL_NODE_STATE_FILE (no-op if the env var is unset).  Reloaded
@@ -1063,6 +1087,10 @@ _BUILTINS = {
     "register_with":                 _b_register_with,
     # Per-node persistent state
     "save_state":                    _b_save_state,
+    # Introspection
+    "inspect":                       _b_inspect,
+    "inspect_all":                   _b_inspect_all,
+    "actors":                        _b_actors,
     # ---- stdlib: strings ----
     "str_len":                       _b_str_len,
     "str_sub":                       _b_str_sub,
