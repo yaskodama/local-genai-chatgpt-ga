@@ -438,6 +438,20 @@ def _b_ai_call_with_system(args, frame, interp):
     return call_ai(_to_str(args[1]), system=_to_str(args[0]))
 
 
+def _b_ai_usage(args, frame, interp):
+    """Returns a one-line usage summary string."""
+    from abcl_ai import get_usage
+    u = get_usage()
+    return (f"calls={u['calls']} in={u['input_tokens']} "
+            f"out={u['output_tokens']} total={u['total_tokens']}")
+
+
+def _b_ai_remaining(args, frame, interp):
+    """Tokens still allowed by ABCL_AI_TOKEN_BUDGET; -1 if no budget."""
+    from abcl_ai import get_remaining
+    return get_remaining()
+
+
 _BUILTINS = {
     "print":   _b_print,
     "println": _b_print,
@@ -459,7 +473,9 @@ _BUILTINS = {
     # Future / synchronisation
     "await":       _b_await,
     "future_done": _b_future_done,
-    # AI integration (Anthropic Claude)
+    # AI integration (provider auto-selected by env var)
     "ai_call":             _b_ai_call,
     "ai_call_with_system": _b_ai_call_with_system,
+    "ai_usage":            _b_ai_usage,
+    "ai_remaining":        _b_ai_remaining,
 }

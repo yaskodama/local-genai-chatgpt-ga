@@ -1,0 +1,40 @@
+// AI-OS demo: token budget + concurrency cap.
+//
+// Run with one or both knobs set in the environment, e.g.
+//   ABCL_AI_TOKEN_BUDGET=300         (cap total tokens)
+//   ABCL_AI_MAX_CONCURRENT=2         (at most 2 AI calls in flight)
+//
+// Each Worker logs usage after every call so you can see the live
+// counters tick up.  When the budget is exceeded the runtime raises
+// BudgetExceeded; the actor's worker thread surfaces it as
+// "[actor X.method] error: ..." and keeps the rest of the system
+// running.
+class Worker {
+  var id = 0;
+
+  method init(my_id) {
+    id = my_id;
+  }
+
+  method ask(topic) {
+    print("[w" + id + "] start: " + topic);
+    var resp = ai_call_with_system(
+      "Reply in ONE short sentence, no preamble.",
+      topic
+    );
+    print("[w" + id + "] reply: " + resp);
+    print("[w" + id + "] usage: " + ai_usage() + "  remaining=" + ai_remaining());
+  }
+}
+
+var w1 = new Worker(1);
+var w2 = new Worker(2);
+var w3 = new Worker(3);
+var w4 = new Worker(4);
+var w5 = new Worker(5);
+
+send w1.ask("What is the actor model?");
+send w2.ask("What is dining philosophers?");
+send w3.ask("What is a future in concurrent programming?");
+send w4.ask("What does prompt caching do?");
+send w5.ask("What is a semaphore used for?");
