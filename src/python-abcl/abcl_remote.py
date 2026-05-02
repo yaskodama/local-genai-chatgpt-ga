@@ -17,12 +17,38 @@ receiver can talk back via its own remote_send if it knows the
 sender's address.
 """
 
+import hashlib
+import hmac
 import json
+import os
 import threading
 import urllib.error
 import urllib.request
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from typing import Optional
+
+
+# ---------------------------------------------------------------------------
+# HMAC authentication.  Optional — when ABCL_REMOTE_SECRET is set on
+# both sides, every POST carries an X-ABCL-Sig header (hex SHA-256
+# HMAC of the request body) and the receiver rejects requests whose
+# signature doesn't match.
+
+def _shared_secret() -> bytes:
+    return os.environ.get("ABCL_REMOTE_SECRET", "").encode("utf-8")
+
+
+def _sign(body: bytes) -> str:
+    return hmac.new(_shared_secret(), body, hashlib.sha256).hexdigest()
+
+
+def _verify(body: bytes, sig: str) -> bool:
+    if not sig:
+        return False
+    try:
+        return hmac.compare_digest(_sign(body), sig)
+    except Exception:
+        return False
 
 
 # Registry of actors that should accept remote messages.
@@ -145,12 +171,25 @@ class _Handler(BaseHTTPRequestHandler):
         body = json.dumps({"exposed": list_exposed_names()}).encode("utf-8")
         self._send_bytes(200, "application/json", body)
 
-    def _handle_send(self):
+    def _read_authed_body(self):
+        """Read POST body bytes; if ABCL_REMOTE_SECRET is set, also
+        verify the X-ABCL-Sig HMAC.  Returns (str body, ok)."""
         try:
             length = int(self.headers.get("Content-Length", "0") or "0")
         except ValueError:
             length = 0
-        body = self.rfile.read(length).decode("utf-8") if length > 0 else ""
+        raw = self.rfile.read(length) if length > 0 else b""
+        if _shared_secret():
+            sig = self.headers.get("X-ABCL-Sig", "")
+            if not _verify(raw, sig):
+                self.send_error(401, "invalid or missing X-ABCL-Sig")
+                return "", False
+        return raw.decode("utf-8"), True
+
+    def _handle_send(self):
+        body, ok = self._read_authed_body()
+        if not ok:
+            return
         try:
             payload = json.loads(body) if body else {}
         except (json.JSONDecodeError, ValueError) as e:
@@ -192,11 +231,9 @@ class _Handler(BaseHTTPRequestHandler):
           resp 200 application/json: {"ok": true, "reply": <value>}
 
         Optional `?timeout_ms=N` query (default 30 000)."""
-        try:
-            length = int(self.headers.get("Content-Length", "0") or "0")
-        except ValueError:
-            length = 0
-        body = self.rfile.read(length).decode("utf-8") if length > 0 else ""
+        body, ok = self._read_authed_body()
+        if not ok:
+            return
         try:
             payload = json.loads(body) if body else {}
         except (json.JSONDecodeError, ValueError) as e:
@@ -258,6 +295,13 @@ def start_gateway(port: int, *, host: str = "0.0.0.0") -> None:
 # ---------------------------------------------------------------------------
 # Client side
 
+def _make_signed_request(url: str, payload: bytes) -> "urllib.request.Request":
+    headers = {"Content-Type": "application/json"}
+    if _shared_secret():
+        headers["X-ABCL-Sig"] = _sign(payload)
+    return urllib.request.Request(url, data=payload, method="POST", headers=headers)
+
+
 def remote_send(hostport: str, to_actor: str, method: str,
                 args: list, from_name: str = "") -> None:
     """Fire-and-forget remote send.  Matches the OCaml
@@ -269,10 +313,7 @@ def remote_send(hostport: str, to_actor: str, method: str,
         "args":   list(args),
         "from":   from_name,
     }).encode("utf-8")
-    req = urllib.request.Request(
-        url, data=payload, method="POST",
-        headers={"Content-Type": "application/json"},
-    )
+    req = _make_signed_request(url, payload)
     try:
         with urllib.request.urlopen(req, timeout=5) as resp:
             resp.read()
@@ -295,10 +336,7 @@ def remote_call_sync(hostport: str, to_actor: str, method: str,
         "args":   list(args),
         "from":   from_name,
     }).encode("utf-8")
-    req = urllib.request.Request(
-        url, data=payload, method="POST",
-        headers={"Content-Type": "application/json"},
-    )
+    req = _make_signed_request(url, payload)
     try:
         with urllib.request.urlopen(req, timeout=timeout_s + 5) as resp:
             data = json.loads(resp.read().decode("utf-8"))
