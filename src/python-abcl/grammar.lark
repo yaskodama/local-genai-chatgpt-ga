@@ -12,7 +12,11 @@ class_decl: "class" NAME "{" field* method_decl* "}"
 field: ("var" | "float" | "int") NAME "=" expr ";"
 
 method_decl: "method" NAME "(" params ")" "{" stmt* "}"
-params: (NAME ("," NAME)*)?
+params: (param ("," param)*)?
+// Optional type annotation on each parameter — accepted for clarity
+// but currently not type-checked; e.g. `method add(a: int, b: int)`.
+param: NAME (":" type_name)?
+type_name: "int" | "float" | "string" | "bool" | "any" | NAME
 
 global_stmt: var_new_stmt
            | var_decl_stmt

@@ -107,8 +107,20 @@ class _Builder(Transformer):
         return VarDecl(str(name), expr)
 
     @v_args(inline=False)
-    def params(self, names):
-        return [str(n) for n in names]
+    def params(self, items):
+        # Each `item` is already a plain str (from `param`).
+        return [s for s in items]
+
+    @v_args(inline=False)
+    def param(self, items):
+        # items: [NAME] or [NAME, type_name_value].  We accept the
+        # annotation for documentation / future type checking but
+        # don't act on it yet.
+        return str(items[0])
+
+    @v_args(inline=False)
+    def type_name(self, items):
+        return str(items[0]) if items else "any"
 
     def method_decl(self, name, params, *body_stmts):
         return MethodDecl(str(name), params, Block(list(body_stmts)))
