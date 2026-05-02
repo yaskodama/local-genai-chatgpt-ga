@@ -107,8 +107,22 @@ class Interpreter:
         for d in self.program.decls:
             if isinstance(d, GlobalStmt):
                 self.exec_stmt(d.stmt, frame)
-        # Wait for actors to drain.
-        self.scheduler.wait_idle(idle_ms=idle_ms, timeout_s=timeout_s)
+        # If a remote gateway was started during top-level execution,
+        # stay alive until the user interrupts — auto-idle would shut
+        # the listener down right after binding the port.
+        try:
+            from abcl_remote import is_gateway_running
+        except Exception:
+            is_gateway_running = lambda: False  # noqa: E731
+        if is_gateway_running():
+            print("[interp] gateway running — Ctrl-C to stop")
+            try:
+                while True:
+                    time.sleep(1)
+            except KeyboardInterrupt:
+                pass
+        else:
+            self.scheduler.wait_idle(idle_ms=idle_ms, timeout_s=timeout_s)
         self.scheduler.shutdown()
 
     # ------------------------------------------------------------------
@@ -480,6 +494,61 @@ def _b_ai_cost(args, frame, interp):
     return get_cost_usd()
 
 
+# ---------------------------------------------------------------------------
+# Distributed actor builtins.
+
+def _b_web_listen(args, frame, interp):
+    from abcl_remote import start_gateway
+    if not args:
+        raise ValueError("web_listen(port): expected 1 int argument")
+    start_gateway(int(args[0]))
+    return None
+
+
+def _b_web_expose(args, frame, interp):
+    """web_expose(name, actor) — register `actor` under `name` so any
+    remote `POST /api/json/send` with that to-field is delivered to its
+    mailbox."""
+    from abcl_remote import expose
+    if len(args) < 2:
+        raise ValueError("web_expose(name, actor): expected 2 arguments")
+    name = _to_str(args[0])
+    actor_arg = args[1]
+    if not isinstance(actor_arg, Actor):
+        raise ValueError("web_expose: second arg must be an actor reference")
+    expose(name, actor_arg)
+    print(f"[expose] {name} -> {actor_arg.name}")
+    return None
+
+
+def _b_remote_call(args, frame, interp):
+    """remote_call(hostport, actor_name, method, ...args) — fire-and-forget
+    POST to a remote ABCL/c+ runtime (Python or OCaml).  Wire format
+    matches OCaml src/web_gateway.ml."""
+    from abcl_remote import remote_send
+    if len(args) < 3:
+        raise ValueError("remote_call(hostport, actor, method, ...args)")
+    hostport = _to_str(args[0])
+    to_actor = _to_str(args[1])
+    method = _to_str(args[2])
+    rest = list(args[3:])
+    sender_name = frame.actor.name if frame.actor is not None else "main"
+    remote_send(hostport, to_actor, method, rest, from_name=sender_name)
+    return None
+
+
+def _b_serve_forever(args, frame, interp):
+    """Block the current thread.  Useful at the end of a server-style
+    .abcl program after web_listen / web_expose so the process keeps
+    accepting incoming messages."""
+    try:
+        while True:
+            time.sleep(1)
+    except KeyboardInterrupt:
+        pass
+    return None
+
+
 _BUILTINS = {
     "print":   _b_print,
     "println": _b_print,
@@ -509,4 +578,9 @@ _BUILTINS = {
     "ai_usage":                      _b_ai_usage,
     "ai_remaining":                  _b_ai_remaining,
     "ai_cost":                       _b_ai_cost,
+    # Distributed actors (wire-compat with OCaml web_gateway.ml)
+    "web_listen":                    _b_web_listen,
+    "web_expose":                    _b_web_expose,
+    "remote_call":                   _b_remote_call,
+    "serve_forever":                 _b_serve_forever,
 }

@@ -1,0 +1,34 @@
+// Remote-actor server.
+//
+// Starts an HTTP gateway on port 8080 and exposes a single actor
+// `mailbox` that simply prints whatever it receives.  Wire-compatible
+// with the OCaml runtime's web_gateway.ml so a Python *or* OCaml
+// client can target it identically.
+//
+// Run:
+//   python3 abcl_main.py samples-remote/server.abcl
+// Then in another terminal, run client.abcl or fire curl manually:
+//   curl -s -X POST http://localhost:8080/api/json/send \
+//     -H 'Content-Type: application/json' \
+//     -d '{"to":"mailbox","method":"deliver","args":["hello","world"],"from":"curl"}'
+class Mailbox {
+  var seen = 0;
+
+  method deliver(who, msg) {
+    seen = seen + 1;
+    print("[mailbox #" + seen + "] from=" + who + " msg=" + msg);
+  }
+
+  method ping() {
+    print("[mailbox] ping received");
+  }
+
+  method shutdown() {
+    print("[mailbox] shutdown requested (Ctrl-C the server to exit)");
+  }
+}
+
+var mb = new Mailbox();
+web_listen(8080);
+web_expose("mailbox", mb);
+print("[server] mailbox actor exposed at http://localhost:8080/api/json/send");

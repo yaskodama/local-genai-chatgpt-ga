@@ -1,0 +1,22 @@
+// Remote-actor client.
+//
+// Sends three fire-and-forget messages to whichever ABCL/c+ runtime
+// is listening on localhost:8080 — the matching server can be either
+// the Python server.abcl in this directory or an OCaml runtime that
+// has called web_listen(8080) and web_expose("/mailbox", ...).
+//
+// Run server first, then in another terminal:
+//   python3 abcl_main.py samples-remote/client.abcl
+
+class Driver {
+  method run() {
+    print("[client] sending 3 messages to mailbox@localhost:8080");
+    remote_call("localhost:8080", "mailbox", "ping");
+    remote_call("localhost:8080", "mailbox", "deliver", "alice", "hello from python");
+    remote_call("localhost:8080", "mailbox", "deliver", "bob",   "another message");
+    print("[client] done");
+  }
+}
+
+var d = new Driver();
+send d.run();
