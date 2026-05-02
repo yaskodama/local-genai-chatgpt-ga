@@ -53,6 +53,18 @@ class Mailbox:
     def get(self, timeout=None):
         return self._q.get(timeout=timeout)
 
+    def drain(self) -> list:
+        """Pull every queued message out without blocking.  Used at
+        shutdown so the persistence layer can snapshot anything we
+        haven't processed yet."""
+        items = []
+        try:
+            while True:
+                items.append(self._q.get_nowait())
+        except queue.Empty:
+            pass
+        return items
+
 
 class Actor:
     """One actor = one worker thread + per-instance fields."""

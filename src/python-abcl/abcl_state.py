@@ -28,7 +28,7 @@ def state_file_path() -> Optional[str]:
     return p or None
 
 
-def load_snapshot() -> dict:
+def _read_doc() -> dict:
     p = state_file_path()
     if not p:
         return {}
@@ -39,37 +39,59 @@ def load_snapshot() -> dict:
         return {}
     except (OSError, json.JSONDecodeError):
         return {}
-    actors = data.get("actors", {})
+    return data if isinstance(data, dict) else {}
+
+
+def load_snapshot() -> dict:
+    actors = _read_doc().get("actors", {})
     return actors if isinstance(actors, dict) else {}
+
+
+def load_pending() -> dict:
+    """Returns {actor_name: [{"method": str, "args": [...]}, ...]}
+    of mailbox messages that the previous run shut down with."""
+    pending = _read_doc().get("pending", {})
+    return pending if isinstance(pending, dict) else {}
 
 
 def _is_persistable(v) -> bool:
     return isinstance(v, (int, float, bool, str))
 
 
-def save_snapshot(actors: list) -> None:
-    """Write a JSON snapshot of every (name, fields) actor in the
-    list.  `actors` is a list of (name:str, fields:dict)."""
+def _atomic_write(path: str, doc: dict) -> None:
+    dirn = os.path.dirname(os.path.abspath(path)) or "."
+    try:
+        os.makedirs(dirn, exist_ok=True)
+        fd, tmp = tempfile.mkstemp(prefix=".state_", dir=dirn)
+        try:
+            with os.fdopen(fd, "w") as f:
+                json.dump(doc, f, indent=2)
+            os.replace(tmp, path)
+        except Exception:
+            try: os.unlink(tmp)
+            except OSError: pass
+            raise
+    except OSError as e:
+        print(f"[state] save failed: {e}")
+
+
+def save_snapshot(actors: list, pending=None) -> None:
+    """Write a JSON snapshot to ABCL_NODE_STATE_FILE.  `actors` is a
+    list of (name, fields-dict).  `pending`, if provided, is a list
+    of (actor_name, [{"method","args"}, ...]) of undelivered
+    mailbox messages.  Actors with no persistable state still get an
+    empty dict so the file shape stays consistent."""
     p = state_file_path()
     if not p:
         return
     with _save_lock:
-        snapshot = {"actors": {}}
+        snapshot = {"actors": {}, "pending": {}}
         for name, fields in actors:
             persistable = {k: v for k, v in fields.items() if _is_persistable(v)}
             if persistable:
                 snapshot["actors"][name] = persistable
-        dirn = os.path.dirname(os.path.abspath(p)) or "."
-        try:
-            os.makedirs(dirn, exist_ok=True)
-            fd, tmp = tempfile.mkstemp(prefix=".state_", dir=dirn)
-            try:
-                with os.fdopen(fd, "w") as f:
-                    json.dump(snapshot, f, indent=2)
-                os.replace(tmp, p)
-            except Exception:
-                try: os.unlink(tmp)
-                except OSError: pass
-                raise
-        except OSError as e:
-            print(f"[state] save failed: {e}")
+        if pending:
+            for name, msgs in pending:
+                if msgs:
+                    snapshot["pending"][name] = msgs
+        _atomic_write(p, snapshot)

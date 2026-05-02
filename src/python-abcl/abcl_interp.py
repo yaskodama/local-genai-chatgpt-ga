@@ -94,12 +94,15 @@ class Interpreter:
         self.scheduler = Scheduler()
         self._global_lock = threading.Lock()
         self._actor_counter = 0
-        # Optional persisted-fields snapshot loaded once at startup.
+        # Optional persisted-fields + pending-mailbox snapshot loaded
+        # once at startup; replay happens per-actor during spawn.
         try:
-            from abcl_state import load_snapshot
+            from abcl_state import load_snapshot, load_pending
             self._state_snapshot = load_snapshot()
+            self._pending_snapshot = load_pending()
         except Exception:
             self._state_snapshot = {}
+            self._pending_snapshot = {}
         for d in program.decls:
             if isinstance(d, ClassDecl):
                 self.classes[d.name] = d
@@ -140,7 +143,46 @@ class Interpreter:
                 pass
         else:
             self.scheduler.wait_idle(idle_ms=idle_ms, timeout_s=timeout_s)
+        # Persist actor fields + any undelivered mailbox messages
+        # before shutdown so a graceful restart can pick up where
+        # we left off.  No-op when ABCL_NODE_STATE_FILE is unset.
+        try:
+            self._save_state_with_pending()
+        except Exception as e:
+            print(f"[state] save on exit failed: {e}", flush=True)
         self.scheduler.shutdown()
+
+    def _save_state_with_pending(self) -> None:
+        try:
+            from abcl_state import save_snapshot
+        except Exception:
+            return
+        actors_fields = []
+        pending = []
+        with self._global_lock:
+            globs = list(self.globals.items())
+        for name, val in globs:
+            if isinstance(val, Actor):
+                actors_fields.append((name, dict(val.fields)))
+                drained = val.mailbox.drain()
+                msgs = []
+                for tup in drained:
+                    if not isinstance(tup, tuple) or len(tup) < 2:
+                        continue
+                    method = tup[0]
+                    args = tup[1] if len(tup) > 1 else []
+                    if method == "__stop__":
+                        continue
+                    if not isinstance(args, list):
+                        continue
+                    if not all(isinstance(a, (int, float, bool, str)) or a is None for a in args):
+                        # Skip messages whose args we can't safely
+                        # round-trip through JSON.
+                        continue
+                    msgs.append({"method": method, "args": args})
+                if msgs:
+                    pending.append((name, msgs))
+        save_snapshot(actors_fields, pending=pending)
 
     # ------------------------------------------------------------------
     # Actor lifecycle
@@ -175,6 +217,15 @@ class Interpreter:
         # If `init` is defined, send it the constructor args.
         if any(m.name == "init" for m in cls.methods):
             actor.send_method("init", ctor_args, sender=None)
+        # Replay any messages that were pending for this actor at the
+        # previous shutdown.
+        replay = self._pending_snapshot.pop(name, None)
+        if isinstance(replay, list):
+            for msg in replay:
+                m_method = msg.get("method") if isinstance(msg, dict) else None
+                m_args   = msg.get("args", []) if isinstance(msg, dict) else []
+                if isinstance(m_method, str) and isinstance(m_args, list):
+                    actor.send_method(m_method, list(m_args), sender=None)
         return actor
 
     def dispatch(
