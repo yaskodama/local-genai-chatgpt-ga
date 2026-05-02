@@ -340,6 +340,20 @@ def _b_random(args, frame, interp):
     return random.randint(int(args[0]), int(args[1]) - 1)
 
 
+def _b_ai_call(args, frame, interp):
+    from abcl_ai import call_claude
+    if not args:
+        raise ValueError("ai_call(prompt): expected 1 string argument")
+    return call_claude(_to_str(args[0]))
+
+
+def _b_ai_call_with_system(args, frame, interp):
+    from abcl_ai import call_claude
+    if len(args) < 2:
+        raise ValueError("ai_call_with_system(system, prompt): expected 2 string arguments")
+    return call_claude(_to_str(args[1]), system=_to_str(args[0]))
+
+
 _BUILTINS = {
     "print":   _b_print,
     "println": _b_print,
@@ -358,4 +372,7 @@ _BUILTINS = {
     "abs":     lambda a, f, i: abs(a[0]),
     "max":     lambda a, f, i: max(a),
     "min":     lambda a, f, i: min(a),
+    # AI integration (Anthropic Claude)
+    "ai_call":             _b_ai_call,
+    "ai_call_with_system": _b_ai_call_with_system,
 }

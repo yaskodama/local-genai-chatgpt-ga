@@ -1,1 +1,5 @@
 lark>=1.1.0
+
+# Optional — only needed when running samples-ai/ programs that call
+# Claude via the ai_call / ai_call_with_system builtins.
+anthropic>=0.40.0

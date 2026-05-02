@@ -1,0 +1,43 @@
+// AI-OS sketch: three "agent" actors chained, each backed by a real
+// Claude call.  Stages: planner (turn the request into a plan) ->
+// solver (execute against the plan) -> reviewer (critique the result).
+//
+// Requires ANTHROPIC_API_KEY in the environment.  Each run is one
+// conversation = three Claude messages, so it costs API tokens.
+class Agent {
+  var role = "?";
+  var system_prompt = "";
+  var next = 0;
+  var has_next = 0;
+
+  method init(my_role, sys) {
+    role = my_role;
+    system_prompt = sys;
+    has_next = 0;
+  }
+
+  method link(n) {
+    next = n;
+    has_next = 1;
+  }
+
+  method handle(payload) {
+    print("[" + role + "] <- " + payload);
+    var reply = ai_call_with_system(system_prompt, payload);
+    print("[" + role + "] -> " + reply);
+    if (has_next == 1) {
+      send next.handle(reply);
+    } else {
+      print("[final answer]");
+      print(reply);
+    }
+  }
+}
+
+var planner  = new Agent("planner",  "You are a planner.  Turn the user's request into a 3-step plan.  Reply with just the plan, no preamble.");
+var solver   = new Agent("solver",   "You are a solver.  You receive a 3-step plan.  Execute it and report the result concisely.  No preamble.");
+var reviewer = new Agent("reviewer", "You are a reviewer.  Critique the previous step's output: 1 sentence on quality, 1 sentence on what to improve.  No preamble.");
+
+send planner.link(solver);
+send solver.link(reviewer);
+send planner.handle("Suggest a name for a new lightweight actor language that runs on top of Claude.");
