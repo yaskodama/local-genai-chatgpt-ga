@@ -1,5 +1,8 @@
 lark>=1.1.0
 
 # Optional — only needed when running samples-ai/ programs that call
-# Claude via the ai_call / ai_call_with_system builtins.
+# the ai_call / ai_call_with_system builtins.  abcl_ai dispatches to
+# whichever provider has its key in the environment, so install only
+# the SDK(s) you intend to use.
 anthropic>=0.40.0
+google-genai>=0.3.0

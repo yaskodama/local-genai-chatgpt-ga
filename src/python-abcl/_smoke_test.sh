@@ -65,11 +65,16 @@ ai_pass=0; ai_fail=0; ai_skip=0
 if [ "$WITH_AI" = "1" ]; then
   echo
   echo "[AI samples]"
-  if [ -z "${ANTHROPIC_API_KEY:-}" ]; then
-    echo "  SKIP samples-ai/: ANTHROPIC_API_KEY is not set"
+  if [ -z "${ANTHROPIC_API_KEY:-}" ] && [ -z "${GEMINI_API_KEY:-}" ]; then
+    echo "  SKIP samples-ai/: neither ANTHROPIC_API_KEY nor GEMINI_API_KEY is set"
     ai_skip=1
-  elif ! "$PY" -c "import anthropic" 2>/dev/null; then
-    echo "  SKIP samples-ai/: anthropic SDK not installed ($PY -m pip install --user anthropic)"
+  elif [ -n "${ANTHROPIC_API_KEY:-}" ] && ! "$PY" -c "import anthropic" 2>/dev/null; then
+    echo "  SKIP samples-ai/: ANTHROPIC_API_KEY set but anthropic SDK not installed"
+    echo "    -> $PY -m pip install --user anthropic"
+    ai_skip=1
+  elif [ -n "${GEMINI_API_KEY:-}" ] && ! "$PY" -c "from google import genai" 2>/dev/null; then
+    echo "  SKIP samples-ai/: GEMINI_API_KEY set but google-genai SDK not installed"
+    echo "    -> $PY -m pip install --user google-genai"
     ai_skip=1
   else
     for f in samples-ai/*.abcl; do

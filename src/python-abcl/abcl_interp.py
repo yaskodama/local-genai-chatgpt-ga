@@ -425,17 +425,17 @@ def _b_random(args, frame, interp):
 
 
 def _b_ai_call(args, frame, interp):
-    from abcl_ai import call_claude
+    from abcl_ai import call_ai
     if not args:
         raise ValueError("ai_call(prompt): expected 1 string argument")
-    return call_claude(_to_str(args[0]))
+    return call_ai(_to_str(args[0]))
 
 
 def _b_ai_call_with_system(args, frame, interp):
-    from abcl_ai import call_claude
+    from abcl_ai import call_ai
     if len(args) < 2:
         raise ValueError("ai_call_with_system(system, prompt): expected 2 string arguments")
-    return call_claude(_to_str(args[1]), system=_to_str(args[0]))
+    return call_ai(_to_str(args[1]), system=_to_str(args[0]))
 
 
 _BUILTINS = {
