@@ -12,12 +12,47 @@ abcl_ai.get_usage() / get_remaining().  The page itself polls
 """
 
 import json
+import os
 import queue
 import threading
+import time
+import urllib.error
+import urllib.request
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 import abcl_ai
 import abcl_events
+
+
+def _peer_dashboards() -> list:
+    raw = os.environ.get("ABCL_PEER_DASHBOARDS", "").strip()
+    if not raw:
+        return []
+    return [p.strip() for p in raw.split(",") if p.strip()]
+
+
+# Tiny per-key cache so a noisy page-refresh doesn't hammer peers.
+_peer_cache_lock = threading.Lock()
+_peer_cache: dict = {}        # hostport -> (timestamp, payload_dict | None)
+PEER_CACHE_TTL_S = 0.8
+
+
+def _fetch_peer_usage(hostport: str) -> "dict | None":
+    now = time.monotonic()
+    with _peer_cache_lock:
+        cached = _peer_cache.get(hostport)
+        if cached is not None and (now - cached[0]) < PEER_CACHE_TTL_S:
+            return cached[1]
+    payload = None
+    url = f"http://{hostport}/usage.json"
+    try:
+        with urllib.request.urlopen(url, timeout=1.5) as resp:
+            payload = json.loads(resp.read().decode("utf-8"))
+    except (urllib.error.URLError, urllib.error.HTTPError, ValueError, OSError):
+        payload = None
+    with _peer_cache_lock:
+        _peer_cache[hostport] = (now, payload)
+    return payload
 
 
 _HTML = """<!doctype html>
@@ -40,10 +75,20 @@ _HTML = """<!doctype html>
   .ev .ai_call { color: #8df; }
   .ev .remote_in { color: #6f8; }
   .ev .remote_out { color: #f9a; }
+  #peers { border-collapse: collapse; }
+  #peers th, #peers td { padding: 0.2rem 0.8rem; text-align: right; }
+  #peers th { color: #889; font-weight: normal; border-bottom: 1px solid #223; }
+  #peers td:first-child, #peers th:first-child { text-align: left; color: #aaf; }
+  #peers tr.bad td { color: #f88; }
+  #peers tr.total td { color: #cde; border-top: 1px solid #223; font-weight: 700; }
 </style></head><body>
 <h1>ABCL/c+ AI-OS Dashboard</h1>
 <table id="t"></table>
 <small id="ts"></small>
+<h2>Cluster (this node + peers)</h2>
+<table id="peers"><thead><tr>
+  <th>node</th><th>calls</th><th>in</th><th>out</th><th>total</th><th>cost</th>
+</tr></thead><tbody id="peers-body"></tbody></table>
 <h2>Live events</h2>
 <div id="events"></div>
 <script>
@@ -72,6 +117,31 @@ async function refresh() {
 refresh();
 setInterval(refresh, 1000);
 
+async function refreshPeers() {
+  try {
+    const r = await fetch('/aggregate.json', { cache: 'no-store' });
+    const a = await r.json();
+    const tb = document.getElementById('peers-body');
+    const fmt = (n) => (typeof n === 'number') ? n.toLocaleString() : '-';
+    const lines = [];
+    for (const n of a.nodes) {
+      const u = n.usage || {};
+      const cls = n.ok ? '' : 'bad';
+      lines.push(`<tr class="${cls}"><td>${n.name}${n.ok ? '' : ' (offline)'}</td>` +
+        `<td>${fmt(u.calls)}</td><td>${fmt(u.input_tokens)}</td>` +
+        `<td>${fmt(u.output_tokens)}</td><td>${fmt(u.total_tokens)}</td>` +
+        `<td>${u.cost_usd != null ? '$' + u.cost_usd.toFixed(6) : '-'}</td></tr>`);
+    }
+    const A = a.aggregate;
+    lines.push(`<tr class="total"><td>TOTAL</td><td>${fmt(A.calls)}</td>` +
+      `<td>${fmt(A.input_tokens)}</td><td>${fmt(A.output_tokens)}</td>` +
+      `<td>${fmt(A.total_tokens)}</td><td>$${A.cost_usd.toFixed(6)}</td></tr>`);
+    tb.innerHTML = lines.join('');
+  } catch (e) { /* ignore — peer offline */ }
+}
+refreshPeers();
+setInterval(refreshPeers, 2000);
+
 const events = document.getElementById('events');
 function appendEvent(evt) {
   const t = new Date(evt.ts * 1000).toLocaleTimeString();
@@ -98,15 +168,58 @@ class _Handler(BaseHTTPRequestHandler):
         # Silence the default access log so it doesn't crowd actor output.
         return
 
+    def _send_bytes(self, code: int, ctype: str, body: bytes):
+        self.send_response(code)
+        self.send_header("Content-Type", ctype)
+        self.send_header("Content-Length", str(len(body)))
+        self.send_header("Cache-Control", "no-store")
+        self.end_headers()
+        self.wfile.write(body)
+
     def do_GET(self):
         if self.path.startswith("/usage.json"):
             self._serve_json()
+        elif self.path.startswith("/aggregate.json"):
+            self._serve_aggregate()
         elif self.path.startswith("/events"):
             self._serve_events()
         elif self.path == "/" or self.path.startswith("/?"):
             self._serve_html()
         else:
             self.send_error(404, "Not Found")
+
+    def _serve_aggregate(self):
+        peers = _peer_dashboards()
+        nodes = []
+        # Self first
+        local = abcl_ai.get_usage()
+        try:
+            local_budget = abcl_ai._get_budget()  # type: ignore[attr-defined]
+        except Exception:
+            local_budget = 0
+        local["budget"]    = local_budget
+        local["remaining"] = abcl_ai.get_remaining()
+        nodes.append({"name": "self", "ok": True, "usage": local})
+        # Peers
+        for hp in peers:
+            payload = _fetch_peer_usage(hp)
+            nodes.append({"name": hp, "ok": payload is not None,
+                          "usage": payload or {}})
+        # Aggregate the truthy ones
+        keys = ("calls", "input_tokens", "output_tokens", "total_tokens")
+        agg = {k: 0 for k in keys}
+        agg["cost_usd"] = 0.0
+        for n in nodes:
+            u = n.get("usage", {}) or {}
+            for k in keys:
+                v = u.get(k, 0)
+                if isinstance(v, int):
+                    agg[k] += v
+            c = u.get("cost_usd", 0)
+            if isinstance(c, (int, float)):
+                agg["cost_usd"] += float(c)
+        body = json.dumps({"nodes": nodes, "aggregate": agg}).encode("utf-8")
+        self._send_bytes(200, "application/json", body)
 
     def _serve_events(self):
         self.send_response(200)
