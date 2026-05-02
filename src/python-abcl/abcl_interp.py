@@ -927,6 +927,72 @@ def _b_now_s(args, frame, interp):
     return time.time()
 
 
+# ---- Filesystem ------------------------------------------------------------
+# All total: bad paths return [] / "" / 0 instead of raising.
+
+def _b_list_dir(args, frame, interp):
+    import os as _os
+    if not args:
+        return []
+    try:
+        return sorted(_os.listdir(_to_str(args[0])))
+    except OSError:
+        return []
+
+def _b_is_dir(args, frame, interp):
+    import os.path as _op
+    return 1 if (args and _op.isdir(_to_str(args[0]))) else 0
+
+def _b_is_file(args, frame, interp):
+    import os.path as _op
+    return 1 if (args and _op.isfile(_to_str(args[0]))) else 0
+
+def _b_mkdir(args, frame, interp):
+    """mkdir(path) — creates the directory + parents.  Returns 1 / 0."""
+    import os as _os
+    if not args:
+        return 0
+    try:
+        _os.makedirs(_to_str(args[0]), exist_ok=True)
+        return 1
+    except OSError:
+        return 0
+
+def _b_rm_file(args, frame, interp):
+    """rm_file(path) — removes a regular file.  Refuses directories."""
+    import os as _os
+    import os.path as _op
+    if not args:
+        return 0
+    p = _to_str(args[0])
+    if _op.isdir(p):
+        return 0
+    try:
+        _os.remove(p)
+        return 1
+    except OSError:
+        return 0
+
+def _b_path_join(args, frame, interp):
+    import os.path as _op
+    return _op.join(*[_to_str(a) for a in args]) if args else ""
+
+def _b_basename(args, frame, interp):
+    import os.path as _op
+    return _op.basename(_to_str(args[0])) if args else ""
+
+def _b_dirname(args, frame, interp):
+    import os.path as _op
+    return _op.dirname(_to_str(args[0])) if args else ""
+
+def _b_cwd(args, frame, interp):
+    import os as _os
+    try:
+        return _os.getcwd()
+    except OSError:
+        return ""
+
+
 # ---- Arrays ----------------------------------------------------------------
 
 def _b_array_len(args, frame, interp):
@@ -1162,6 +1228,16 @@ _BUILTINS = {
     "file_exists":                   _b_file_exists,
     "env_get":                       _b_env_get,
     "now_s":                         _b_now_s,
+    # ---- filesystem ----
+    "list_dir":                      _b_list_dir,
+    "is_dir":                        _b_is_dir,
+    "is_file":                       _b_is_file,
+    "mkdir":                         _b_mkdir,
+    "rm_file":                       _b_rm_file,
+    "path_join":                     _b_path_join,
+    "basename":                      _b_basename,
+    "dirname":                       _b_dirname,
+    "cwd":                           _b_cwd,
     # ---- arrays ----
     "array_len":                     _b_array_len,
     "array_get":                     _b_array_get,
