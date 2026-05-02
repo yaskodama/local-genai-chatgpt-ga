@@ -317,8 +317,27 @@ def _select_provider() -> str:
     if os.environ.get("OPENAI_API_KEY"):
         return "openai"
     raise RuntimeError(
-        "No AI provider key set: export GEMINI_API_KEY, ANTHROPIC_API_KEY, or OPENAI_API_KEY"
+        "No AI provider key set: export GEMINI_API_KEY, ANTHROPIC_API_KEY, "
+        "or OPENAI_API_KEY (or ABCL_AI_PROVIDER=mock for offline tests)"
     )
+
+
+def _do_mock(
+    prompt: str,
+    *,
+    system: Optional[str] = None,
+    model: str = "mock",
+    max_tokens: int = DEFAULT_MAX_TOKENS,
+) -> str:
+    """Offline test provider — no network, no key required.  Echoes a
+    short canned reply and ticks the usage counters with a rough
+    token estimate so the dashboard still has data to render."""
+    head = (prompt or "")[:60].replace("\n", " ")
+    sys_tag = "" if system is None else f" sys=({system[:20]}...)"
+    response = f"[mock] reply{sys_tag} for: {head}"
+    # Rough 4-chars-per-token approximation.
+    _record_usage(model, max(1, len(prompt) // 4), max(1, len(response) // 4))
+    return response
 
 
 def _fallback_models() -> List[str]:
@@ -378,6 +397,7 @@ def call_ai(
             "gemini":    DEFAULT_GEMINI_MODEL,
             "anthropic": DEFAULT_ANTHROPIC_MODEL,
             "openai":    DEFAULT_OPENAI_MODEL,
+            "mock":      "mock",
         }.get(provider, DEFAULT_GEMINI_MODEL)
         models = [primary] + [m for m in _fallback_models() if m != primary]
 
@@ -390,6 +410,8 @@ def call_ai(
                     return _do_claude(prompt, system=system, model=m, max_tokens=max_tokens)
                 if provider == "openai":
                     return _do_openai(prompt, system=system, model=m, max_tokens=max_tokens)
+                if provider == "mock":
+                    return _do_mock(prompt, system=system, model=m, max_tokens=max_tokens)
                 raise RuntimeError(f"Unknown ABCL_AI_PROVIDER: {provider!r}")
             except BaseException as e:
                 last_exc = e
