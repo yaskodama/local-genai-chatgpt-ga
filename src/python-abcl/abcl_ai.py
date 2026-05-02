@@ -23,6 +23,7 @@ AI-OS governance knobs (env vars, all optional):
 the `ai_usage()` builtin.
 """
 
+import itertools
 import os
 import threading
 from typing import Optional
@@ -50,9 +51,70 @@ class BudgetExceeded(RuntimeError):
 _usage_lock = threading.Lock()
 _usage = {"calls": 0, "input_tokens": 0, "output_tokens": 0}
 
-# Concurrency semaphore is created lazily so changing the env var
+DEFAULT_PRIORITY = 10
+
+
+class _PriorityGate:
+    """Bounded-concurrency gate that admits waiters in priority order.
+
+    Drop-in replacement for a counting semaphore used as
+    `with gate.acquire(priority): ...`.  When `available > 0` the
+    caller proceeds immediately; when not, it blocks on a private
+    Condition and is woken in (priority asc, FIFO) order.
+
+    `priority` is a number — *lower* sorts first, matching Unix nice.
+    Ties are broken by enqueue order so equal-priority waiters are
+    served FIFO.
+    """
+
+    def __init__(self, capacity: int):
+        self.capacity = max(1, capacity)
+        self.available = self.capacity
+        self.cond = threading.Condition()
+        self._counter = itertools.count()  # tiebreaker
+
+    def acquire(self, priority: float = DEFAULT_PRIORITY) -> None:
+        with self.cond:
+            if self.available > 0 and self._is_my_turn(priority):
+                self.available -= 1
+                return
+            ticket = (priority, next(self._counter))
+            self._waiting.append(ticket)
+            self._waiting.sort()
+            try:
+                while True:
+                    if self.available > 0 and self._waiting[0] == ticket:
+                        self._waiting.pop(0)
+                        self.available -= 1
+                        return
+                    self.cond.wait()
+            except BaseException:
+                # Ensure we don't leave a dead ticket in the queue.
+                try: self._waiting.remove(ticket)
+                except ValueError: pass
+                self.cond.notify_all()
+                raise
+
+    def release(self) -> None:
+        with self.cond:
+            self.available += 1
+            self.cond.notify_all()
+
+    # The waiting queue is initialised lazily so the simple no-contention
+    # path stays a single-line `if available > 0`.
+    @property
+    def _waiting(self):
+        if not hasattr(self, "_w"):
+            self._w = []
+        return self._w
+
+    def _is_my_turn(self, priority: float) -> bool:
+        return not self._waiting or priority <= self._waiting[0][0]
+
+
+# Concurrency gate is created lazily so changing the env var
 # between runs takes effect.
-_concurrency_sem: Optional[threading.Semaphore] = None
+_concurrency_gate: Optional["_PriorityGate"] = None
 _concurrency_inited = False
 _concurrency_init_lock = threading.Lock()
 
@@ -71,16 +133,16 @@ def _get_budget() -> int:
     return _int_env("ABCL_AI_TOKEN_BUDGET", 0)
 
 
-def _get_concurrency_sem() -> Optional[threading.Semaphore]:
-    global _concurrency_sem, _concurrency_inited
+def _get_concurrency_gate() -> Optional["_PriorityGate"]:
+    global _concurrency_gate, _concurrency_inited
     if _concurrency_inited:
-        return _concurrency_sem
+        return _concurrency_gate
     with _concurrency_init_lock:
         if not _concurrency_inited:
             limit = _int_env("ABCL_AI_MAX_CONCURRENT", 0)
-            _concurrency_sem = threading.Semaphore(limit) if limit > 0 else None
+            _concurrency_gate = _PriorityGate(limit) if limit > 0 else None
             _concurrency_inited = True
-    return _concurrency_sem
+    return _concurrency_gate
 
 
 def _check_budget() -> None:
@@ -145,13 +207,17 @@ def call_ai(
     system: Optional[str] = None,
     model: Optional[str] = None,
     max_tokens: int = DEFAULT_MAX_TOKENS,
+    priority: float = DEFAULT_PRIORITY,
 ) -> str:
     """Synchronously call the configured AI provider and return its
-    response text.  Honours the AI-OS budget + concurrency knobs."""
+    response text.  Honours the AI-OS budget + concurrency knobs.
+
+    `priority` is consulted only when ABCL_AI_MAX_CONCURRENT is set
+    and the gate is full — lower number = served first."""
     _check_budget()
-    sem = _get_concurrency_sem()
-    if sem is not None:
-        sem.acquire()
+    gate = _get_concurrency_gate()
+    if gate is not None:
+        gate.acquire(priority)
     try:
         provider = _select_provider()
         if provider == "gemini":
@@ -164,8 +230,8 @@ def call_ai(
                               max_tokens=max_tokens)
         raise RuntimeError(f"Unknown ABCL_AI_PROVIDER: {provider!r}")
     finally:
-        if sem is not None:
-            sem.release()
+        if gate is not None:
+            gate.release()
 
 
 # ---------------------------------------------------------------------------

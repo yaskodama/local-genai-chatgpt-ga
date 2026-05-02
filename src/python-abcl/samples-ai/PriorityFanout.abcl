@@ -1,0 +1,49 @@
+// Priority-aware fan-out.
+//
+// Five Worker actors fire AI calls "at the same time".  The
+// concurrency gate only admits ABCL_AI_MAX_CONCURRENT at once;
+// when full, the next-served waiter is the one with the LOWEST
+// priority number (Unix-nice convention — low number = high
+// importance).
+//
+// Run with the gate set to 2:
+//   ABCL_AI_MAX_CONCURRENT=2 ... PriorityFanout.abcl
+//
+// Expected ordering of "[wN] reply" lines: the priority-1 workers
+// (w1, w2) finish first; ties break FIFO among waiters; the
+// priority-9 workers (w4, w5) wait until the head of the queue
+// drains.
+class Worker {
+  var id   = 0;
+  var prio = 5;
+
+  method init(my_id, my_prio) {
+    id   = my_id;
+    prio = my_prio;
+  }
+
+  method ask(topic) {
+    print("[w" + id + " p=" + prio + "] start: " + topic);
+    var resp = ai_call_priority_with_system(
+      prio,
+      "Reply in ONE short sentence, no preamble.",
+      topic
+    );
+    print("[w" + id + " p=" + prio + "] reply: " + resp);
+  }
+}
+
+// Five workers with three priority bands: 1 (high), 5 (default),
+// 9 (low).  When ABCL_AI_MAX_CONCURRENT=2 you should see w1+w2
+// admitted first, then w3, then w4+w5.
+var w1 = new Worker(1, 1);
+var w2 = new Worker(2, 1);
+var w3 = new Worker(3, 5);
+var w4 = new Worker(4, 9);
+var w5 = new Worker(5, 9);
+
+send w5.ask("What is a semaphore used for?");
+send w4.ask("What does prompt caching do?");
+send w3.ask("What is a future in concurrent programming?");
+send w2.ask("What is dining philosophers?");
+send w1.ask("What is the actor model?");

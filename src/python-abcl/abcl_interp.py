@@ -438,6 +438,27 @@ def _b_ai_call_with_system(args, frame, interp):
     return call_ai(_to_str(args[1]), system=_to_str(args[0]))
 
 
+def _b_ai_call_priority(args, frame, interp):
+    """ai_call_priority(prio, prompt) — lower prio served first when
+    ABCL_AI_MAX_CONCURRENT is set and the gate is full."""
+    from abcl_ai import call_ai
+    if len(args) < 2:
+        raise ValueError("ai_call_priority(prio, prompt): expected 2 arguments")
+    return call_ai(_to_str(args[1]), priority=float(args[0]))
+
+
+def _b_ai_call_priority_with_system(args, frame, interp):
+    from abcl_ai import call_ai
+    if len(args) < 3:
+        raise ValueError(
+            "ai_call_priority_with_system(prio, system, prompt): expected 3 arguments")
+    return call_ai(
+        _to_str(args[2]),
+        system=_to_str(args[1]),
+        priority=float(args[0]),
+    )
+
+
 def _b_ai_usage(args, frame, interp):
     """Returns a one-line usage summary string."""
     from abcl_ai import get_usage
@@ -474,8 +495,10 @@ _BUILTINS = {
     "await":       _b_await,
     "future_done": _b_future_done,
     # AI integration (provider auto-selected by env var)
-    "ai_call":             _b_ai_call,
-    "ai_call_with_system": _b_ai_call_with_system,
-    "ai_usage":            _b_ai_usage,
-    "ai_remaining":        _b_ai_remaining,
+    "ai_call":                       _b_ai_call,
+    "ai_call_with_system":           _b_ai_call_with_system,
+    "ai_call_priority":              _b_ai_call_priority,
+    "ai_call_priority_with_system":  _b_ai_call_priority_with_system,
+    "ai_usage":                      _b_ai_usage,
+    "ai_remaining":                  _b_ai_remaining,
 }
