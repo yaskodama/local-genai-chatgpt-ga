@@ -4,9 +4,10 @@ class Greeter {
   method ask(question) {
     var resp = ai_call(question);
     print("Q: " + question);
-    print("A: " + resp);
+    print("A:");
+    print(resp);
   }
 }
 
 var g = new Greeter();
-send g.ask("Say hello in three different languages, one per line, no preamble.");
+send g.ask("Say hello in exactly THREE different languages: English, Japanese, and French.  Output one greeting per line, each on its own line, with the language name in parentheses afterward.  No preamble, no commentary.  Example format:\nHello (English)\nこんにちは (Japanese)\nBonjour (French)");
