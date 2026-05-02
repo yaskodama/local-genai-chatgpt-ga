@@ -55,6 +55,68 @@ let lookup_sid (msg_id:string) : string option =
   Mutex.unlock msgid_mu;
   r
 
+(* ---- Reply slots for /api/json/call (synchronous remote-now) ---- *)
+
+type reply_slot = {
+  rs_mu     : Mutex.t;
+  rs_cv     : Condition.t;
+  mutable rs_value : string option;  (* JSON-encoded reply value *)
+  mutable rs_done  : bool;
+}
+
+let reply_slots : (string, reply_slot) Hashtbl.t = Hashtbl.create 64
+let reply_slots_mu = Mutex.create ()
+
+let register_reply_slot (msg_id:string) : reply_slot =
+  let s = {
+    rs_mu = Mutex.create (); rs_cv = Condition.create ();
+    rs_value = None; rs_done = false;
+  } in
+  Mutex.lock reply_slots_mu;
+  Hashtbl.replace reply_slots msg_id s;
+  Mutex.unlock reply_slots_mu;
+  s
+
+let unregister_reply_slot (msg_id:string) : unit =
+  Mutex.lock reply_slots_mu;
+  Hashtbl.remove reply_slots msg_id;
+  Mutex.unlock reply_slots_mu
+
+(* Returns true if a slot was registered and resolved (or already done). *)
+let try_resolve_reply_slot (msg_id:string) (json_value:string) : bool =
+  Mutex.lock reply_slots_mu;
+  let s = Hashtbl.find_opt reply_slots msg_id in
+  Mutex.unlock reply_slots_mu;
+  match s with
+  | None -> false
+  | Some slot ->
+      Mutex.lock slot.rs_mu;
+      if not slot.rs_done then begin
+        slot.rs_value <- Some json_value;
+        slot.rs_done <- true;
+        Condition.signal slot.rs_cv
+      end;
+      Mutex.unlock slot.rs_mu;
+      true
+
+(* OCaml 4.x has no Condition.timedwait; we poll every 10ms.  This
+   is acceptable here because the timeout window is seconds. *)
+let wait_reply_slot (slot:reply_slot) ~(timeout_s:float) : string option =
+  let deadline = Unix.gettimeofday () +. timeout_s in
+  let rec poll () =
+    Mutex.lock slot.rs_mu;
+    let d = slot.rs_done in
+    Mutex.unlock slot.rs_mu;
+    if d then ()
+    else if Unix.gettimeofday () >= deadline then ()
+    else (Thread.delay 0.01; poll ())
+  in
+  poll ();
+  Mutex.lock slot.rs_mu;
+  let v = slot.rs_value in
+  Mutex.unlock slot.rs_mu;
+  v
+
 (* ---- websocket clients per sid ---- *)
 let ws_clients : (string, out_channel list ref) Hashtbl.t = Hashtbl.create 64
 let ws_clients_mu = Mutex.create ()
@@ -825,6 +887,53 @@ let handle_send_direct_json (body:string) : (int * string * string) =
       (* ★ これが無いと ERR_EMPTY_RESPONSE になる *)
       (500, "text/plain; charset=utf-8", "error: " ^ Printexc.to_string exn)
 
+(* Synchronous remote call.  Dispatches the message with a unique
+   msg_id, then blocks the HTTP response until the actor's reply()
+   resolves the matching slot (or the timeout expires — then null).
+   Wire-compatible with the Python runtime's /api/json/call. *)
+
+let next_call_msg_id =
+  let counter = ref 0 in
+  fun () ->
+    let n = !counter in
+    counter := n + 1;
+    Printf.sprintf "call-%d-%d"
+      (int_of_float (Unix.gettimeofday () *. 1000.0)) n
+
+let handle_call_direct_json (body:string) (q:(string,string) Hashtbl.t)
+    : (int * string * string) =
+  try
+    match parse_json body with
+    | JObject o ->
+        let to_   = match json_get_string "to"     o with Some s -> s | None -> "" in
+        let meth  = match json_get_string "method" o with Some s -> s | None -> "" in
+        let from_ = match json_get_string "from"   o with Some s -> s | None -> "<web>" in
+        let args_json = match json_get_array "args" o with Some xs -> xs | None -> [] in
+        let timeout_s =
+          match Hashtbl.find_opt q "timeout_ms" with
+          | Some s -> (try float_of_string s /. 1000.0 with _ -> 30.0)
+          | None -> 30.0
+        in
+        if to_ = "" || meth = "" then
+          (400, "text/plain; charset=utf-8", "missing to/method")
+        else if not (Eval_thread.actor_exists to_) then
+          (404, "text/plain; charset=utf-8", "no such actor: " ^ to_)
+        else
+          let exprs = List.map ast_of_json_value args_json in
+          let msg_id = next_call_msg_id () in
+          let slot = register_reply_slot msg_id in
+          Eval_thread.send_message ~msg_id ~from:from_ to_
+            (Ast.mk_stmt (Ast.CallStmt (meth, exprs)));
+          let v = wait_reply_slot slot ~timeout_s in
+          unregister_reply_slot msg_id;
+          let reply_json = match v with Some s -> s | None -> "null" in
+          let body_resp =
+            Printf.sprintf {|{"ok":true,"reply":%s}|} reply_json
+          in
+          (200, "application/json", body_resp)
+    | _ -> (400, "text/plain; charset=utf-8", "expected JSON object")
+  with _ -> (400, "text/plain; charset=utf-8", "bad request")
+
 let handle_send_exposed_json ~(key:string) (body:string) : (int * string * string) =
   match Hashtbl.find_opt exposed key with
   | None ->
@@ -1439,6 +1548,7 @@ let handle_client (client: file_descr) : unit =
 	   | "GET", "/api/browse" -> handle_api_browse q
 	   | "POST", "/api/send" -> let params = parse_form_urlencoded body in handle_send_direct params
            | "POST", "/api/json/send" -> handle_send_direct_json body
+           | "POST", "/api/json/call" -> handle_call_direct_json body q
            | "POST", "/api/repl" -> handle_api_repl body
            | "POST", _ when String.length path >= String.length "/api/x/" &&
                             String.sub path 0 (String.length "/api/x/") = "/api/x/" ->

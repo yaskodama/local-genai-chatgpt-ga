@@ -829,8 +829,28 @@ let () =
   add_prim "reply" (function
   | [v] ->
       let s = string_of_value v in
+      let json_val =
+        match v with
+        | VInt n -> string_of_int n
+        | VFloat f ->
+            (* Use %.17g so JSON receives a number with a non-trailing
+               decimal point — OCaml's string_of_float emits "7." for
+               whole floats, which strict JSON parsers reject. *)
+            if Float.is_nan f || not (Float.is_finite f) then "null"
+            else if f = Float.floor f && Float.abs f < 1e15
+            then Printf.sprintf "%d" (int_of_float f)
+            else Printf.sprintf "%.17g" f
+        | VString s -> Ai.json_escape_string s
+        | VBool b -> if b then "true" else "false"
+        | VUnit -> "null"
+        | _ -> "null"
+      in
       (match get_current_msg_id () with
-       | Some id -> push_web_evt (Printf.sprintf "[REPLY] id=%s value=%s" id s)
+       | Some id ->
+           (* If a /api/json/call request is waiting on this msg_id,
+              resolve its slot so the HTTP response can return. *)
+           ignore (Web_gateway.try_resolve_reply_slot id json_val);
+           push_web_evt (Printf.sprintf "[REPLY] id=%s value=%s" id s)
        | None    -> push_web_evt (Printf.sprintf "[REPLY] value=%s" s));
       VUnit
   | _ -> failwith "reply(x): arity 1 expected");
