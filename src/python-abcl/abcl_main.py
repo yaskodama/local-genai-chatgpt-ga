@@ -17,7 +17,8 @@ from abcl_interp import Interpreter
 
 def main():
     ap = argparse.ArgumentParser(prog="python-abcl")
-    ap.add_argument("source", help="path to a .abcl file")
+    ap.add_argument("source", nargs="?",
+                    help="path to a .abcl file (omit to start an interactive REPL)")
     ap.add_argument("--timeout", type=float, default=2.0,
                     help="max seconds to wait for actors to drain (default 2.0)")
     ap.add_argument("--idle-ms", type=int, default=120,
@@ -31,6 +32,13 @@ def main():
     if args.dashboard:
         from abcl_dashboard import start as start_dashboard
         start_dashboard(args.dashboard)
+
+    if args.source is None:
+        # Interactive REPL — useful for poking at actors live or
+        # exploring the language without writing a file first.
+        from abcl_interp import run_repl
+        run_repl()
+        return
 
     try:
         program = parse_file(args.source)

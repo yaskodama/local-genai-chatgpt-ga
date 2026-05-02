@@ -826,6 +826,123 @@ def _b_now_s(args, frame, interp):
     return time.time()
 
 
+def run_repl() -> None:
+    """Interactive REPL.  Each accepted line/block is parsed as a
+    standalone program; class declarations are merged into the
+    interpreter's class table and top-level statements run against
+    the running globals.  Lines are buffered until the parser
+    accepts them, so multi-line class definitions just work.
+
+    Special commands:
+        :exit / :quit   leave
+        :show           print known classes + globals
+        :clear          discard pending buffered input
+        :help           show command list
+    """
+    from abcl_ast import Program as _Program, ClassDecl as _ClassDecl
+    from abcl_parser import parse as _parse
+
+    interp = Interpreter(_Program(decls=[]))
+    # Hook actor lookup so an interactive web_listen still routes
+    # incoming traffic to actors typed at the REPL.
+    try:
+        from abcl_remote import set_actor_lookup
+        def _lookup(name):
+            v = interp.globals.get(name)
+            return v if isinstance(v, Actor) else None
+        set_actor_lookup(_lookup)
+    except Exception:
+        pass
+
+    print("ABCL/c+ Python REPL — :help for commands, Ctrl-D / :exit to quit",
+          flush=True)
+    buf = []
+
+    def prompt() -> str:
+        return "abcl> " if not buf else "....> "
+
+    def _braces_balanced(s: str) -> bool:
+        depth = 0
+        in_str = False
+        escape = False
+        for c in s:
+            if escape:
+                escape = False
+                continue
+            if in_str:
+                if c == "\\":
+                    escape = True
+                elif c == '"':
+                    in_str = False
+                continue
+            if c == '"':
+                in_str = True
+            elif c == "{":
+                depth += 1
+            elif c == "}":
+                depth -= 1
+        return depth <= 0
+
+    while True:
+        try:
+            line = input(prompt())
+        except (EOFError, KeyboardInterrupt):
+            print()
+            break
+
+        stripped = line.strip()
+        if stripped in (":exit", ":quit"):
+            break
+        if stripped == ":help":
+            print(":exit / :quit  leave the REPL")
+            print(":show          list known classes and globals")
+            print(":clear         discard pending buffered input")
+            print("Otherwise type any .abcl statement; multi-line input is")
+            print("buffered until the parser accepts it.")
+            continue
+        if stripped == ":show":
+            print(f"classes: {sorted(interp.classes.keys())}")
+            print(f"globals: {sorted(interp.globals.keys())}")
+            continue
+        if stripped == ":clear":
+            buf = []
+            continue
+        if not stripped:
+            continue
+
+        buf.append(line)
+        src = "\n".join(buf)
+        try:
+            program = _parse(src)
+        except Exception as e:
+            # Heuristic: keep buffering until the brace count is
+            # balanced AND the line looks terminal — that's when a
+            # real syntax error becomes worth reporting.
+            terminal = stripped.endswith(";") or stripped.endswith("}")
+            if terminal and _braces_balanced(src):
+                print(f"[parse error] {e}", flush=True)
+                buf = []
+            continue
+
+        buf = []
+        frame = Frame(actor=None, sender=None)
+        for d in program.decls:
+            try:
+                if isinstance(d, _ClassDecl):
+                    interp.classes[d.name] = d
+                    print(f"[defined] class {d.name}", flush=True)
+                else:
+                    interp.exec_stmt(d.stmt, frame)
+            except Exception as e:
+                print(f"[error] {e}", flush=True)
+                break
+
+    # Let any in-flight messages finish before shutting down so the
+    # actor thread's print() output isn't lost on exit.
+    interp.scheduler.wait_idle(idle_ms=80, timeout_s=2.0)
+    interp.scheduler.shutdown()
+
+
 _BUILTINS = {
     "print":   _b_print,
     "println": _b_print,
