@@ -4,13 +4,14 @@
 interpreter wires up as `ai_call` / `ai_call_with_system`.  It
 auto-dispatches to whichever provider has its key in the environment:
 
-    GEMINI_API_KEY   -> google-genai   (default model: gemini-2.5-flash)
-    ANTHROPIC_API_KEY -> anthropic SDK (default model: claude-opus-4-7)
+    GEMINI_API_KEY    -> google-genai (default model: gemini-2.5-flash)
+    ANTHROPIC_API_KEY -> anthropic    (default model: claude-opus-4-7)
+    OPENAI_API_KEY    -> openai       (default model: gpt-4o-mini)
 
-When both are set, set `ABCL_AI_PROVIDER=gemini|anthropic` to pick
-explicitly.  SDKs are imported lazily so the module is still importable
-on a machine with neither installed; the error only surfaces when an
-.abcl program actually invokes ai_call().
+When more than one is set, set `ABCL_AI_PROVIDER=gemini|anthropic|openai`
+to pick explicitly.  SDKs are imported lazily so the module is still
+importable on a machine with none installed; the error only surfaces
+when an .abcl program actually invokes ai_call().
 
 AI-OS governance knobs (env vars, all optional):
 
@@ -35,9 +36,11 @@ from typing import List, Optional
 
 _anthropic_client = None
 _gemini_client = None
+_openai_client = None
 
-DEFAULT_GEMINI_MODEL = "gemini-2.5-flash"
+DEFAULT_GEMINI_MODEL    = "gemini-2.5-flash"
 DEFAULT_ANTHROPIC_MODEL = "claude-opus-4-7"
+DEFAULT_OPENAI_MODEL    = "gpt-4o-mini"
 # Enough headroom for visible output even when the model spends part of
 # its budget on internal thinking tokens (gemini-2.5 thinks by default,
 # Opus 4.7 thinks adaptively).
@@ -130,6 +133,12 @@ PRICING_USD_PER_M_TOKENS = {
     "gemini-2.5-pro":         (1.25, 10.00),
     "gemini-2.5-flash":       (0.075, 0.30),
     "gemini-2.5-flash-lite":  (0.10,  0.40),
+    # OpenAI (cached 2026-04)
+    "gpt-4o":                 (2.50, 10.00),
+    "gpt-4o-mini":            (0.15,  0.60),
+    "gpt-4-turbo":            (10.00, 30.00),
+    "o1-mini":                (1.10,  4.40),
+    "o3-mini":                (1.10,  4.40),
 }
 
 
@@ -295,8 +304,10 @@ def _select_provider() -> str:
         return "gemini"
     if os.environ.get("ANTHROPIC_API_KEY"):
         return "anthropic"
+    if os.environ.get("OPENAI_API_KEY"):
+        return "openai"
     raise RuntimeError(
-        "No AI provider key set: export GEMINI_API_KEY or ANTHROPIC_API_KEY"
+        "No AI provider key set: export GEMINI_API_KEY, ANTHROPIC_API_KEY, or OPENAI_API_KEY"
     )
 
 
@@ -353,8 +364,11 @@ def call_ai(
         gate.acquire(priority)
     try:
         provider = _select_provider()
-        primary = model or (DEFAULT_GEMINI_MODEL if provider == "gemini"
-                            else DEFAULT_ANTHROPIC_MODEL)
+        primary = model or {
+            "gemini":    DEFAULT_GEMINI_MODEL,
+            "anthropic": DEFAULT_ANTHROPIC_MODEL,
+            "openai":    DEFAULT_OPENAI_MODEL,
+        }.get(provider, DEFAULT_GEMINI_MODEL)
         models = [primary] + [m for m in _fallback_models() if m != primary]
 
         last_exc: Optional[BaseException] = None
@@ -364,6 +378,8 @@ def call_ai(
                     return _do_gemini(prompt, system=system, model=m, max_tokens=max_tokens)
                 if provider == "anthropic":
                     return _do_claude(prompt, system=system, model=m, max_tokens=max_tokens)
+                if provider == "openai":
+                    return _do_openai(prompt, system=system, model=m, max_tokens=max_tokens)
                 raise RuntimeError(f"Unknown ABCL_AI_PROVIDER: {provider!r}")
             except BaseException as e:
                 last_exc = e
@@ -394,6 +410,10 @@ def call_claude(prompt: str, **kwargs) -> str:
 
 def call_gemini(prompt: str, **kwargs) -> str:
     return _do_gemini(prompt, **kwargs)
+
+
+def call_openai(prompt: str, **kwargs) -> str:
+    return _do_openai(prompt, **kwargs)
 
 
 def _do_claude(
@@ -468,3 +488,47 @@ def _do_gemini(
             getattr(meta, "candidates_token_count", 0) or 0,
         )
     return response.text or ""
+
+
+def _do_openai(
+    prompt: str,
+    *,
+    system: Optional[str] = None,
+    model: str = DEFAULT_OPENAI_MODEL,
+    max_tokens: int = DEFAULT_MAX_TOKENS,
+) -> str:
+    global _openai_client
+    try:
+        import openai  # type: ignore
+    except Exception as e:
+        raise RuntimeError(f"openai SDK not installed: {e!r}")
+    if not os.environ.get("OPENAI_API_KEY"):
+        raise RuntimeError("OPENAI_API_KEY is not set")
+    if _openai_client is None:
+        _openai_client = openai.OpenAI()
+
+    messages = []
+    if system is not None:
+        messages.append({"role": "system", "content": system})
+    messages.append({"role": "user", "content": prompt})
+
+    # Some newer OpenAI models (o1*, o3*) require max_completion_tokens
+    # rather than max_tokens; the Chat Completions endpoint accepts the
+    # newer name across the board, so use it unconditionally.
+    response = _openai_client.chat.completions.create(
+        model=model,
+        max_completion_tokens=max_tokens,
+        messages=messages,
+    )
+    usage = getattr(response, "usage", None)
+    if usage is not None:
+        _record_usage(
+            model,
+            getattr(usage, "prompt_tokens", 0) or 0,
+            getattr(usage, "completion_tokens", 0) or 0,
+        )
+    choice = response.choices[0] if response.choices else None
+    if choice is None:
+        return ""
+    msg = getattr(choice, "message", None)
+    return (getattr(msg, "content", None) or "") if msg is not None else ""
