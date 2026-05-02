@@ -35,3 +35,7 @@ node_modules/
 # Local environment
 .env
 .env.local
+
+# Smoke-test outputs
+abclc/_smoke_logs/
+abclc/_smoke.bat
