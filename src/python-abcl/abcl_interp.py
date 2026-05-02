@@ -1077,6 +1077,9 @@ def run_repl() -> None:
     print("ABCL/c+ Python REPL — :help for commands, Ctrl-D / :exit to quit",
           flush=True)
     buf = []
+    # Persist locals across REPL inputs so `var a = ...` stays bound on
+    # the next line.
+    _persistent_frame = Frame(actor=None, sender=None)
 
     def prompt() -> str:
         return "abcl> " if not buf else "....> "
@@ -1145,14 +1148,13 @@ def run_repl() -> None:
             continue
 
         buf = []
-        frame = Frame(actor=None, sender=None)
         for d in program.decls:
             try:
                 if isinstance(d, _ClassDecl):
                     interp.classes[d.name] = d
                     print(f"[defined] class {d.name}", flush=True)
                 else:
-                    interp.exec_stmt(d.stmt, frame)
+                    interp.exec_stmt(d.stmt, _persistent_frame)
             except Exception as e:
                 print(f"[error] {e}", flush=True)
                 break
