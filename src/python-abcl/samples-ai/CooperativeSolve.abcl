@@ -1,0 +1,81 @@
+// Three-role cooperation: Planner -> Solver -> Reviewer.
+//
+// Each actor has its own role-specific system prompt and is a
+// separate AI call (Gemini by default).  The Coordinator chains
+// them with `now` — synchronous send — so each stage's reply feeds
+// directly into the next.
+//
+// Run:
+//   GEMINI_API_KEY=...  /usr/bin/python3 abcl_main.py \
+//     --timeout 180  samples-ai/CooperativeSolve.abcl
+
+class Planner {
+  var persona = "You are a senior planner.  Given a problem, produce a NUMBERED plan of at most 3 short steps for solving it.  Reply with only the numbered steps, no preamble, no commentary.";
+
+  method plan(problem) {
+    var p = ai_call_with_system(persona, problem);
+    reply(p);
+  }
+}
+
+class Solver {
+  var persona = "You are a careful solver.  You receive a problem and a plan.  Execute the plan and produce the concrete solution / corrected code / final answer.  Be explicit and specific.  No preamble.";
+
+  method solve(problem_and_plan) {
+    var s = ai_call_with_system(persona, problem_and_plan);
+    reply(s);
+  }
+}
+
+class Reviewer {
+  var persona = "You are a strict reviewer.  Given a problem and a draft solution, judge in 2-3 sentences: (1) is the solution correct? (2) what is the single most important improvement?  No preamble.  Plain text only.";
+
+  method review(problem_and_solution) {
+    var r = ai_call_with_system(persona, problem_and_solution);
+    reply(r);
+  }
+}
+
+class Coordinator {
+  var planner   = 0;
+  var solver    = 0;
+  var reviewer  = 0;
+
+  method init() {
+    planner  = new Planner();
+    solver   = new Solver();
+    reviewer = new Reviewer();
+  }
+
+  method tackle(problem) {
+    print("================== PROBLEM ==================");
+    print(problem);
+    print("");
+
+    print("================== 1) PLANNER ==================");
+    var plan = now planner.plan(problem);
+    print(plan);
+    print("");
+
+    print("================== 2) SOLVER ==================");
+    var ps = "Problem:\n" + problem + "\n\nPlan:\n" + plan;
+    var solution = now solver.solve(ps);
+    print(solution);
+    print("");
+
+    print("================== 3) REVIEWER ==================");
+    var psol = "Problem:\n" + problem + "\n\nDraft solution:\n" + solution;
+    var critique = now reviewer.review(psol);
+    print(critique);
+    print("");
+
+    print("================== USAGE ==================");
+    print(ai_usage());
+  }
+}
+
+// Sample problem: a buggy factorial.  The "+" instead of "*" is the
+// bug; the right answer is to switch the operator and confirm the
+// recursive base case is fine.
+var c = new Coordinator();
+send c.tackle("Find and fix the bug in this Python function:\n\ndef factorial(n):\n    if n == 0:\n        return 1\n    return n + factorial(n - 1)\n\nProvide (a) the bug description and (b) the corrected function in a code block.");
