@@ -379,8 +379,7 @@ def _to_str(v):
 # Each builtin: fn(args, frame, interp) -> return value (or None)
 
 def _b_print(args, frame, interp):
-    print(*[_to_str(a) for a in args], sep="")
-    sys.stdout.flush()
+    print(*[_to_str(a) for a in args], sep="", flush=True)
     return None
 
 def _b_reply(args, frame, interp):

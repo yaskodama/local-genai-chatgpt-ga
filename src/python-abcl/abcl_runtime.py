@@ -97,7 +97,9 @@ class Actor:
             try:
                 self._dispatch(self, method_name, args, sender, reply_future)
             except Exception as e:
-                print(f"[actor {self.name}.{method_name}] error: {e}")
+                # flush so actor errors surface even when stdout is
+                # redirected to a file (block-buffered).
+                print(f"[actor {self.name}.{method_name}] error: {e}", flush=True)
                 if reply_future is not None:
                     reply_future.set(None)
             finally:
