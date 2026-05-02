@@ -22,7 +22,7 @@ IMAGE       ?= abcl-cp:latest
 .PHONY: all ocaml js clean cleanall samples \
         run-philosophers run-rotate4 run-hello \
         serve-js help \
-        smoke smoke-dynamic repl dist-smoke \
+        smoke smoke-dynamic repl fmt dist-smoke \
         docker-build docker-run
 
 all: ocaml js
@@ -107,6 +107,12 @@ smoke-dynamic:
 
 repl:
 	$(PY) $(PYDIR)/abcl_main.py
+
+# Reformat a .abcl file.  Usage: make fmt FILE=path/to/x.abcl [INPLACE=1]
+fmt:
+	@if [ -z "$(FILE)" ]; then echo "usage: make fmt FILE=path/to.abcl [INPLACE=1]"; exit 2; fi
+	@if [ "$(INPLACE)" = "1" ]; then $(PY) $(PYDIR)/abcl_fmt.py -i "$(FILE)"; \
+	 else $(PY) $(PYDIR)/abcl_fmt.py "$(FILE)"; fi
 
 dist-smoke:
 	$(PY) $(PYDIR)/_smoke_dist.py
