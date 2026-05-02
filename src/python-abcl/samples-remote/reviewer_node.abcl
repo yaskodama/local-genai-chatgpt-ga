@@ -1,0 +1,23 @@
+// Reviewer-only node.  Listens on port 9100 and exposes a single
+// `reviewer` actor to remote callers (host coordinator).
+//
+// Run as a Docker container or any other peer:
+//   GEMINI_API_KEY=...  /usr/bin/python3 abcl_main.py samples-remote/reviewer_node.abcl
+//
+// The host's CooperativeSolveRemote.abcl drives this node via:
+//   remote_now("localhost:9100", "reviewer", "review", ...)
+
+class Reviewer {
+  var persona = "You are a strict reviewer.  Given a problem and a draft solution, judge in 2-3 sentences: (1) is the solution correct? (2) what is the single most important improvement?  No preamble.  Plain text only.";
+
+  method review(problem_and_solution) {
+    print("[reviewer] reviewing (" + str_len(problem_and_solution) + " chars)");
+    var r = ai_call_with_system(persona, problem_and_solution);
+    print("[reviewer] verdict ready");
+    reply(r);
+  }
+}
+
+var reviewer = new Reviewer();
+web_listen(9100);
+print("[node] reviewer up on http://localhost:9100 (actor: reviewer)");

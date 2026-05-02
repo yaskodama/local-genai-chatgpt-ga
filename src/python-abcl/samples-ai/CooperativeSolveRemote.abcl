@@ -1,0 +1,72 @@
+// Same shape as CooperativeSolve.abcl, but Reviewer lives on a
+// different machine.  Planner + Solver run locally on the host;
+// the host coordinator hands the draft solution off to a remote
+// Reviewer node via `remote_now`.
+//
+// Run REVIEWER node first (e.g. in a Docker container):
+//   docker run -d --rm --name abcl-reviewer -p 9100:9100 \
+//     -e GEMINI_API_KEY=... \
+//     -v /Users/kodamay/ocaml-app/abclcp-project/src/python-abcl:/app/python-abcl:ro \
+//     abcl-cp:latest /app/python-abcl/samples-remote/reviewer_node.abcl
+//
+// Then run THIS file on the host:
+//   GEMINI_API_KEY=...  /usr/bin/python3 abcl_main.py --timeout 180 \
+//     samples-ai/CooperativeSolveRemote.abcl
+
+class Planner {
+  var persona = "You are a senior planner.  Given a problem, produce a NUMBERED plan of at most 3 short steps for solving it.  Reply with only the numbered steps, no preamble, no commentary.";
+
+  method plan(problem) {
+    var p = ai_call_with_system(persona, problem);
+    reply(p);
+  }
+}
+
+class Solver {
+  var persona = "You are a careful solver.  You receive a problem and a plan.  Execute the plan and produce the concrete solution / corrected code / final answer.  Be explicit and specific.  No preamble.";
+
+  method solve(problem_and_plan) {
+    var s = ai_call_with_system(persona, problem_and_plan);
+    reply(s);
+  }
+}
+
+class Coordinator {
+  var planner       = 0;
+  var solver        = 0;
+  var reviewer_addr = "localhost:9100";
+
+  method init() {
+    planner = new Planner();
+    solver  = new Solver();
+  }
+
+  method tackle(problem) {
+    print("================== PROBLEM ==================");
+    print(problem);
+    print("");
+
+    print("================== 1) PLANNER (local) ==================");
+    var plan = now planner.plan(problem);
+    print(plan);
+    print("");
+
+    print("================== 2) SOLVER (local) ==================");
+    var ps = "Problem:\n" + problem + "\n\nPlan:\n" + plan;
+    var solution = now solver.solve(ps);
+    print(solution);
+    print("");
+
+    print("================== 3) REVIEWER (REMOTE @ " + reviewer_addr + ") ==================");
+    var psol = "Problem:\n" + problem + "\n\nDraft solution:\n" + solution;
+    var critique = remote_now(reviewer_addr, "reviewer", "review", psol);
+    print(critique);
+    print("");
+
+    print("================== USAGE (local Planner+Solver) ==================");
+    print(ai_usage());
+  }
+}
+
+var c = new Coordinator();
+send c.tackle("Find and fix the bug in this Python function:\n\ndef factorial(n):\n    if n == 0:\n        return 1\n    return n + factorial(n - 1)\n\nProvide (a) the bug description and (b) the corrected function in a code block.");
