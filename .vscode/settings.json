@@ -1,0 +1,36 @@
+{
+  // Treat .abcl as a C-like source so the default tokenizer picks up
+  // braces, strings, and `//` comments.  When the dedicated TextMate
+  // grammar in this folder is loaded VS Code will switch to "abcl"
+  // automatically.
+  "files.associations": {
+    "*.abcl": "abcl",
+    "*.bat": "shellscript"
+  },
+  "[abcl]": {
+    "editor.tabSize": 2,
+    "editor.insertSpaces": true,
+    "editor.detectIndentation": false,
+    "editor.formatOnSave": false,
+    "editor.wordWrap": "off"
+  },
+  // Useful exclusions so the file picker doesn't drown in build /
+  // logs / smoke artifacts.
+  "files.exclude": {
+    "**/_build": true,
+    "**/__pycache__": true,
+    "**/_smoke_logs": true,
+    "**/node_modules": true
+  },
+  "search.exclude": {
+    "**/_build": true,
+    "**/__pycache__": true,
+    "**/_smoke_logs": true,
+    "**/node_modules": true,
+    "**/_smoke.bat": true
+  },
+  "python.defaultInterpreterPath": "/usr/bin/python3",
+  "ocaml.sandbox": {
+    "kind": "global"
+  }
+}

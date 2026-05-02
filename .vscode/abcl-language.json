@@ -1,0 +1,9 @@
+{
+  "_note": "VS Code language registration for .abcl files.",
+  "_use": "Open the project root in VS Code; the .vscode/abcl.tmLanguage.json grammar is used by the 'Custom Language' extension if installed, or by the bundled grammar loader.",
+  "id": "abcl",
+  "extensions": [".abcl"],
+  "aliases": ["ABCL/c+", "abcl"],
+  "configuration": "./abcl.language-configuration.json",
+  "grammar": "./abcl.tmLanguage.json"
+}

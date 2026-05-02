@@ -1,0 +1,84 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "ABCL: smoke (all)",
+      "type": "shell",
+      "command": "make smoke",
+      "group": { "kind": "test", "isDefault": true },
+      "problemMatcher": [],
+      "presentation": { "reveal": "always", "panel": "dedicated" }
+    },
+    {
+      "label": "ABCL: smoke (incl. headless Chrome)",
+      "type": "shell",
+      "command": "make smoke-dynamic",
+      "group": "test",
+      "problemMatcher": []
+    },
+    {
+      "label": "ABCL: distributed 3-node mock smoke",
+      "type": "shell",
+      "command": "make dist-smoke",
+      "group": "test",
+      "problemMatcher": []
+    },
+    {
+      "label": "ABCL: build OCaml runtime",
+      "type": "shell",
+      "command": "dune build",
+      "group": { "kind": "build", "isDefault": true },
+      "problemMatcher": []
+    },
+    {
+      "label": "ABCL: regenerate JS parser (jison)",
+      "type": "shell",
+      "command": "make js",
+      "group": "build",
+      "problemMatcher": []
+    },
+    {
+      "label": "ABCL: Python REPL",
+      "type": "shell",
+      "command": "make repl",
+      "group": "none",
+      "problemMatcher": [],
+      "presentation": { "reveal": "always", "focus": true, "panel": "dedicated" }
+    },
+    {
+      "label": "ABCL: format current file (in place)",
+      "type": "shell",
+      "command": "/usr/bin/python3 ${workspaceFolder}/src/python-abcl/abcl_fmt.py -i ${file}",
+      "problemMatcher": [],
+      "presentation": { "reveal": "silent" }
+    },
+    {
+      "label": "ABCL: run current .abcl (Python runtime)",
+      "type": "shell",
+      "command": "/usr/bin/python3 ${workspaceFolder}/src/python-abcl/abcl_main.py ${file}",
+      "group": "test",
+      "problemMatcher": [],
+      "presentation": { "reveal": "always", "panel": "dedicated" }
+    },
+    {
+      "label": "ABCL: run current .abcl with dashboard (port 8800)",
+      "type": "shell",
+      "command": "/usr/bin/python3 ${workspaceFolder}/src/python-abcl/abcl_main.py --dashboard 8800 --timeout 30 ${file}",
+      "problemMatcher": [],
+      "presentation": { "reveal": "always", "panel": "dedicated" }
+    },
+    {
+      "label": "ABCL: docker build image",
+      "type": "shell",
+      "command": "make docker-build",
+      "group": "build",
+      "problemMatcher": []
+    },
+    {
+      "label": "ABCL: docker compose up cluster (placeholder)",
+      "type": "shell",
+      "command": "echo 'TODO: docker-compose.yml in a follow-up step'",
+      "problemMatcher": []
+    }
+  ]
+}

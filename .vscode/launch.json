@@ -1,0 +1,61 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "ABCL: run current .abcl (Python)",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "${workspaceFolder}/src/python-abcl/abcl_main.py",
+      "args": ["${file}"],
+      "console": "integratedTerminal",
+      "python": "/usr/bin/python3",
+      "cwd": "${workspaceFolder}/src/python-abcl"
+    },
+    {
+      "name": "ABCL: run current .abcl with --dashboard 8800",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "${workspaceFolder}/src/python-abcl/abcl_main.py",
+      "args": ["--dashboard", "8800", "--timeout", "60", "${file}"],
+      "console": "integratedTerminal",
+      "python": "/usr/bin/python3",
+      "cwd": "${workspaceFolder}/src/python-abcl"
+    },
+    {
+      "name": "ABCL: Python REPL (no source)",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "${workspaceFolder}/src/python-abcl/abcl_main.py",
+      "args": [],
+      "console": "integratedTerminal",
+      "python": "/usr/bin/python3",
+      "cwd": "${workspaceFolder}/src/python-abcl"
+    },
+    {
+      "name": "ABCL: distributed smoke",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "${workspaceFolder}/src/python-abcl/_smoke_dist.py",
+      "console": "integratedTerminal",
+      "python": "/usr/bin/python3",
+      "cwd": "${workspaceFolder}/src/python-abcl"
+    }
+  ],
+  "inputs": [
+    {
+      "id": "samplePath",
+      "type": "pickString",
+      "description": "Pick a sample to run",
+      "options": [
+        "samples/Hello.abcl",
+        "samples/Counter.abcl",
+        "samples/PingPong.abcl",
+        "samples/NowFuture.abcl",
+        "samples/BoundedBuffer.abcl",
+        "samples/Philosophers.abcl",
+        "samples-remote/server.abcl",
+        "samples-remote/client.abcl"
+      ]
+    }
+  ]
+}
