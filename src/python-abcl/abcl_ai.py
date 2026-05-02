@@ -26,9 +26,11 @@ the `ai_usage()` builtin.
 import itertools
 import json
 import os
+import random
 import tempfile
 import threading
-from typing import Optional
+import time
+from typing import List, Optional
 
 
 _anthropic_client = None
@@ -298,6 +300,34 @@ def _select_provider() -> str:
     )
 
 
+def _fallback_models() -> List[str]:
+    raw = os.environ.get("ABCL_AI_FALLBACK_MODELS", "").strip()
+    if not raw:
+        return []
+    return [m.strip() for m in raw.split(",") if m.strip()]
+
+
+def _is_retryable(exc: BaseException) -> bool:
+    """Crude error classifier: retry on rate limit / overload / transient
+    server errors.  Anthropic and google-genai both raise SDK-typed
+    exceptions whose class names follow these patterns; matching by
+    name keeps abcl_ai independent of either SDK."""
+    name = type(exc).__name__
+    if name in {
+        "RateLimitError", "APIStatusError", "InternalServerError",
+        "OverloadedError", "APIConnectionError", "APITimeoutError",
+        "ResourceExhausted", "ServerError", "ServiceUnavailable",
+        "DeadlineExceeded", "Unavailable",
+    }:
+        return True
+    msg = str(exc).lower()
+    return any(s in msg for s in (
+        " 429", "rate limit", "rate_limit",
+        " 500", " 502", " 503", " 504",
+        "overloaded", "unavailable", "deadline", "timeout",
+    ))
+
+
 def call_ai(
     prompt: str,
     *,
@@ -307,25 +337,47 @@ def call_ai(
     priority: float = DEFAULT_PRIORITY,
 ) -> str:
     """Synchronously call the configured AI provider and return its
-    response text.  Honours the AI-OS budget + concurrency knobs.
+    response text.  Honours the AI-OS budget + concurrency + fallback
+    knobs.
 
     `priority` is consulted only when ABCL_AI_MAX_CONCURRENT is set
-    and the gate is full — lower number = served first."""
+    and the gate is full — lower number = served first.
+
+    On a retryable failure (rate-limit / 5xx / transient network),
+    `call_ai` walks ABCL_AI_FALLBACK_MODELS in order with exponential
+    backoff before giving up.  When the env var is empty, behaviour
+    is identical to a single-shot call."""
     _check_budget()
     gate = _get_concurrency_gate()
     if gate is not None:
         gate.acquire(priority)
     try:
         provider = _select_provider()
-        if provider == "gemini":
-            return _do_gemini(prompt, system=system,
-                              model=model or DEFAULT_GEMINI_MODEL,
-                              max_tokens=max_tokens)
-        if provider == "anthropic":
-            return _do_claude(prompt, system=system,
-                              model=model or DEFAULT_ANTHROPIC_MODEL,
-                              max_tokens=max_tokens)
-        raise RuntimeError(f"Unknown ABCL_AI_PROVIDER: {provider!r}")
+        primary = model or (DEFAULT_GEMINI_MODEL if provider == "gemini"
+                            else DEFAULT_ANTHROPIC_MODEL)
+        models = [primary] + [m for m in _fallback_models() if m != primary]
+
+        last_exc: Optional[BaseException] = None
+        for i, m in enumerate(models):
+            try:
+                if provider == "gemini":
+                    return _do_gemini(prompt, system=system, model=m, max_tokens=max_tokens)
+                if provider == "anthropic":
+                    return _do_claude(prompt, system=system, model=m, max_tokens=max_tokens)
+                raise RuntimeError(f"Unknown ABCL_AI_PROVIDER: {provider!r}")
+            except BaseException as e:
+                last_exc = e
+                if i == len(models) - 1 or not _is_retryable(e):
+                    raise
+                # Exponential backoff with jitter: 0.5s, 1s, 2s, 4s, ...
+                delay = (0.5 * (2 ** i)) + random.uniform(0, 0.25)
+                print(f"[ai_fallback] {m} failed ({type(e).__name__}); "
+                      f"retrying with {models[i+1]} after {delay:.2f}s")
+                time.sleep(delay)
+        # Should be unreachable
+        if last_exc is not None:
+            raise last_exc
+        raise RuntimeError("call_ai: no models tried")
     finally:
         if gate is not None:
             gate.release()
