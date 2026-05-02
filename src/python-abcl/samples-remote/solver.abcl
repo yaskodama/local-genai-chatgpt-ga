@@ -1,0 +1,24 @@
+// Distributed AI: solver node.
+//
+// Listens on port 9001.  When the coordinator calls Solver.answer(q)
+// (via remote_now / /api/json/call), this actor calls the local AI
+// provider and replies with the result.  Pin a specific provider
+// per node by setting ABCL_AI_PROVIDER on its launch.
+//
+// Run:
+//   GEMINI_API_KEY=... /usr/bin/python3 abcl_main.py samples-remote/solver.abcl
+class Solver {
+  method answer(q) {
+    print("[solver] q=" + q);
+    var a = ai_call_with_system(
+      "Answer in two short sentences.  No preamble.",
+      q
+    );
+    print("[solver] a=" + a);
+    reply(a);
+  }
+}
+
+var solver = new Solver();
+web_listen(9001);
+print("[node] solver up on http://localhost:9001 (actor: solver)");

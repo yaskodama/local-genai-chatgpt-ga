@@ -1,0 +1,42 @@
+// Distributed AI: coordinator node.
+//
+// Sequences a question through two remote specialist actors and
+// returns an aggregated answer-with-critique:
+//
+//   Coordinator.solve(q)
+//     -> remote_now solver@:9001 .answer(q)        // Gemini node
+//     -> remote_now verifier@:9002 .check(q, ans)  // Claude node
+//     -> reply({"answer": ..., "critique": ...})
+//
+// The coordinator can also be exposed remotely so a fourth machine
+// just calls remote_now coordinator@host .solve(q).  Run this AFTER
+// solver.abcl and verifier.abcl are listening.
+//
+// Run:
+//   /usr/bin/python3 abcl_main.py samples-remote/coordinator.abcl
+class Coordinator {
+  var solver_addr = "localhost:9001";
+  var verifier_addr = "localhost:9002";
+
+  method solve(q) {
+    print("[coord] solve: " + q);
+    var ans = remote_now(solver_addr, "solver", "answer", q);
+    print("[coord] got answer (len=" + str(ans) + ")");
+    var verdict = remote_now(verifier_addr, "verifier", "check", q, ans);
+    print("[coord] verdict ready");
+    print("=== ANSWER ===");
+    print(ans);
+    print("=== CRITIQUE ===");
+    print(verdict);
+    reply(verdict);
+  }
+}
+
+var coord = new Coordinator();
+web_listen(9003);
+print("[node] coordinator up on http://localhost:9003 (actor: coord)");
+print("[node] try: send coord.solve(\"What is the actor model?\");");
+print("[node] or remote_now('localhost:9003','coord','solve','...your question...')");
+
+// Demo: drive once locally so the user sees the full chain in the logs.
+send coord.solve("What is the actor model in concurrent programming?");
