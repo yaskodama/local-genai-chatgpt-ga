@@ -1,0 +1,24 @@
+// 日本語版レビュアー専用ノード。port 9100 で待機し、`reviewer`
+// アクターをリモート公開する。
+//
+// 実行 (Docker など別マシンで):
+//   GEMINI_API_KEY=... /usr/bin/python3 abcl_main.py samples-remote/reviewer_node_jp.abcl
+//
+// ホスト側の CooperativeSolveRemote-jp.abcl が
+//   remote_now("localhost:9100", "reviewer", "review", ...)
+// で呼び出す。
+
+class Reviewer {
+  var persona = "あなたは厳しいレビュアーです。問題と解答案を見て、2〜3文で次を述べてください: (1) 解答は正しいか? (2) 最も重要な改善点は何か?  前置きはなしで、プレーンテキストで返答してください。";
+
+  method review(problem_and_solution) {
+    print("[reviewer] レビュー開始 (" + str_len(problem_and_solution) + " 文字)");
+    var r = ai_call_with_system(persona, problem_and_solution);
+    print("[reviewer] 結論を返却");
+    reply(r);
+  }
+}
+
+var reviewer = new Reviewer();
+web_listen(9100);
+print("[node] reviewer (日本語版) が http://localhost:9100 で待機中 (アクター: reviewer)");

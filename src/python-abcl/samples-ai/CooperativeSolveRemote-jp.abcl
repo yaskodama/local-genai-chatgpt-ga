@@ -1,12 +1,17 @@
-// 3 役のエージェントが協調して問題を解く (日本語版・全部ローカル)。
+// CooperativeSolve-jp.abcl と同じ形だが、Reviewer は別マシン
+// (例: localhost:9100 の Docker コンテナ) で動いている前提。
+// Planner と Solver はホストでローカル実行、Reviewer だけ remote_now で
+// リモートに渡す。
 //
-// 各 actor が独立した system プロンプト = 役割を持ち、ai_call は
-// それぞれ別の AI 呼び出しになる。Coordinator は `now` で順番に
-// 連鎖させ、前段の応答を次段に渡す。
-//
-// 実行:
-//   GEMINI_API_KEY=...  /usr/bin/python3 abcl_main.py \
-//     --timeout 180  samples-ai/CooperativeSolve-jp.abcl
+// 実行手順:
+//   1. レビュアーノードを起動 (Docker / 別マシンなど):
+//        docker run -d --rm --name abcl-reviewer -p 9100:9100 \
+//          -e GEMINI_API_KEY=... \
+//          -v /Users/.../python-abcl:/app/python-abcl:ro \
+//          abcl-cp:latest /app/python-abcl/samples-remote/reviewer_node_jp.abcl
+//   2. ホストで本ファイルを実行:
+//        GEMINI_API_KEY=... /usr/bin/python3 abcl_main.py --timeout 180 \
+//          samples-ai/CooperativeSolveRemote-jp.abcl
 
 class Planner {
   var persona = "あなたは経験豊富なプランナーです。与えられた問題を解くための番号付き手順を、最大3ステップで簡潔に提示してください。番号付きの手順のみを返答し、前置きや余計な説明は一切付けないでください。";
@@ -26,24 +31,14 @@ class Solver {
   }
 }
 
-class Reviewer {
-  var persona = "あなたは厳しいレビュアーです。問題と解答案を見て、2〜3文で次を述べてください: (1) 解答は正しいか? (2) 最も重要な改善点は何か?  前置きはなしで、プレーンテキストで返答してください。";
-
-  method review(problem_and_solution) {
-    var r = ai_call_with_system(persona, problem_and_solution);
-    reply(r);
-  }
-}
-
 class Coordinator {
-  var planner   = 0;
-  var solver    = 0;
-  var reviewer  = 0;
+  var planner       = 0;
+  var solver        = 0;
+  var reviewer_addr = "localhost:9100";
 
   method init() {
-    planner  = new Planner();
-    solver   = new Solver();
-    reviewer = new Reviewer();
+    planner = new Planner();
+    solver  = new Solver();
   }
 
   method tackle(problem) {
@@ -51,29 +46,27 @@ class Coordinator {
     print(problem);
     print("");
 
-    print("================== 1) プランナー ==================");
+    print("================== 1) プランナー (ホスト) ==================");
     var plan = now planner.plan(problem);
     print(plan);
     print("");
 
-    print("================== 2) ソルバー ==================");
+    print("================== 2) ソルバー (ホスト) ==================");
     var ps = "問題:\n" + problem + "\n\n手順:\n" + plan;
     var solution = now solver.solve(ps);
     print(solution);
     print("");
 
-    print("================== 3) レビュアー ==================");
+    print("================== 3) レビュアー (リモート @ " + reviewer_addr + ") ==================");
     var psol = "問題:\n" + problem + "\n\n解答案:\n" + solution;
-    var critique = now reviewer.review(psol);
+    var critique = remote_now(reviewer_addr, "reviewer", "review", psol);
     print(critique);
     print("");
 
-    print("================== 使用量 ==================");
+    print("================== 使用量 (ホスト側 Planner + Solver のみ) ==================");
     print(ai_usage());
   }
 }
 
-// サンプル問題: 階乗のバグ。`+` を `*` に直すだけだが、Reviewer は
-// 「負数で無限再帰になる」など追加の改善点に気づくかが見どころ。
 var c = new Coordinator();
 send c.tackle("次の Python 関数のバグを見つけて修正してください:\n\ndef factorial(n):\n    if n == 0:\n        return 1\n    return n + factorial(n - 1)\n\n回答には (a) バグの説明 と (b) コードブロックで修正後の関数 を含めてください。");
