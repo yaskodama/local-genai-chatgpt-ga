@@ -24,7 +24,13 @@ def main():
                     help="ms of consecutive idle before exiting (default 120)")
     ap.add_argument("--ast", action="store_true",
                     help="print the parsed AST and exit")
+    ap.add_argument("--dashboard", type=int, default=0, metavar="PORT",
+                    help="serve a live AI-OS usage dashboard on http://127.0.0.1:PORT/")
     args = ap.parse_args()
+
+    if args.dashboard:
+        from abcl_dashboard import start as start_dashboard
+        start_dashboard(args.dashboard)
 
     try:
         program = parse_file(args.source)
