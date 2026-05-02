@@ -16,7 +16,7 @@ from abcl_ast import (
     VarDecl, VarNew, Assign, Send, CallStmt,
     If, While, Become, Block,
     IntLit, FloatLit, StringLit, Var, Binop, Neg, New, CallExpr,
-    NowCall, FutureCall,
+    ArrayLit, NowCall, FutureCall,
 )
 from abcl_runtime import Actor, Future, Scheduler
 
@@ -355,6 +355,8 @@ class Interpreter:
         if kind is CallExpr:
             args = [self.eval_expr(a, frame) for a in e.args]
             return self._call_builtin(e.name, args, frame, returning=True)
+        if kind is ArrayLit:
+            return [self.eval_expr(x, frame) for x in e.items]
         if kind is NowCall:
             return self._do_now_send(e.target, e.method, e.args, frame)
         if kind is FutureCall:
@@ -826,6 +828,59 @@ def _b_now_s(args, frame, interp):
     return time.time()
 
 
+# ---- Arrays ----------------------------------------------------------------
+
+def _b_array_len(args, frame, interp):
+    if not args:
+        return 0
+    a = args[0]
+    return len(a) if isinstance(a, list) else 0
+
+def _b_array_get(args, frame, interp):
+    if len(args) < 2:
+        return None
+    a = args[0]
+    i = int(args[1])
+    if not isinstance(a, list) or i < 0 or i >= len(a):
+        return None
+    return a[i]
+
+def _b_array_set(args, frame, interp):
+    if len(args) < 3:
+        return None
+    a = args[0]
+    i = int(args[1])
+    v = args[2]
+    if isinstance(a, list) and 0 <= i < len(a):
+        a[i] = v
+    return v
+
+def _b_array_push(args, frame, interp):
+    if len(args) < 2:
+        return None
+    a = args[0]
+    if isinstance(a, list):
+        a.append(args[1])
+    return None
+
+def _b_array_concat(args, frame, interp):
+    if len(args) < 2:
+        return list(args[0]) if args and isinstance(args[0], list) else []
+    a, b = args[0], args[1]
+    if isinstance(a, list) and isinstance(b, list):
+        return a + b
+    return []
+
+def _b_array_join(args, frame, interp):
+    if not args:
+        return ""
+    a = args[0]
+    sep = _to_str(args[1]) if len(args) >= 2 else ","
+    if isinstance(a, list):
+        return sep.join(_to_str(x) for x in a)
+    return _to_str(a)
+
+
 def run_repl() -> None:
     """Interactive REPL.  Each accepted line/block is parsed as a
     standalone program; class declarations are merged into the
@@ -1001,4 +1056,11 @@ _BUILTINS = {
     "file_exists":                   _b_file_exists,
     "env_get":                       _b_env_get,
     "now_s":                         _b_now_s,
+    # ---- arrays ----
+    "array_len":                     _b_array_len,
+    "array_get":                     _b_array_get,
+    "array_set":                     _b_array_set,
+    "array_push":                    _b_array_push,
+    "array_concat":                  _b_array_concat,
+    "array_join":                    _b_array_join,
 }

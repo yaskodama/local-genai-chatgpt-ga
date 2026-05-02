@@ -60,6 +60,7 @@ args: (expr ("," expr)*)?
 ?atom: INT           -> int_lit
      | FLOAT         -> float_lit
      | STRING        -> string_lit
+     | "[" args "]"  -> array_lit
      | "self"        -> self_var
      | "sender"      -> sender_var
      | "new" NAME "(" args ")"                       -> new_expr

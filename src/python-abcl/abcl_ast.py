@@ -46,6 +46,10 @@ class CallExpr:
     args: List['Expr']
 
 @dataclass
+class ArrayLit:
+    items: List['Expr']
+
+@dataclass
 class NowCall:
     """Synchronous send: caller blocks until receiver replies."""
     target: str   # 'self' / 'sender' / a variable name
@@ -61,7 +65,7 @@ class FutureCall:
 
 
 Expr = Union[IntLit, FloatLit, StringLit, Var, Binop, Neg, New, CallExpr,
-             NowCall, FutureCall]
+             ArrayLit, NowCall, FutureCall]
 
 
 # ---------- Statements ----------
