@@ -1,0 +1,2 @@
+load AIHello.abcl
+compile

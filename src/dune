@@ -18,7 +18,8 @@
   eval_thread
   compiler
   c_translator
-  web_gateway)
+  web_gateway
+  ai)
  (flags (:standard -w -a))
  (libraries tsdl threads unix))
 

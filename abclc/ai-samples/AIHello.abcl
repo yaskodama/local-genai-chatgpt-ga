@@ -1,0 +1,12 @@
+// First AI sample on the OCaml ABCL/c+ runtime.
+// Requires GEMINI_API_KEY in the environment when launching the REPL.
+class Greeter {
+  method ask(question) {
+    var resp = ai_call(question);
+    print("Q: " + question);
+    print("A: " + resp);
+  }
+}
+
+var g = new Greeter();
+send g.ask("Say hello in three different languages, one per line, no preamble.");

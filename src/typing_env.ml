@@ -94,6 +94,10 @@ let prelude () : env =
 
   add_mono e "spawn" (TFun ([TString; TString], TUnit));
 
+  (* ---- AI integration: Gemini via curl shell-out ---- *)
+  add_mono e "ai_call"             (TFun ([TString], TString));
+  add_mono e "ai_call_with_system" (TFun ([TString; TString], TString));
+
   (* sdl_clear : unit -> unit *)
   add_mono e "sdl_clear" (TFun ([], TUnit));
 

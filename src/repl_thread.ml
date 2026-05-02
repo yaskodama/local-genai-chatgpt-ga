@@ -840,6 +840,18 @@ let () =
       Eval_thread.spawn_actor ~class_name ~actor_name;  (* これを実装 *)
       VUnit
   | _ -> failwith "spawn(class, name): arity 2 expected (string,string)");
+
+  (* AI integration: synchronous Gemini call.
+     ai_call(prompt) and ai_call_with_system(system, prompt) both
+     block the current actor thread until Gemini returns. *)
+  add_prim "ai_call" (function
+  | [VString prompt] -> VString (Ai.call_gemini prompt)
+  | _ -> failwith "ai_call(prompt): arity 1 expected (string)");
+
+  add_prim "ai_call_with_system" (function
+  | [VString sys; VString prompt] ->
+      VString (Ai.call_gemini ~system:(Some sys) prompt)
+  | _ -> failwith "ai_call_with_system(system, prompt): arity 2 expected (string,string)");
 						    
   let repl_thr = Thread.create (fun () -> repl_thread_fun ()) () in
 
