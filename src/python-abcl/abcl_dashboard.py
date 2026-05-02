@@ -75,10 +75,13 @@ _HTML = """<!doctype html>
   .ev .ai_call { color: #8df; }
   .ev .remote_in { color: #6f8; }
   .ev .remote_out { color: #f9a; }
-  #peers { border-collapse: collapse; }
-  #peers th, #peers td { padding: 0.2rem 0.8rem; text-align: right; }
-  #peers th { color: #889; font-weight: normal; border-bottom: 1px solid #223; }
-  #peers td:first-child, #peers th:first-child { text-align: left; color: #aaf; }
+  #peers, #topo { border-collapse: collapse; }
+  #peers th, #peers td, #topo th, #topo td { padding: 0.2rem 0.8rem; text-align: right; }
+  #peers th, #topo th { color: #889; font-weight: normal; border-bottom: 1px solid #223; }
+  #peers td:first-child, #peers th:first-child,
+  #topo td:first-child, #topo th:first-child { text-align: left; color: #aaf; }
+  #topo td:nth-child(2), #topo th:nth-child(2),
+  #topo td:nth-child(3), #topo th:nth-child(3) { text-align: left; }
   #peers tr.bad td { color: #f88; }
   #peers tr.total td { color: #cde; border-top: 1px solid #223; font-weight: 700; }
 </style></head><body>
@@ -89,6 +92,10 @@ _HTML = """<!doctype html>
 <table id="peers"><thead><tr>
   <th>node</th><th>calls</th><th>in</th><th>out</th><th>total</th><th>cost</th>
 </tr></thead><tbody id="peers-body"></tbody></table>
+<h2>Observed traffic (this node)</h2>
+<table id="topo"><thead><tr>
+  <th>src</th><th>dst</th><th>method</th><th>count</th><th>last</th>
+</tr></thead><tbody id="topo-body"></tbody></table>
 <h2>Live events</h2>
 <div id="events"></div>
 <script>
@@ -142,6 +149,26 @@ async function refreshPeers() {
 refreshPeers();
 setInterval(refreshPeers, 2000);
 
+async function refreshTopo() {
+  try {
+    const r = await fetch('/topology.json', { cache: 'no-store' });
+    const t = await r.json();
+    const tb = document.getElementById('topo-body');
+    if (!t.edges.length) {
+      tb.innerHTML = '<tr><td colspan="5"><small>no traffic yet</small></td></tr>';
+      return;
+    }
+    const rows = t.edges.slice(0, 30).map(e => {
+      const ago = Math.max(0, Math.round(Date.now()/1000 - e.last_ts));
+      return `<tr><td>${e.src}</td><td>${e.dst}</td><td>${e.method}</td>` +
+        `<td>${e.count}</td><td><small>${ago}s ago</small></td></tr>`;
+    });
+    tb.innerHTML = rows.join('');
+  } catch (_) { /* ignore */ }
+}
+refreshTopo();
+setInterval(refreshTopo, 2000);
+
 const events = document.getElementById('events');
 function appendEvent(evt) {
   const t = new Date(evt.ts * 1000).toLocaleTimeString();
@@ -181,12 +208,20 @@ class _Handler(BaseHTTPRequestHandler):
             self._serve_json()
         elif self.path.startswith("/aggregate.json"):
             self._serve_aggregate()
+        elif self.path.startswith("/topology.json"):
+            self._serve_topology()
         elif self.path.startswith("/events"):
             self._serve_events()
         elif self.path == "/" or self.path.startswith("/?"):
             self._serve_html()
         else:
             self.send_error(404, "Not Found")
+
+    def _serve_topology(self):
+        edges = abcl_events.topology_snapshot()
+        edges.sort(key=lambda e: -e["count"])
+        body = json.dumps({"edges": edges}).encode("utf-8")
+        self._send_bytes(200, "application/json", body)
 
     def _serve_aggregate(self):
         peers = _peer_dashboards()

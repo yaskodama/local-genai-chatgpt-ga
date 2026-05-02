@@ -55,10 +55,48 @@ class _Broker:
 _broker = _Broker()
 
 
+# ---------------------------------------------------------------------------
+# Topology view: who has been talking to whom?  Each remote_in /
+# remote_out event ticks an edge counter; the dashboard renders
+# the resulting graph as a table.
+
+_topo_lock = threading.Lock()
+_topo_edges: dict = {}  # (src, dst, method) -> {"count": N, "last": ts}
+
+
+def _record_edge(src: str, dst: str, method: str) -> None:
+    key = (src, dst, method)
+    with _topo_lock:
+        e = _topo_edges.get(key)
+        if e is None:
+            _topo_edges[key] = {"count": 1, "last": time.time()}
+        else:
+            e["count"] += 1
+            e["last"] = time.time()
+
+
+def topology_snapshot() -> list:
+    with _topo_lock:
+        return [
+            {"src": k[0], "dst": k[1], "method": k[2],
+             "count": v["count"], "last_ts": v["last"]}
+            for k, v in _topo_edges.items()
+        ]
+
+
 def publish(kind: str, **data) -> None:
     """Fan-out one event to every live subscriber."""
     evt = {"ts": time.time(), "kind": kind, **data}
     _broker.publish(evt)
+    # Side-effect: keep an edge count for the dashboard.
+    if kind == "remote_in":
+        src = data.get("from_") or data.get("from") or "?"
+        dst = data.get("to", "?")
+        _record_edge(str(src), str(dst), str(data.get("method", "?")))
+    elif kind == "remote_out":
+        src = "self"
+        dst = f'{data.get("host", "?")}/{data.get("to", "?")}'
+        _record_edge(src, dst, str(data.get("method", "?")))
 
 
 def subscribe():
