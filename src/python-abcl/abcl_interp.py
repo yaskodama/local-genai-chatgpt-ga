@@ -94,6 +94,12 @@ class Interpreter:
         self.scheduler = Scheduler()
         self._global_lock = threading.Lock()
         self._actor_counter = 0
+        # Optional persisted-fields snapshot loaded once at startup.
+        try:
+            from abcl_state import load_snapshot
+            self._state_snapshot = load_snapshot()
+        except Exception:
+            self._state_snapshot = {}
         for d in program.decls:
             if isinstance(d, ClassDecl):
                 self.classes[d.name] = d
@@ -156,6 +162,14 @@ class Interpreter:
         init_frame = Frame(actor=actor, sender=None)
         for f in cls.fields:
             actor.fields[f.name] = self.eval_expr(f.expr, init_frame)
+        # Overwrite with persisted values if a snapshot is present.
+        # Only int/float/string/bool fields are persisted; everything
+        # else (e.g. Actor references) is left at its default.
+        snap = self._state_snapshot.get(name)
+        if isinstance(snap, dict):
+            for k, v in snap.items():
+                if k in actor.fields and isinstance(v, (int, float, bool, str)):
+                    actor.fields[k] = v
         self.scheduler.register(actor)
         actor.start(self.dispatch)
         # If `init` is defined, send it the constructor args.
@@ -600,6 +614,23 @@ def _b_serve_forever(args, frame, interp):
     return None
 
 
+def _b_save_state(args, frame, interp):
+    """Persist every actor's int/float/string/bool fields to
+    ABCL_NODE_STATE_FILE (no-op if the env var is unset).  Reloaded
+    automatically on the next interpreter start."""
+    try:
+        from abcl_state import save_snapshot
+    except Exception:
+        return None
+    actors = []
+    with interp._global_lock:
+        for name, val in list(interp.globals.items()):
+            if isinstance(val, Actor):
+                actors.append((name, dict(val.fields)))
+    save_snapshot(actors)
+    return None
+
+
 _BUILTINS = {
     "print":   _b_print,
     "println": _b_print,
@@ -636,4 +667,6 @@ _BUILTINS = {
     "remote_now":                    _b_remote_now,
     "remote_future":                 _b_remote_future,
     "serve_forever":                 _b_serve_forever,
+    # Per-node persistent state
+    "save_state":                    _b_save_state,
 }
