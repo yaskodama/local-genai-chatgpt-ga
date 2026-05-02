@@ -571,6 +571,57 @@ def _b_ai_cost(args, frame, interp):
     return get_cost_usd()
 
 
+def _b_ai_stream(args, frame, interp):
+    """ai_stream(prompt, actor, chunk_method) — start a streaming AI
+    response on a background thread.  Each chunk of text is delivered
+    as `send actor.chunk_method(chunk)`.  When the stream finishes a
+    final marker is sent: `actor.chunk_method("__done__")` (or
+    "__error__: ..." on failure)."""
+    if len(args) < 3:
+        raise ValueError("ai_stream(prompt, actor, chunk_method)")
+    prompt = _to_str(args[0])
+    actor = args[1]
+    method = _to_str(args[2])
+    if not isinstance(actor, Actor):
+        raise ValueError("ai_stream: 2nd arg must be an actor reference")
+
+    def _runner():
+        try:
+            from abcl_ai import stream_ai
+            for chunk in stream_ai(prompt):
+                actor.send_method(method, [chunk], sender=None)
+            actor.send_method(method, ["__done__"], sender=None)
+        except Exception as e:
+            actor.send_method(method, [f"__error__: {e}"], sender=None)
+
+    threading.Thread(target=_runner, daemon=True).start()
+    return None
+
+
+def _b_ai_stream_with_system(args, frame, interp):
+    """ai_stream_with_system(system, prompt, actor, chunk_method)."""
+    if len(args) < 4:
+        raise ValueError("ai_stream_with_system(system, prompt, actor, method)")
+    system = _to_str(args[0])
+    prompt = _to_str(args[1])
+    actor = args[2]
+    method = _to_str(args[3])
+    if not isinstance(actor, Actor):
+        raise ValueError("ai_stream_with_system: 3rd arg must be an actor reference")
+
+    def _runner():
+        try:
+            from abcl_ai import stream_ai
+            for chunk in stream_ai(prompt, system=system):
+                actor.send_method(method, [chunk], sender=None)
+            actor.send_method(method, ["__done__"], sender=None)
+        except Exception as e:
+            actor.send_method(method, [f"__error__: {e}"], sender=None)
+
+    threading.Thread(target=_runner, daemon=True).start()
+    return None
+
+
 def _ai_retry_loop(max_attempts: int, do_call):
     """Common retry loop used by ai_call_retry / ai_call_retry_with_system."""
     import random as _rand
@@ -1074,6 +1125,8 @@ _BUILTINS = {
     "ai_call_priority_with_system":  _b_ai_call_priority_with_system,
     "ai_call_retry":                 _b_ai_call_retry,
     "ai_call_retry_with_system":     _b_ai_call_retry_with_system,
+    "ai_stream":                     _b_ai_stream,
+    "ai_stream_with_system":         _b_ai_stream_with_system,
     "ai_usage":                      _b_ai_usage,
     "ai_remaining":                  _b_ai_remaining,
     "ai_cost":                       _b_ai_cost,

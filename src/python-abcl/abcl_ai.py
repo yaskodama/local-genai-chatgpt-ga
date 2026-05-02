@@ -448,6 +448,100 @@ def call_openai(prompt: str, **kwargs) -> str:
     return _do_openai(prompt, **kwargs)
 
 
+# ---------------------------------------------------------------------------
+# Streaming.  Each provider's SDK exposes a different streaming API;
+# we yield plain strings here so the interpreter can feed them
+# chunk-by-chunk into the calling actor.
+
+def stream_ai(
+    prompt: str,
+    *,
+    system: Optional[str] = None,
+    model: Optional[str] = None,
+    max_tokens: int = DEFAULT_MAX_TOKENS,
+):
+    """Generator yielding response text chunks from the active
+    provider.  Token counters are not updated for streaming calls
+    (yet) — the chunk yields finish before the SDK exposes usage."""
+    provider = _select_provider()
+    if provider == "gemini":
+        yield from _stream_gemini(prompt, system,
+                                  model or DEFAULT_GEMINI_MODEL, max_tokens)
+    elif provider == "anthropic":
+        yield from _stream_claude(prompt, system,
+                                  model or DEFAULT_ANTHROPIC_MODEL, max_tokens)
+    elif provider == "openai":
+        yield from _stream_openai(prompt, system,
+                                  model or DEFAULT_OPENAI_MODEL, max_tokens)
+    elif provider == "mock":
+        yield "[mock] streaming "
+        for word in (prompt or "").split()[:8]:
+            yield word + " "
+    else:
+        raise RuntimeError(f"Unknown ABCL_AI_PROVIDER: {provider!r}")
+
+
+def _stream_gemini(prompt, system, model, max_tokens):
+    global _gemini_client
+    from google import genai  # type: ignore
+    from google.genai import types  # type: ignore
+    if _gemini_client is None:
+        _gemini_client = genai.Client()
+    config_kwargs = {"max_output_tokens": max_tokens}
+    if system is not None:
+        config_kwargs["system_instruction"] = system
+    config = types.GenerateContentConfig(**config_kwargs)
+    stream = _gemini_client.models.generate_content_stream(
+        model=model, contents=prompt, config=config,
+    )
+    for chunk in stream:
+        text = getattr(chunk, "text", None) or ""
+        if text:
+            yield text
+
+
+def _stream_claude(prompt, system, model, max_tokens):
+    global _anthropic_client
+    import anthropic  # type: ignore
+    if _anthropic_client is None:
+        _anthropic_client = anthropic.Anthropic()
+    kwargs = {
+        "model": model, "max_tokens": max_tokens,
+        "messages": [{"role": "user", "content": prompt}],
+    }
+    if system is not None:
+        kwargs["system"] = [
+            {"type": "text", "text": system,
+             "cache_control": {"type": "ephemeral"}},
+        ]
+    with _anthropic_client.messages.stream(**kwargs) as stream:
+        for text in stream.text_stream:
+            if text:
+                yield text
+
+
+def _stream_openai(prompt, system, model, max_tokens):
+    global _openai_client
+    import openai  # type: ignore
+    if _openai_client is None:
+        _openai_client = openai.OpenAI()
+    messages = []
+    if system is not None:
+        messages.append({"role": "system", "content": system})
+    messages.append({"role": "user", "content": prompt})
+    stream = _openai_client.chat.completions.create(
+        model=model, max_completion_tokens=max_tokens,
+        messages=messages, stream=True,
+    )
+    for chunk in stream:
+        if not chunk.choices:
+            continue
+        delta = chunk.choices[0].delta
+        text = getattr(delta, "content", None) or ""
+        if text:
+            yield text
+
+
 def _do_claude(
     prompt: str,
     *,
