@@ -39,3 +39,5 @@ node_modules/
 # Smoke-test outputs
 abclc/_smoke_logs/
 abclc/_smoke.bat
+src/browser-abcl/_smoke_logs/
+src/python-abcl/_smoke_logs/

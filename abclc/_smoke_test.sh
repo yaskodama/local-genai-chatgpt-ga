@@ -12,10 +12,18 @@ cd "$(dirname "$0")"
 
 REPL=../_build/default/src/repl_thread.exe
 ABCL2C=../_build/default/src/abcl2c.exe
+RUNTIME_C=../src/abcl_gui_runtime.c
 TIMEOUT=${TIMEOUT:-5}
 LOGDIR=_smoke_logs
 rm -rf "$LOGDIR"
 mkdir -p "$LOGDIR"
+
+# When SDL2 is available, also try to compile Gui variants down to a
+# native binary.  Skipped silently if pkg-config can't find sdl2.
+SDL2_OK=0
+if pkg-config --exists sdl2 2>/dev/null && [ -f "$RUNTIME_C" ]; then
+  SDL2_OK=1
+fi
 
 pass=0; fail=0; total=0
 declare -a FAILS
@@ -66,6 +74,16 @@ run_abcl2c() {
   esac
 }
 
+# Build a Gui-variant's translated C with SDL2 to verify the link path.
+build_c_gui() {
+  local abcl="$1"
+  local name="${abcl%.abcl}"
+  local c="$LOGDIR/${name}.c"
+  local bin="$LOGDIR/${name}.bin"
+  local log="$LOGDIR/${name}.cc.log"
+  bash -c "cc -O2 -Wall -pthread \$(pkg-config --cflags sdl2) -o \"$bin\" \"$c\" \"$RUNTIME_C\" \$(pkg-config --libs sdl2) -lm" >"$log" 2>&1
+}
+
 run_one() {
   local abcl="$1"
   total=$((total+1))
@@ -79,7 +97,15 @@ run_one() {
     fi
   else
     if run_abcl2c "$abcl" "$kind"; then
-      pass=$((pass+1)); printf '  PASS  %s  (abcl2c --%s)\n' "$abcl" "$kind"
+      if [ "$kind" = "gui" ] && [ "$SDL2_OK" = "1" ]; then
+        if build_c_gui "$abcl"; then
+          pass=$((pass+1)); printf '  PASS  %s  (abcl2c --gui + cc/SDL2)\n' "$abcl"
+        else
+          fail=$((fail+1)); FAILS+=("$abcl"); printf '  FAIL  %s  (cc/SDL2)\n' "$abcl"
+        fi
+      else
+        pass=$((pass+1)); printf '  PASS  %s  (abcl2c --%s)\n' "$abcl" "$kind"
+      fi
     else
       fail=$((fail+1)); FAILS+=("$abcl"); printf '  FAIL  %s  (abcl2c --%s)\n' "$abcl" "$kind"
     fi
