@@ -852,6 +852,15 @@ let () =
   | [VString sys; VString prompt] ->
       VString (Ai.call_gemini ~system:(Some sys) prompt)
   | _ -> failwith "ai_call_with_system(system, prompt): arity 2 expected (string,string)");
+
+  (* AI-OS governance read-outs: live counters + budget remainder. *)
+  add_prim "ai_usage" (function
+  | [] -> VString (Ai.get_usage_string ())
+  | _  -> failwith "ai_usage(): arity 0 expected");
+
+  add_prim "ai_remaining" (function
+  | [] -> VInt (Ai.get_remaining ())
+  | _  -> failwith "ai_remaining(): arity 0 expected");
 						    
   let repl_thr = Thread.create (fun () -> repl_thread_fun ()) () in
 

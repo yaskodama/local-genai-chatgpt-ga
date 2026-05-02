@@ -97,6 +97,8 @@ let prelude () : env =
   (* ---- AI integration: Gemini via curl shell-out ---- *)
   add_mono e "ai_call"             (TFun ([TString], TString));
   add_mono e "ai_call_with_system" (TFun ([TString; TString], TString));
+  add_mono e "ai_usage"            (TFun ([], TString));
+  add_mono e "ai_remaining"        (TFun ([], TInt));
 
   (* sdl_clear : unit -> unit *)
   add_mono e "sdl_clear" (TFun ([], TUnit));

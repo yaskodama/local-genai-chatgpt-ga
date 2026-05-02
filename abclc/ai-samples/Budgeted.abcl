@@ -1,0 +1,38 @@
+// AI-OS governance demo on the OCaml runtime.
+//
+// Run with one or both knobs set in the environment, e.g.
+//   ABCL_AI_TOKEN_BUDGET=300        cap total tokens
+//   ABCL_AI_MAX_CONCURRENT=2        at most 2 AI calls in flight
+//
+// Each Worker logs the live usage counter after every reply so a
+// small budget exhibits visible enforcement (the runtime raises
+// Budget_exceeded which surfaces as "[actor wN.ask] error: ...").
+class Worker {
+  var id = 0;
+
+  method init(my_id) {
+    id = my_id;
+  }
+
+  method ask(topic) {
+    print("[w" + id + "] start: " + topic);
+    var resp = ai_call_with_system(
+      "Reply in ONE short sentence, no preamble.",
+      topic
+    );
+    print("[w" + id + "] reply: " + resp);
+    print("[w" + id + "] usage: " + ai_usage() + "  remaining=" + ai_remaining());
+  }
+}
+
+var w1 = new Worker(1);
+var w2 = new Worker(2);
+var w3 = new Worker(3);
+var w4 = new Worker(4);
+var w5 = new Worker(5);
+
+send w1.ask("What is the actor model?");
+send w2.ask("What is dining philosophers?");
+send w3.ask("What is a future in concurrent programming?");
+send w4.ask("What does prompt caching do?");
+send w5.ask("What is a semaphore used for?");
