@@ -1,0 +1,449 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <title>ABCL/c+ IDE</title>
+  <style>
+    :root {
+      --bg: #1e1e1e;
+      --bg-panel: #252526;
+      --bg-dark: #111;
+      --fg: #d4d4d4;
+      --fg-muted: #9e9e9e;
+      --accent: #4fc3f7;
+      --accent2: #ffca28;
+      --border: #3c3c3c;
+      --ok: #8bc34a;
+      --err: #ef5350;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Meiryo, sans-serif;
+      background: var(--bg);
+      color: var(--fg);
+      height: 100vh;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+    header {
+      padding: 6px 12px;
+      background: #2d2d30;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 13px;
+    }
+    header h1 {
+      margin: 0;
+      font-size: 15px;
+      color: var(--accent);
+      font-weight: 600;
+    }
+    header .status {
+      color: var(--fg-muted);
+      font-size: 12px;
+    }
+    header .spacer { flex: 1; }
+    header button {
+      background: #0e639c;
+      color: white;
+      border: none;
+      padding: 4px 10px;
+      font-size: 12px;
+      border-radius: 3px;
+      cursor: pointer;
+    }
+    header button:hover { background: #1177bb; }
+
+    /* --- menu bar --- */
+    .menubar { display: flex; gap: 2px; }
+    .menu {
+      position: relative;
+    }
+    .menu-btn {
+      background: transparent;
+      color: var(--fg);
+      border: 1px solid transparent;
+      padding: 4px 10px;
+      font-size: 13px;
+      cursor: pointer;
+      border-radius: 3px;
+    }
+    .menu-btn:hover, .menu.open .menu-btn {
+      background: #3a3d41;
+      border-color: var(--border);
+    }
+    .menu-dropdown {
+      display: none;
+      position: absolute;
+      top: 100%;
+      left: 0;
+      min-width: 420px;
+      max-width: 640px;
+      max-height: 70vh;
+      overflow: hidden;
+      background: #252526;
+      border: 1px solid var(--border);
+      border-radius: 3px;
+      box-shadow: 0 6px 16px rgba(0,0,0,0.5);
+      z-index: 1000;
+      display: none;
+      flex-direction: column;
+    }
+    .menu.open .menu-dropdown { display: flex; }
+
+    /* directory browser */
+    .browser-bar {
+      display: flex;
+      gap: 4px;
+      padding: 6px 8px;
+      border-bottom: 1px solid var(--border);
+      background: #2d2d30;
+      align-items: center;
+    }
+    .browser-bar input[type=text] {
+      flex: 1;
+      background: #1e1e1e;
+      color: var(--fg);
+      border: 1px solid var(--border);
+      padding: 3px 6px;
+      font-size: 12px;
+      font-family: "SF Mono", Menlo, Consolas, monospace;
+      border-radius: 3px;
+      outline: none;
+    }
+    .browser-bar input[type=text]:focus { border-color: var(--accent); }
+    .browser-bar select {
+      background: #1e1e1e;
+      color: var(--fg);
+      border: 1px solid var(--border);
+      padding: 2px 4px;
+      font-size: 12px;
+      border-radius: 3px;
+    }
+    .browser-bar button {
+      background: #3a3d41;
+      color: var(--fg);
+      border: 1px solid var(--border);
+      padding: 3px 8px;
+      font-size: 12px;
+      border-radius: 3px;
+      cursor: pointer;
+    }
+    .browser-bar button:hover { background: #505358; }
+    .browser-body {
+      flex: 1;
+      overflow-y: auto;
+      max-height: calc(70vh - 80px);
+    }
+    .browser-error {
+      padding: 8px 14px;
+      color: var(--err);
+      font-size: 12px;
+    }
+    .browser-item {
+      padding: 4px 14px;
+      font-size: 12.5px;
+      color: var(--fg);
+      cursor: pointer;
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      font-family: "SF Mono", Menlo, Consolas, monospace;
+      border-left: 2px solid transparent;
+    }
+    .browser-item:hover {
+      background: #094771;
+      border-left-color: var(--accent);
+    }
+    .browser-item .icon {
+      width: 1.2em;
+      display: inline-block;
+      text-align: center;
+    }
+    .browser-item.dir .name { color: var(--accent); }
+    .browser-item.file .name { color: var(--fg); }
+    .browser-item.parent .name { color: var(--fg-muted); }
+    .browser-empty {
+      padding: 8px 14px;
+      color: var(--fg-muted);
+      font-size: 12px;
+      font-style: italic;
+    }
+    .menu.open .menu-dropdown { display: block; }
+    .menu-item {
+      padding: 5px 14px;
+      font-size: 12.5px;
+      color: var(--fg);
+      cursor: pointer;
+      white-space: nowrap;
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+    }
+    .menu-item:hover { background: #094771; }
+    .menu-item.disabled {
+      color: var(--fg-muted);
+      cursor: default;
+      font-style: italic;
+    }
+    .menu-item.disabled:hover { background: transparent; }
+    .menu-item .path { color: var(--fg-muted); font-size: 11px; }
+    .menu-sep {
+      height: 1px;
+      background: var(--border);
+      margin: 4px 0;
+    }
+    .menu-header {
+      padding: 4px 14px;
+      font-size: 11px;
+      color: var(--fg-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .layout {
+      flex: 1;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      grid-template-rows: 1fr 1fr;
+      gap: 4px;
+      padding: 4px;
+      min-height: 0;
+    }
+    .pane {
+      background: var(--bg-panel);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      display: flex;
+      flex-direction: column;
+      min-width: 0;
+      min-height: 0;
+    }
+    .pane-title {
+      background: #2d2d30;
+      border-bottom: 1px solid var(--border);
+      padding: 4px 10px;
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--accent);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .pane-title .sub {
+      color: var(--fg-muted);
+      font-weight: normal;
+      font-size: 11px;
+    }
+    .pane-title .btns { margin-left: auto; display: flex; gap: 4px; }
+    .pane-title button {
+      background: #3a3d41;
+      color: var(--fg);
+      border: 1px solid var(--border);
+      font-size: 11px;
+      padding: 2px 6px;
+      border-radius: 3px;
+      cursor: pointer;
+    }
+    .pane-title button:hover { background: #505358; }
+    .pane-body {
+      flex: 1;
+      overflow: auto;
+      padding: 6px 8px;
+      font-family: "SF Mono", Menlo, Consolas, monospace;
+      font-size: 12.5px;
+      line-height: 1.45;
+      white-space: pre-wrap;
+      word-break: break-all;
+    }
+
+    /* command pane */
+    #cmd-pane .pane-body {
+      padding: 0;
+      display: flex;
+      flex-direction: column;
+    }
+    #cmd-input {
+      flex: 1;
+      background: var(--bg-dark);
+      color: var(--fg);
+      border: none;
+      padding: 8px;
+      font-family: "SF Mono", Menlo, Consolas, monospace;
+      font-size: 13px;
+      resize: none;
+      outline: none;
+    }
+    #cmd-bar {
+      display: flex;
+      gap: 6px;
+      padding: 6px 8px;
+      border-top: 1px solid var(--border);
+      background: #2d2d30;
+    }
+    #cmd-bar button {
+      background: #0e639c;
+      color: white;
+      border: none;
+      padding: 5px 14px;
+      font-size: 12px;
+      border-radius: 3px;
+      cursor: pointer;
+    }
+    #cmd-bar button:hover { background: #1177bb; }
+    #cmd-bar button.secondary { background: #3a3d41; }
+    #cmd-bar button.secondary:hover { background: #505358; }
+    #cmd-hint {
+      color: var(--fg-muted);
+      font-size: 11px;
+      align-self: center;
+      margin-left: auto;
+    }
+
+    /* output */
+    #out-body { background: var(--bg-dark); color: #cfd8dc; }
+    #out-body .cmd { color: var(--accent); font-weight: 600; }
+    #out-body .err { color: var(--err); }
+    #out-body .ok { color: var(--ok); }
+    #out-body .sys { color: var(--fg-muted); font-style: italic; }
+
+    /* actors list */
+    #actors-body { padding: 0; }
+    .actor-row {
+      padding: 6px 10px;
+      border-bottom: 1px solid #333;
+      cursor: pointer;
+      font-size: 12.5px;
+    }
+    .actor-row:hover { background: #2a2d2e; }
+    .actor-row.selected {
+      background: #094771;
+      border-left: 3px solid var(--accent);
+      padding-left: 7px;
+    }
+    .actor-row .actor-name {
+      color: var(--accent2);
+      font-weight: 600;
+    }
+    .actor-row .actor-class {
+      color: var(--fg-muted);
+      font-size: 11px;
+      margin-left: 6px;
+    }
+    .actor-row .actor-meta {
+      color: var(--fg-muted);
+      font-size: 11px;
+      margin-top: 2px;
+    }
+    .actor-empty {
+      padding: 12px;
+      color: var(--fg-muted);
+      font-style: italic;
+      font-size: 12px;
+    }
+
+    /* source */
+    #src-body { background: var(--bg-dark); color: #e0e0e0; }
+    #src-body .kw { color: #569cd6; }
+    #src-body .hint { color: var(--fg-muted); font-style: italic; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>ABCL/c+ IDE</h1>
+    <nav class="menubar">
+      <div class="menu" id="menu-file">
+        <button class="menu-btn" id="menu-file-btn">File</button>
+        <div class="menu-dropdown" id="menu-file-dd">
+          <div class="browser-bar">
+            <button id="browser-up" title="親ディレクトリ">↑</button>
+            <input type="text" id="browser-path" spellcheck="false"
+              placeholder="ディレクトリパス (例: . / abclc / ~/myproj)">
+            <button id="browser-go" title="Go">Go</button>
+            <select id="browser-ext" title="拡張子フィルタ">
+              <option value="bat">*.bat</option>
+              <option value="abcl">*.abcl</option>
+              <option value="">すべて</option>
+            </select>
+          </div>
+          <div class="browser-body" id="browser-body">
+            <div class="browser-empty">読み込み中…</div>
+          </div>
+        </div>
+      </div>
+    </nav>
+    <span class="status" id="conn-status">接続中…</span>
+    <span class="spacer"></span>
+    <button id="btn-compile">compile</button>
+    <button id="btn-list">list</button>
+    <button id="btn-clear">出力クリア</button>
+  </header>
+  <div class="layout">
+    <section class="pane" id="cmd-pane">
+      <div class="pane-title">
+        ▶ コマンド入力
+        <span class="sub">REPLコマンド or ABCLソース（Shift+Enterで送信）</span>
+      </div>
+      <div class="pane-body">
+        <textarea id="cmd-input" spellcheck="false"
+          placeholder="例:
+  help
+  load viz_philosophers.abcl
+  compile
+  list
+  send calc.add(1,2)
+  pprint calc
+
+ABCLコードも直接入力可能（{} で囲んだクラス定義など）"></textarea>
+        <div id="cmd-bar">
+          <button id="btn-send">送信 (Shift+Enter)</button>
+          <button id="btn-load-file" class="secondary">load…</button>
+          <span id="cmd-hint">history: ↑/↓</span>
+        </div>
+      </div>
+    </section>
+
+    <section class="pane" id="actors-pane">
+      <div class="pane-title">
+        ◉ 現在のアクタ
+        <span class="sub" id="actors-count">0</span>
+        <span class="btns">
+          <button id="btn-actors-refresh">更新</button>
+          <button id="btn-auto-refresh">自動: ON</button>
+        </span>
+      </div>
+      <div class="pane-body" id="actors-body">
+        <div class="actor-empty">まだアクタが登録されていません。<br>
+        <code>compile</code> を実行するとアクタが生成されます。</div>
+      </div>
+    </section>
+
+    <section class="pane" id="out-pane">
+      <div class="pane-title">
+        ≡ 出力
+        <span class="sub" id="out-status"></span>
+      </div>
+      <div class="pane-body" id="out-body"></div>
+    </section>
+
+    <section class="pane" id="src-pane">
+      <div class="pane-title">
+        &lt;/&gt; ソースコード
+        <span class="sub" id="src-target">（アクタ／クラス未選択）</span>
+        <span class="btns">
+          <button id="btn-src-ast">AST</button>
+          <button id="btn-src-refresh">更新</button>
+        </span>
+      </div>
+      <div class="pane-body" id="src-body">
+        <div class="hint">右上の「現在のアクタ」からアクタを選択するとソースが表示されます。</div>
+      </div>
+    </section>
+  </div>
+  <script src="/ide.js"></script>
+</body>
+</html>

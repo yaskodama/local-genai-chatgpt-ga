@@ -1,0 +1,43 @@
+// DisasterReturnGui.abcl
+// 論文「Multi-agent Approach for Return Route Support System Simulation」
+// (Taga, Matsuzawa, Takimoto, Kambayashi 2016) の帰宅支援シミュレータ。
+//
+// 左 = WITHOUT system : 各歩行者が自分の視界内の impassable point しか知らない
+// 右 = WITH    system : MANET (comm range 内) で発見済み impassable point を共有
+//
+// safe zone (緑) に到達 = 助かる
+// impassable point (赤) に踏み込む or スタミナ切れ = 助からない
+//
+// Reset で初期配置に戻す。Start/Stop で進行制御。
+
+class Director {
+  var running = 0;
+
+  method init() {
+    gui_disaster_setup(20);   // 各 world 20 人
+
+    gui_register_ticker(self);
+
+    gui_add_button("Start", 100, 540, 140, 40, self, "go");
+    gui_add_button("Stop",  280, 540, 140, 40, self, "halt");
+    gui_add_button("Reset", 460, 540, 140, 40, self, "reset");
+  }
+
+  method go()    { running = 1; }
+  method halt()  { running = 0; }
+
+  method reset() {
+    running = 0;
+    gui_disaster_reset();
+  }
+
+  method tick() {
+    if (running == 1) {
+      gui_disaster_step();
+    }
+  }
+}
+
+gui_open(740, 600, 0);
+var ctrl = new Director();
+gui_run();

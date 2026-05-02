@@ -1,0 +1,215 @@
+// ============================================================================
+// Distributed dining philosophers — OCaml-side (P3, P4 + fork2, fork3, fork4)
+//
+// Topology (matches the browser half):
+//   Fork i sits between philosopher i and (i+1)%5.
+//     P0 (browser) — fork0 (browser) + fork4 (HERE)
+//     P1 (browser) — fork0 (browser) + fork1 (browser)
+//     P2 (browser) — fork1 (browser) + fork2 (HERE)
+//     P3 (HERE)    — fork2 (HERE)    + fork3 (HERE)
+//     P4 (HERE)    — fork3 (HERE)    + fork4 (HERE)
+//
+// Deadlock avoidance: resource hierarchy — every philosopher takes the
+// lower-numbered fork first.
+//
+// Cross-host communication uses the `send` statement:
+//   - Local forks grant themselves to a local philosopher via `send p3/p4...`.
+//   - Local forks grant themselves to a remote (browser) philosopher via
+//     `send remote("localhost:8080","pX").fork_granted();`. Remote_client
+//     POSTs JSON to /api/json/send on the OCaml gateway; the gateway sees no
+//     local actor named pX and forwards the message over the WebSocket bridge
+//     to the browser runtime, which delivers it to its in-browser mailbox.
+// ============================================================================
+
+class Fork {
+  var id       = 0;
+  var taken    = 0;
+  var waiter   = "";    // "" = nobody waiting
+  var waiterId = 0;     // numeric id of the waiter (valid only when waiter != "")
+
+  method init(myId) {
+    id = myId;
+    print("VIZ FORK " + id + " FREE");
+  }
+
+  // Pins take()/release()'s phid argument to int *before* it is ever used in
+  // a string-concat position — ABCL's overload resolution can otherwise
+  // promote an unbound type variable to string via the polymorphic `+`
+  // overloads and later break the integer comparisons.
+  method take(reqId) {
+    waiterId = reqId;          // side effect: reqId : int
+    if (taken == 0) {
+      taken = 1;
+      call dispatch_grant(waiterId);
+      waiterId = 0;
+    } else {
+      waiter = "w";
+    }
+  }
+
+  method release() {
+    if (waiter == "") {
+      taken = 0;
+      print("VIZ FORK " + id + " FREE");
+    } else {
+      print("VIZ FORK " + id + " HANDOFF " + waiterId);
+      call dispatch_grant(waiterId);
+      waiter   = "";
+      waiterId = 0;
+    }
+  }
+
+  // Notify philosopher `phid` that it now holds the fork. Local philosophers
+  // are reached by ordinary `send`; remote ones (hosted in the browser) use
+  // `send remote(...)` so the OCaml web gateway forwards the message over
+  // the WebSocket bridge.
+  method dispatch_grant(phid) {
+    waiterId = phid;   // pin phid : int
+    if (waiterId == 0) {
+      print("VIZ FORK " + id + " TAKEN 0");
+      send remote("localhost:8080", "p0").fork_granted();
+    } else { if (waiterId == 1) {
+      print("VIZ FORK " + id + " TAKEN 1");
+      send remote("localhost:8080", "p1").fork_granted();
+    } else { if (waiterId == 2) {
+      print("VIZ FORK " + id + " TAKEN 2");
+      send remote("localhost:8080", "p2").fork_granted();
+    } else { if (waiterId == 3) {
+      print("VIZ FORK " + id + " TAKEN 3");
+      send p3.fork_granted();
+    } else { if (waiterId == 4) {
+      print("VIZ FORK " + id + " TAKEN 4");
+      send p4.fork_granted();
+    } } } } }
+  }
+}
+
+class Philosopher {
+  var id       = 0;
+  var lowFork  = "";
+  var highFork = "";
+  var hasLow   = 0;
+  var eatCount = 0;
+  var running  = 0;
+
+  method init(myId, lo, hi) {
+    id       = myId;
+    lowFork  = lo;
+    highFork = hi;
+  }
+
+  method start() {
+    // Idempotent: don't clobber in-flight state if we're already eating.
+    if (running == 0) {
+      running = 1;
+      hasLow  = 0;
+      print("VIZ PHILO " + id + " START");
+      send self.think();
+    }
+  }
+
+  method stop() {
+    running = 0;
+    print("[P" + id + "] stop requested");
+  }
+
+  method think() {
+    if (running == 0) {
+      print("VIZ PHILO " + id + " DONE");
+    } else {
+      print("VIZ PHILO " + id + " THINK");
+      call wait(700);
+      send self.hungry();
+    }
+  }
+
+  method hungry() {
+    if (running == 0) {
+      print("VIZ PHILO " + id + " DONE");
+    } else {
+      print("VIZ PHILO " + id + " HUNGRY");
+      hasLow = 0;
+      send lowFork.take(id);
+    }
+  }
+
+  method fork_granted() {
+    if (running == 0) {
+      if (hasLow == 0) {
+        send lowFork.release();
+      } else {
+        send lowFork.release();
+        send highFork.release();
+        hasLow = 0;
+      }
+      print("VIZ PHILO " + id + " DONE");
+    } else {
+      if (hasLow == 0) {
+        hasLow = 1;
+        send highFork.take(id);
+      } else {
+        send self.eat();
+      }
+    }
+  }
+
+  method eat() {
+    if (running == 0) {
+      send lowFork.release();
+      send highFork.release();
+      print("VIZ PHILO " + id + " DONE");
+    } else {
+      eatCount = eatCount + 1;
+      print("VIZ PHILO " + id + " EAT " + eatCount);
+      call wait(900);
+      send self.eat_done();
+    }
+  }
+
+  method eat_done() {
+    send lowFork.release();
+    send highFork.release();
+    if (running == 0) {
+      print("VIZ PHILO " + id + " DONE");
+    } else {
+      send self.think();
+    }
+  }
+}
+
+class Table {
+  method init() {
+    print("[Table] OCaml half ready (P3, P4 + fork2, fork3, fork4)");
+  }
+
+  method start() {
+    print("[Table] dinner begins (OCaml half)");
+    send p3.start();
+    send p4.start();
+  }
+
+  method stop() {
+    print("[Table] dinner stopping (OCaml half)");
+    send p3.stop();
+    send p4.stop();
+  }
+}
+
+var fork2 = new Fork(2);
+var fork3 = new Fork(3);
+var fork4 = new Fork(4);
+
+var p3 = new Philosopher(3, "fork2", "fork3");
+var p4 = new Philosopher(4, "fork3", "fork4");
+
+var table = new Table();
+
+web_listen(8080);
+
+print("");
+print("==================================================================");
+print("  distributed_philosophers (OCaml half) loaded.");
+print("  Open http://localhost:8080/distributed_philosophers.html");
+print("  The browser-side auto-runs; click 'Start OCaml half' to begin");
+print("  the dinner on P3 and P4 as well.");
+print("==================================================================");

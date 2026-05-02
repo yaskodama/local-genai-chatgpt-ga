@@ -1,0 +1,174 @@
+// Philosophers5Gui.abcl
+// 5 人の哲学者問題 (dining philosophers) を可視化する。
+// 各 Philosopher / Fork を別アクター(=スレッド)として表現し、
+// tick で駆動。Start/Stop ボタンで一斉に動かす/止める。
+
+// Fork: 占有状態を持つアクター。
+// request: 空いていれば granted、占有中なら refused を sender に返す。
+class Fork {
+  var idx    = 0;
+  var held   = 0;
+  var holder = 0;
+
+  method init(i) {
+    idx = i;
+    held = 0;
+    gui_set_fork_free(idx);
+  }
+
+  method request(philId) {
+    if (held == 0) {
+      held = 1;
+      holder = philId;
+      gui_set_fork_held(idx, philId);
+      send sender.granted(idx);
+    } else {
+      send sender.refused(idx);
+    }
+  }
+
+  method release(philId) {
+    if (holder == philId) {
+      held = 0;
+      gui_set_fork_free(idx);
+    }
+  }
+}
+
+// Philosopher: tick 駆動の状態機械
+//   state 0: thinking
+//   state 1: 左フォーク要求中
+//   state 2: 左確保、右フォーク要求中
+//   state 3: 食事中
+class Philosopher {
+  var idx       = 0;
+  var state     = 0;
+  var counter   = 0;
+  var left_idx  = 0;
+  var right_idx = 0;
+  var left_fork  = 0;
+  var right_fork = 0;
+  var running   = 0;
+
+  method init(i, li, ri, lf, rf) {
+    idx       = i;
+    left_idx  = li;
+    right_idx = ri;
+    left_fork  = lf;
+    right_fork = rf;
+    state   = 0;
+    counter = 30 + i * 7;
+    running = 0;
+    gui_set_phil(idx, 0);
+  }
+
+  method start() { running = 1; }
+  method stop()  { running = 0; }
+
+  method tick() {
+    if (running == 1) {
+      if (state == 0) {
+        counter = counter - 1;
+        if (counter < 1) {
+          state = 1;
+          gui_set_phil(idx, 1);
+          send left_fork.request(idx);
+        }
+      } else {
+        if (state == 3) {
+          counter = counter - 1;
+          if (counter < 1) {
+            send left_fork.release(idx);
+            send right_fork.release(idx);
+            state = 0;
+            counter = 50 + idx * 5;
+            gui_set_phil(idx, 0);
+          }
+        }
+      }
+    }
+  }
+
+  method granted(forkIdx) {
+    if (forkIdx == left_idx) {
+      if (state == 1) {
+        state = 2;
+        send right_fork.request(idx);
+      }
+    } else {
+      if (state == 2) {
+        state = 3;
+        counter = 60 + idx * 3;
+        gui_set_phil(idx, 2);
+      }
+    }
+  }
+
+  method refused(forkIdx) {
+    if (forkIdx == left_idx) {
+      if (state == 1) {
+        state = 0;
+        counter = 5 + idx * 2;
+        gui_set_phil(idx, 0);
+      }
+    } else {
+      if (state == 2) {
+        send left_fork.release(idx);
+        state = 0;
+        counter = 10 + idx * 2;
+        gui_set_phil(idx, 0);
+      }
+    }
+  }
+}
+
+class Controller {
+  var p0 = 0; var p1 = 0; var p2 = 0; var p3 = 0; var p4 = 0;
+  var f0 = 0; var f1 = 0; var f2 = 0; var f3 = 0; var f4 = 0;
+
+  method init() {
+    f0 = new Fork(0);
+    f1 = new Fork(1);
+    f2 = new Fork(2);
+    f3 = new Fork(3);
+    f4 = new Fork(4);
+
+    // philosopher i は左 fork i、右 fork (i+1) mod 5 を使う
+    p0 = new Philosopher(0, 0, 1, f0, f1);
+    p1 = new Philosopher(1, 1, 2, f1, f2);
+    p2 = new Philosopher(2, 2, 3, f2, f3);
+    p3 = new Philosopher(3, 3, 4, f3, f4);
+    p4 = new Philosopher(4, 4, 0, f4, f0);
+
+    gui_dining_init(5);
+
+    gui_register_ticker(p0);
+    gui_register_ticker(p1);
+    gui_register_ticker(p2);
+    gui_register_ticker(p3);
+    gui_register_ticker(p4);
+
+    gui_add_button("Start",  90, 460, 120, 40, self, "start");
+    gui_add_button("Stop",  270, 460, 120, 40, self, "stop");
+  }
+
+  method start() {
+    send p0.start();
+    send p1.start();
+    send p2.start();
+    send p3.start();
+    send p4.start();
+  }
+
+  method stop() {
+    send p0.stop();
+    send p1.stop();
+    send p2.stop();
+    send p3.stop();
+    send p4.stop();
+  }
+}
+
+gui_open(520, 520, 0);
+var ctrl = new Controller();
+gui_run();

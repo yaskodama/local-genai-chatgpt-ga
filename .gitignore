@@ -1,0 +1,37 @@
+# OCaml build output
+_build/
+
+# Node.js dependencies
+node_modules/
+
+# macOS metadata
+.DS_Store
+
+# Editor backup files
+*~
+*.bak
+*.swp
+
+# OCaml compiled artifacts
+*.cmi
+*.cmo
+*.cmx
+*.cma
+*.cmxa
+*.cmxs
+*.cmt
+*.cmti
+*.annot
+*.a
+*.o
+*.so
+
+# Executables
+*.exe
+
+# Logs
+*.log
+
+# Local environment
+.env
+.env.local

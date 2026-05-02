@@ -1,0 +1,3 @@
+// Bootstrap for the ABCL/c+ integrated web IDE.
+// Starts the HTTP/WS gateway so http://localhost:8080/ide becomes available.
+web_listen(8080);

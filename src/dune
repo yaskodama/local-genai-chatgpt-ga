@@ -17,6 +17,7 @@
   lexer
   eval_thread
   compiler
+  c_translator
   web_gateway)
  (flags (:standard -w -a))
  (libraries tsdl threads unix))
@@ -26,3 +27,21 @@
  (modules repl_thread)
  (flags (:standard -w -a))
  (libraries abcllib tsdl threads unix))
+
+(executable
+ (name tui_ide)
+ (modules tui_ide)
+ (flags (:standard -w -a))
+ (libraries unix threads))
+
+(executable
+ (name gui_ide)
+ (modules gui_ide gui_font)
+ (flags (:standard -w -a))
+ (libraries abcllib tsdl threads unix))
+
+(executable
+ (name abcl2c)
+ (modules abcl2c)
+ (flags (:standard -w -a))
+ (libraries abcllib))

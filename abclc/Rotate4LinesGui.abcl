@@ -1,0 +1,86 @@
+// Rotate4LinesGui.abcl
+// 4 本の線分を別アクター(=スレッド)で回転させる。
+// 各線分の中心は正方形の 4 角に配置し、回転時に重ならないようにする。
+// Start / Stop ボタンで一斉に開始・停止する。
+
+class Spinner {
+  var idx    = 0;
+  var angle  = 0.;
+  var speed  = 0.05;
+  var cx     = 0.;
+  var cy     = 0.;
+  var radius = 70.;
+  var running = 0;
+  var rr = 200;
+  var gg = 220;
+  var bb = 255;
+
+  // i:インデックス, sp:角速度, mx,my:中心座標, r,g,b:線の色
+  method init(i, sp, mx, my, r, g, b) {
+    idx   = i;
+    speed = sp;
+    cx    = mx;
+    cy    = my;
+    rr = r;
+    gg = g;
+    bb = b;
+    // 初期形状を描画
+    send self.tick();
+  }
+
+  method start() { running = 1; }
+  method stop()  { running = 0; }
+
+  method tick() {
+    if (running == 1) {
+      angle = angle + speed;
+    }
+    var x1 = cx + cos(angle) * radius;
+    var y1 = cy + sin(angle) * radius;
+    var x2 = cx - cos(angle) * radius;
+    var y2 = cy - sin(angle) * radius;
+    gui_set_line(idx, x1, y1, x2, y2, rr, gg, bb);
+  }
+}
+
+class Controller {
+  var s1 = 0;
+  var s2 = 0;
+  var s3 = 0;
+  var s4 = 0;
+
+  method init() {
+    // 正方形の 4 角 (120,110)(360,110)(120,290)(360,290)。
+    // 各 spinner は半径 70 なので、隣接中心間 180/240 に対して必ず余裕が残り重ならない。
+    s1 = new Spinner(0, 0.030, 120., 110., 255, 120, 120);
+    s2 = new Spinner(1, 0.055, 360., 110., 120, 220, 140);
+    s3 = new Spinner(2, 0.080, 120., 290., 120, 180, 255);
+    s4 = new Spinner(3, 0.110, 360., 290., 240, 220, 120);
+
+    gui_register_ticker(s1);
+    gui_register_ticker(s2);
+    gui_register_ticker(s3);
+    gui_register_ticker(s4);
+
+    gui_add_button("Start",  90, 400, 120, 40, self, "start");
+    gui_add_button("Stop",  270, 400, 120, 40, self, "stop");
+  }
+
+  method start() {
+    send s1.start();
+    send s2.start();
+    send s3.start();
+    send s4.start();
+  }
+
+  method stop() {
+    send s1.stop();
+    send s2.stop();
+    send s3.stop();
+    send s4.stop();
+  }
+}
+
+gui_open(480, 480, 0);
+var ctrl = new Controller();
+gui_run();

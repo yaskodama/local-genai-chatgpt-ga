@@ -314,14 +314,14 @@ let load_file (fname : string) : Ast.program option =
     Ast.dump_program decls;
 
     if Typecheck.run decls then begin
-      Printf.printf "[Loaded] %s\n%!" fname;
+      repl_logln (Printf.sprintf "[Loaded] %s" fname);
       Some decls
     end else begin
-      Printf.printf "[Abort] Type error while loading %s\n%!" fname;
+      repl_logln (Printf.sprintf "[Abort] Type error while loading %s" fname);
       None
     end
   with Sys_error msg ->
-    Printf.printf "[Error] could not load %s\n%s\n%!" fname msg;
+    repl_logln (Printf.sprintf "[Error] could not load %s: %s" fname msg);
     None
 
 let usage_msg = "Usage: abclrepl_thread [-f script_file]"
@@ -506,23 +506,48 @@ let rec process_command line =
     let filename = String.trim (String.sub line 7 (String.length line - 7)) in
       try
         let ic = open_in filename in
+        (* Change CWD to the script's directory while it runs so that
+           relative `load` commands inside the .bat file resolve the way
+           they would if the user had invoked the script from that
+           directory. Restore the original CWD on exit. *)
+        let saved_cwd = try Some (Sys.getcwd ()) with _ -> None in
+        let script_dir = Filename.dirname filename in
+        let chdir_ok =
+          if script_dir = "" || script_dir = "." then false
+          else
+            try Sys.chdir script_dir; true
+            with _ -> false
+        in
+        if chdir_ok then
+          repl_logln (Printf.sprintf "[script] cwd -> %s" script_dir);
+        let restore_cwd () =
+          if chdir_ok then
+            match saved_cwd with
+            | Some d -> (try Sys.chdir d with _ -> ())
+            | None -> ()
+        in
           try
             while true do
               let cmd = input_line ic in
                 repl_logln ("[script] " ^ cmd);
                 try process_command cmd with
-                | Quit -> close_in_noerr ic; raise Quit
+                | Quit ->
+                    close_in_noerr ic;
+                    restore_cwd ();
+                    raise Quit
                 | Failure msg when String.length msg >= 0 ->
-                  Printf.printf "[Error in script line] %s: %s\n%!" "?" msg
+                  repl_logln (Printf.sprintf "[Error in script line] %s: %s" "?" msg)
                 | Types.Type_error (loc, msg) ->
-                  Printf.printf "[Type error] %s: %s\n%!" "?" msg
-                | exn -> Printf.printf "[Error in script line] %s\n%!" (Printexc.to_string exn)
+                  repl_logln (Printf.sprintf "[Type error] %s: %s" (Location.to_string loc) msg)
+                | exn ->
+                  repl_logln (Printf.sprintf "[Error in script line] %s" (Printexc.to_string exn))
             done
           with End_of_file ->
             close_in ic;
+            restore_cwd ();
             repl_logln "[Script execution completed]"
       with Sys_error msg ->
-        Printf.printf "[Error] Could not open script file: %s\n" msg
+        repl_logln (Printf.sprintf "[Error] Could not open script file: %s" msg)
   )
   else if String.length line > 4 && String.sub line 0 4 = "ast " then (
     let name = String.trim (String.sub line 4 (String.length line - 4)) in

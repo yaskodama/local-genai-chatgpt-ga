@@ -1,0 +1,596 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>ABCL/c+ — Distributed Dining Philosophers (3 browser + 2 OCaml)</title>
+  <style>
+    body  { margin: 0; background: #0d0d1a; color: #ccc; font-family: monospace;
+            display: flex; flex-direction: column; align-items: center; padding-bottom: 30px; }
+    h2    { margin: 12px 0 4px; font-size: 1.05rem; color: #8af; }
+    #info { font-size: 0.75rem; color: #888; margin: 0 0 8px; max-width: 720px;
+            text-align: center; line-height: 1.45; }
+    code  { color: #fc6; }
+    canvas{ border: 1px solid #333; display: block; background: #060610; }
+    #controls { margin: 10px 0; display: flex; gap: 8px; align-items: center; }
+    button { padding: 7px 16px; background: #223; color: #aef; border: 1px solid #446;
+             cursor: pointer; font-family: monospace; font-size: 0.85rem; }
+    button:hover { background: #334; }
+    button.primary { background: #243; color: #afe; border-color: #4a6; }
+    button.danger  { background: #322; color: #fcc; border-color: #633; }
+    #legend { display: flex; gap: 14px; font-size: 0.72rem; margin: 4px 0;
+              flex-wrap: wrap; justify-content: center; max-width: 720px; }
+    .sw { display: inline-block; width: 10px; height: 10px; vertical-align: middle;
+          margin-right: 4px; border: 2px solid; }
+    #stats { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px;
+             margin: 10px 0; width: 720px; font-size: 0.75rem; }
+    .card { background: #111125; border: 1px solid #223; padding: 8px 10px; border-radius: 3px; }
+    .card h4 { margin: 0 0 4px; font-size: 0.75rem; color: #8af; letter-spacing: 0.05em; }
+    .card .v  { font-size: 1.05rem; color: #cfc; }
+    .phil-row { display: flex; justify-content: space-between; margin: 2px 0;
+                font-size: 0.75rem; }
+    .badge-ok  { color: #5f5; }
+    .badge-err { color: #f66; }
+    .pulse-b { animation: pulse-b 0.6s ease-out; }
+    .pulse-o { animation: pulse-o 0.6s ease-out; }
+    @keyframes pulse-b { 0% { box-shadow: 0 0 0 0 #8af;    } 100% { box-shadow: 0 0 10px 0 rgba(136,170,255,0); } }
+    @keyframes pulse-o { 0% { box-shadow: 0 0 0 0 #c765ff; } 100% { box-shadow: 0 0 10px 0 rgba(199,101,255,0); } }
+    #log { width: 720px; height: 190px; background: #050510; color: #9c9;
+           font-size: 0.7rem; overflow-y: auto; padding: 6px; margin-top: 6px;
+           white-space: pre-wrap; border: 1px solid #223; }
+    .log-bridge-in  { color: #c5b6ff; }
+    .log-bridge-out { color: #ffc266; }
+    .log-ocaml      { color: #8af; }
+    #console { width: 720px; margin-top: 8px; border: 1px solid #334;
+               background: #07070f; display: flex; flex-direction: column; }
+    #consoleHead { display: flex; gap: 8px; align-items: center;
+                   padding: 4px 8px; font-size: 0.7rem; color: #8af;
+                   border-bottom: 1px solid #223; background: #101028; }
+    #consoleOut  { height: 160px; overflow-y: auto; padding: 6px 8px;
+                   font-size: 0.72rem; color: #ded; white-space: pre-wrap; }
+    #consoleIn   { background: #0a0a16; color: #cfc; border: none;
+                   border-top: 1px solid #223; padding: 6px 8px;
+                   font-family: monospace; font-size: 0.78rem; outline: none; }
+    .c-prompt { color: #8af; }
+    .c-user   { color: #cfc; }
+    .c-send   { color: #ffc266; }
+    .c-reply  { color: #c5b6ff; }
+    .c-err    { color: #f88; }
+    .c-hint   { color: #667; }
+  </style>
+</head>
+<body>
+  <h2>ABCL/c+ — Distributed Dining Philosophers</h2>
+  <div id="info">
+    <strong>3 philosophers</strong> (P0, P1, P2) and forks 0 &amp; 1 live in this browser.<br>
+    <strong>2 philosophers</strong> (P3, P4) and forks 2, 3, 4 live inside the OCaml ABCL REPL.<br>
+    All cross-boundary traffic uses the <code>send</code> command —
+    browser-to-OCaml via the <code>@fork…</code> remote handle, OCaml-to-browser via
+    <code>send remote("localhost:8080","pX")</code> and the WebSocket bridge.
+  </div>
+
+  <canvas id="canvas" width="620" height="620"></canvas>
+
+  <div id="legend">
+    <span><span class="sw" style="background:#334;"></span>THINK</span>
+    <span><span class="sw" style="background:#ffcc40;"></span>HUNGRY</span>
+    <span><span class="sw" style="background:#40e070;"></span>EAT</span>
+    <span style="color:#666;">|</span>
+    <span style="color:#8af;">◼ B = browser-hosted</span>
+    <span style="color:#c765ff;">◼ O = OCaml-hosted</span>
+  </div>
+
+  <div id="controls">
+    <button id="btnRun"  class="primary">▶ Run Dinner</button>
+    <button id="btnStop" class="danger">■ Stop Dinner</button>
+    <span style="margin-left:14px;">bridge WS:</span>
+    <span id="wsStat"   class="badge-err">disconnected</span>
+    <button id="btnShowSrc" style="margin-left:auto;">Show ABCL source</button>
+  </div>
+
+  <div id="stats">
+    <div class="card" id="cardBrowser">
+      <h4>Browser half (this page)</h4>
+      <div class="phil-row"><span>P0</span><span id="eat0" class="v">–</span></div>
+      <div class="phil-row"><span>P1</span><span id="eat1" class="v">–</span></div>
+      <div class="phil-row"><span>P2</span><span id="eat2" class="v">–</span></div>
+    </div>
+    <div class="card" id="cardOCaml">
+      <h4>OCaml half (port 8080)</h4>
+      <div class="phil-row"><span>P3</span><span id="eat3" class="v">–</span></div>
+      <div class="phil-row"><span>P4</span><span id="eat4" class="v">–</span></div>
+      <div class="phil-row" style="color:#666;"><span>last ocaml event</span></div>
+      <div id="ocamlLast" style="font-size:0.7rem;color:#c765ff;min-height:1.2em;"></div>
+    </div>
+    <div class="card" id="cardBridge">
+      <h4>Bridge (send)</h4>
+      <div class="phil-row"><span>browser → OCaml</span><span id="brOut" class="v">0</span></div>
+      <div class="phil-row"><span>OCaml → browser</span><span id="brIn"  class="v">0</span></div>
+      <div class="phil-row" style="color:#666;"><span>last direction</span></div>
+      <div id="brLast" style="font-size:0.7rem;min-height:1.2em;"></div>
+    </div>
+  </div>
+
+  <div id="log"></div>
+
+  <div id="console">
+    <div id="consoleHead">
+      <span>console</span>
+      <span class="c-hint">— REPL commands (list, vlist, pprint, compile, load ...) go to /api/repl; lines of the form <code>send to.method(args)</code> dispatch a message (local actor → in-browser, otherwise → OCaml gateway, which bridges back if needed). Try <code>help</code>.</span>
+    </div>
+    <div id="consoleOut"></div>
+    <input id="consoleIn" autocomplete="off" spellcheck="false"
+           placeholder='type a command or "send table.start()" — Enter to run, ↑/↓ history'>
+  </div>
+
+  <script src="/src/parser/parser.js"></script>
+  <script type="module">
+    import * as AST from "/src/ast.js";
+    import { Interpreter } from "/src/interpreter.js";
+
+    const canvas   = document.getElementById("canvas");
+    const logDiv   = document.getElementById("log");
+    const wsStat   = document.getElementById("wsStat");
+    const brOutEl  = document.getElementById("brOut");
+    const brInEl   = document.getElementById("brIn");
+    const brLastEl = document.getElementById("brLast");
+    const ocamlLastEl = document.getElementById("ocamlLast");
+    const eatEls   = [0,1,2,3,4].map(i => document.getElementById("eat" + i));
+    const cardBrowser = document.getElementById("cardBrowser");
+    const cardOCaml   = document.getElementById("cardOCaml");
+
+    // -------------------- state --------------------
+    let running      = false;
+    let activeTimers = [];
+    let interp       = null;
+    let ws           = null;
+    let abclSource   = null;
+    let bridgeOut    = 0;
+    let bridgeIn     = 0;
+    const eatCount   = [0, 0, 0, 0, 0];
+
+    // Track all timers the runtime schedules so Stop can clear them.
+    const _origSetTimeout = window.setTimeout.bind(window);
+    window.setTimeout = function(fn, ms, ...rest) {
+      const id = _origSetTimeout(fn, ms, ...rest);
+      if (running) activeTimers.push(id);
+      return id;
+    };
+
+    // -------------------- logging --------------------
+    function rawAppend(line, cls) {
+      const span = document.createElement("span");
+      if (cls) span.className = cls;
+      span.textContent = line + "\n";
+      logDiv.appendChild(span);
+      if (logDiv.childNodes.length > 400) logDiv.removeChild(logDiv.firstChild);
+      logDiv.scrollTop = logDiv.scrollHeight;
+    }
+
+    function appendLog(line) {
+      if (line === undefined || line === null) return;
+      const s = String(line);
+      if (s.startsWith("[send]") || s.startsWith("[actor created]")) return;
+      // Track eat counts from locally-printed VIZ lines (browser half).
+      parseVizForCounts(s, /*isRemote*/ false);
+      rawAppend(s);
+    }
+
+    function parseVizForCounts(line, isRemote) {
+      const m = line.match(/^VIZ\s+PHILO\s+(\d+)\s+EAT\s+(\d+)/);
+      if (!m) return;
+      const id = +m[1], n = +m[2];
+      eatCount[id] = n;
+      if (eatEls[id]) eatEls[id].textContent = n;
+    }
+
+    // -------------------- bridge helpers --------------------
+    function pulseBridge(dir, summary) {
+      const card = (dir === "out") ? cardBrowser : cardOCaml;
+      card.classList.remove("pulse-b", "pulse-o");
+      void card.offsetWidth; // restart animation
+      card.classList.add(dir === "out" ? "pulse-o" : "pulse-b");
+      brLastEl.textContent = summary;
+      brLastEl.style.color = (dir === "out") ? "#ffc266" : "#c5b6ff";
+    }
+
+    function installBridgeSend(runtime) {
+      const origSend = runtime.send.bind(runtime);
+      runtime.send = function(actorName, methodName, args, unsafe = false, senderName = null) {
+        if (typeof actorName === "string" && actorName.startsWith("@")) {
+          const remoteName = actorName.slice(1);
+          bridgeOut++; brOutEl.textContent = bridgeOut;
+          pulseBridge("out",
+            `${senderName || "?"} → ${remoteName}.${methodName}(${(args||[]).join(",")})`);
+          rawAppend(`[browser→ocaml] send ${remoteName}.${methodName}(${(args||[]).join(",")})`, "log-bridge-out");
+          fetch("/api/json/send", {
+            method:  "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              to: remoteName, method: methodName, args,
+              from: senderName || "", unsafe: true,
+            }),
+          }).then(r => {
+            if (!r.ok) rawAppend(`[remote-send FAIL ${r.status}] ${remoteName}.${methodName}`, "log-bridge-out");
+          }).catch(err => {
+            rawAppend(`[remote-send ERR] ${remoteName}.${methodName}: ${err}`, "log-bridge-out");
+          });
+          return;
+        }
+        return origSend(actorName, methodName, args, unsafe, senderName);
+      };
+    }
+
+    // -------------------- WebSocket bridge (OCaml → browser) --------------------
+    function connectBridge() {
+      const proto = (location.protocol === "https:") ? "wss:" : "ws:";
+      ws = new WebSocket(`${proto}//${location.host}/ws?sid=bridge`);
+      ws.addEventListener("open",  () => { wsStat.textContent = "connected"; wsStat.className = "badge-ok"; });
+      ws.addEventListener("close", () => {
+        wsStat.textContent = "disconnected"; wsStat.className = "badge-err";
+        setTimeout(connectBridge, 1500);
+      });
+      ws.addEventListener("error", () => { wsStat.textContent = "error"; wsStat.className = "badge-err"; });
+      ws.addEventListener("message", ev => {
+        let msg;
+        try { msg = JSON.parse(ev.data); } catch { return; }
+        if (!msg || typeof msg !== "object") return;
+
+        if (msg.type === "bridge") {
+          bridgeIn++; brInEl.textContent = bridgeIn;
+          pulseBridge("in",
+            `${msg.from || "?"} → ${msg.to}.${msg.method}(${(msg.args||[]).join(",")})`);
+          rawAppend(`[ocaml→browser] ${msg.to}.${msg.method}(${(msg.args||[]).join(",")}) from=${msg.from}`, "log-bridge-in");
+          if (!interp) return;
+          try {
+            interp.runtime.send(msg.to, msg.method, msg.args || [], true, msg.from || null);
+          } catch (e) {
+            rawAppend(`[bridge deliver ERR] ${e.message}`, "log-bridge-in");
+          }
+        } else if (msg.type === "log") {
+          handleOcamlVizLine(msg.line || "");
+        }
+      });
+    }
+
+    // Relay OCaml VIZ lines into the local runtime so P3/P4 and forks 2..4
+    // animate on the same canvas.
+    function handleOcamlVizLine(line) {
+      if (!interp) return;
+      const rt = interp.runtime;
+      let m = line.match(/^VIZ\s+PHILO\s+(\d+)\s+(THINK|HUNGRY|EAT|DONE|START)(?:\s+(\d+))?/);
+      if (m) {
+        const id = +m[1];
+        if (id >= 3 && id <= 4) {
+          const map = { THINK: 0, HUNGRY: 1, EAT: 2 };
+          if (m[2] in map) rt._callBuiltin("philo_state", [id, map[m[2]]], {});
+          if (m[2] === "EAT" && m[3]) { eatCount[id] = +m[3]; eatEls[id].textContent = m[3]; }
+          ocamlLastEl.textContent = line;
+          rawAppend(`[ocaml] ${line}`, "log-ocaml");
+        }
+        return;
+      }
+      m = line.match(/^VIZ\s+FORK\s+(\d+)\s+(FREE|TAKEN|HANDOFF)(?:\s+(\d+))?/);
+      if (m) {
+        const id = +m[1];
+        if (id >= 2 && id <= 4) {
+          if (m[2] === "FREE")             rt._callBuiltin("fork_free", [id], {});
+          else if (m[2] === "TAKEN" && m[3]) rt._callBuiltin("fork_held", [id, +m[3]], {});
+          ocamlLastEl.textContent = line;
+          rawAppend(`[ocaml] ${line}`, "log-ocaml");
+        }
+      }
+    }
+
+    // -------------------- canvas overlay (side badges + eat counts) --------------------
+    function installOverlay(runtime) {
+      const origRedraw = runtime._redrawCanvas.bind(runtime);
+      runtime._redrawCanvas = function() {
+        origRedraw();
+        drawOverlay(runtime);
+      };
+    }
+
+    function drawOverlay(rt) {
+      if (!canvas) return;
+      const ctx = canvas.getContext("2d");
+      const W = canvas.width, H = canvas.height;
+      const N = 5, cx = W / 2, cy = H / 2;
+      const R = Math.min(W, H) * 0.32;
+
+      // Host-affinity banner.
+      ctx.font = "11px monospace";
+      ctx.textAlign = "left";
+      ctx.fillStyle = "#5a7aff";
+      ctx.fillText("BROWSER HOST", 10, 18);
+      ctx.textAlign = "right";
+      ctx.fillStyle = "#c765ff";
+      ctx.fillText("OCAML HOST", W - 10, 18);
+      ctx.textAlign = "center";
+      ctx.fillStyle = "#666";
+      ctx.fillText("— bridged via  send remote(localhost:8080,…)  /  @handle —", cx, H - 10);
+
+      // Pentagon ring so we know where each philosopher sits.
+      const pos = [];
+      for (let i = 0; i < N; i++) {
+        const theta = -Math.PI / 2 + (i * 2 * Math.PI / N);
+        pos.push({ x: cx + R * Math.cos(theta), y: cy + R * Math.sin(theta) });
+      }
+
+      // Per-philosopher badge: B (browser) or O (ocaml) + eat count.
+      const hostLabel = ["B", "B", "B", "O", "O"];
+      const hostColor = ["#5a7aff", "#5a7aff", "#5a7aff", "#c765ff", "#c765ff"];
+      for (let i = 0; i < N; i++) {
+        // Side badge — small pill at the top-right of the circle.
+        const p = pos[i];
+        const bx = p.x + 19, by = p.y - 19;
+        ctx.fillStyle = hostColor[i];
+        ctx.beginPath();
+        ctx.arc(bx, by, 8, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = "#0b0b18";
+        ctx.font = "bold 10px monospace";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.fillText(hostLabel[i], bx, by + 1);
+
+        // Eat counter — printed under the STATE_NAME already drawn by the runtime.
+        ctx.fillStyle = "#cfc";
+        ctx.font = "10px monospace";
+        ctx.textBaseline = "alphabetic";
+        ctx.fillText("eat:" + eatCount[i], p.x, p.y + 52);
+      }
+
+      // Fork-side label under each fork: (B) or (O).
+      const forkHost  = ["B", "B", "O", "O", "O"];
+      const forkColor = ["#5a7aff", "#5a7aff", "#c765ff", "#c765ff", "#c765ff"];
+      for (let i = 0; i < N; i++) {
+        const a = pos[i], b = pos[(i + 1) % N];
+        const mx = (a.x + b.x) / 2, my = (a.y + b.y) / 2;
+        // Pull the label a bit toward the table center.
+        const cdx = cx - mx, cdy = cy - my;
+        const clen = Math.hypot(cdx, cdy) || 1;
+        const lx = mx + (cdx / clen) * 30;
+        const ly = my + (cdy / clen) * 30;
+        ctx.fillStyle = forkColor[i];
+        ctx.font = "bold 9px monospace";
+        ctx.textAlign = "center";
+        ctx.fillText("(" + forkHost[i] + ")", lx, ly);
+      }
+    }
+
+    // -------------------- run / stop --------------------
+    function stopAll() {
+      running = false;
+      activeTimers.forEach(id => clearTimeout(id));
+      activeTimers = [];
+    }
+
+    async function loadSource() {
+      if (abclSource) return abclSource;
+      const r = await fetch("/distributed_philosophers_browser.abcl");
+      abclSource = await r.text();
+      return abclSource;
+    }
+
+    async function runDinner() {
+      await stopDinner({ silent: true });
+      await new Promise(r => setTimeout(r, 200));
+      logDiv.innerHTML = "";
+      for (let i = 0; i < 5; i++) { eatCount[i] = 0; eatEls[i].textContent = "0"; }
+      bridgeOut = 0; bridgeIn = 0;
+      brOutEl.textContent = "0"; brInEl.textContent = "0";
+      ocamlLastEl.textContent = "";
+      brLastEl.textContent = "";
+
+      const parser = window.parser;
+      if (!parser) { rawAppend("[ERROR] parser not loaded"); return; }
+      parser.yy = AST;
+      running = true;
+      interp = new Interpreter(appendLog);
+      interp.setCanvas(canvas);
+      installBridgeSend(interp.runtime);
+      installOverlay(interp.runtime);
+
+      try {
+        const src = await loadSource();
+        const ast = parser.parse(src);
+        rawAppend("[parse ok]");
+        interp.runProgram(ast);
+        rawAppend("[browser half up: P0, P1, P2 + fork0, fork1]");
+
+        // Kick the browser philosophers…
+        interp.runtime.send("p0", "start", [], true, null);
+        interp.runtime.send("p1", "start", [], true, null);
+        interp.runtime.send("p2", "start", [], true, null);
+
+        // …and the OCaml philosophers via the web gateway.
+        const r = await fetch("/api/json/send", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            to: "table", method: "start", args: [], from: "browser", unsafe: true,
+          }),
+        });
+        rawAppend(`[browser→ocaml] send table.start() → ${r.status}`, "log-bridge-out");
+      } catch (e) {
+        running = false;
+        rawAppend("[ERROR] " + e);
+      }
+    }
+
+    async function stopDinner({ silent = false } = {}) {
+      stopAll();
+      if (!silent) rawAppend("[browser stopped]");
+      try {
+        await fetch("/api/json/send", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            to: "table", method: "stop", args: [], from: "browser", unsafe: true,
+          }),
+        });
+        if (!silent) rawAppend("[browser→ocaml] send table.stop()", "log-bridge-out");
+      } catch (e) {
+        if (!silent) rawAppend("[stopDinner err] " + e);
+      }
+    }
+
+    // -------------------- console (REPL + send) --------------------
+    const consoleOutEl = document.getElementById("consoleOut");
+    const consoleInEl  = document.getElementById("consoleIn");
+    const history      = [];
+    let   histPos      = 0;
+
+    function cAppend(text, cls) {
+      const span = document.createElement("span");
+      if (cls) span.className = cls;
+      span.textContent = text + "\n";
+      consoleOutEl.appendChild(span);
+      if (consoleOutEl.childNodes.length > 500) consoleOutEl.removeChild(consoleOutEl.firstChild);
+      consoleOutEl.scrollTop = consoleOutEl.scrollHeight;
+    }
+
+    function cHello() {
+      cAppend("type REPL commands (list, vlist, pprint, compile, load ...) or 'send to.method(args)'.", "c-hint");
+      cAppend("    examples: 'send table.start()' · 'send fork2.take(3)' · 'send p0.stop()' · 'list' · 'vlist' · 'help'", "c-hint");
+    }
+
+    // "1", "-2", "3.14", "'hi'", "\"hi\"", bare-word -> string
+    function parseArg(raw) {
+      const s = raw.trim();
+      if (s === "") return null;
+      if (/^-?\d+$/.test(s))        return parseInt(s, 10);
+      if (/^-?\d*\.\d+$/.test(s))   return parseFloat(s);
+      if ((s.startsWith('"') && s.endsWith('"')) ||
+          (s.startsWith("'") && s.endsWith("'"))) return s.slice(1, -1);
+      return s;
+    }
+
+    function splitArgs(s) {
+      // very small arg splitter: respects "" and ''
+      const out = []; let cur = ""; let q = null;
+      for (const ch of s) {
+        if (q) { cur += ch; if (ch === q) q = null; }
+        else if (ch === '"' || ch === "'") { q = ch; cur += ch; }
+        else if (ch === ",") { out.push(cur); cur = ""; }
+        else cur += ch;
+      }
+      if (cur.trim() !== "" || out.length > 0) out.push(cur);
+      return out.map(parseArg).filter(a => a !== null);
+    }
+
+    function parseSend(line) {
+      // accepts:  send to.method(args)   |   send to.method
+      const body = line.replace(/^send\s+/, "").trim();
+      const m = body.match(/^([@\w]+)\.(\w+)\s*(?:\(([^)]*)\))?\s*;?$/);
+      if (!m) return null;
+      return { to: m[1], method: m[2], args: splitArgs(m[3] || "") };
+    }
+
+    async function runConsoleSend({ to, method, args }) {
+      const argStr = args.map(a => typeof a === "string" ? JSON.stringify(a) : String(a)).join(",");
+      cAppend(`send ${to}.${method}(${argStr})`, "c-send");
+
+      // If this is a local browser actor, dispatch in-process so we don't
+      // round-trip through the OCaml gateway unnecessarily.
+      if (to.startsWith("@")) {
+        const name = to.slice(1);
+        const r = await fetch("/api/json/send", {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ to: name, method, args, from: "console", unsafe: true }),
+        });
+        cAppend(`[gateway ${r.status}] ${await r.text()}`, r.ok ? "c-reply" : "c-err");
+        return;
+      }
+      if (interp && interp.runtime.actors.has(to)) {
+        try {
+          interp.runtime.send(to, method, args, true, "console");
+          cAppend(`[local OK] enqueued to browser actor '${to}'`, "c-reply");
+        } catch (e) {
+          cAppend(`[local ERR] ${e.message || e}`, "c-err");
+        }
+        return;
+      }
+      // Otherwise assume OCaml-side actor (or let the gateway bridge it back).
+      try {
+        const r = await fetch("/api/json/send", {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ to, method, args, from: "console", unsafe: true }),
+        });
+        cAppend(`[gateway ${r.status}] ${await r.text()}`, r.ok ? "c-reply" : "c-err");
+      } catch (e) {
+        cAppend(`[gateway ERR] ${e}`, "c-err");
+      }
+    }
+
+    async function runConsoleRepl(line) {
+      cAppend("> " + line, "c-user");
+      try {
+        const r = await fetch("/api/repl", {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ command: line }),
+        });
+        const text = await r.text();
+        cAppend(text.replace(/\s+$/, ""), r.ok ? "c-reply" : "c-err");
+      } catch (e) {
+        cAppend("[repl ERR] " + e, "c-err");
+      }
+    }
+
+    function runConsoleLine(line) {
+      const l = line.trim();
+      if (l === "") return;
+      if (l === "help" || l === "?") {
+        cHello();
+        cAppend("  clear         — wipe this panel", "c-hint");
+        cAppend("  local <name>  — list mailbox size of a browser actor", "c-hint");
+        return;
+      }
+      if (l === "clear") { consoleOutEl.innerHTML = ""; return; }
+      if (l.startsWith("local ")) {
+        const name = l.slice(6).trim();
+        if (!interp || !interp.runtime.actors.has(name)) {
+          cAppend(`[local] unknown browser actor: ${name}`, "c-err"); return;
+        }
+        const a = interp.runtime.actors.get(name);
+        cAppend(`[local] ${name}: class=${a.className} mailbox=${a.mailbox.length} state=${JSON.stringify(a.state)}`, "c-reply");
+        return;
+      }
+      if (l.startsWith("send ")) {
+        const p = parseSend(l);
+        if (!p) { cAppend("[parse] expected: send to.method(args)", "c-err"); return; }
+        runConsoleSend(p);
+        return;
+      }
+      runConsoleRepl(l);
+    }
+
+    consoleInEl.addEventListener("keydown", ev => {
+      if (ev.key === "Enter") {
+        const line = consoleInEl.value;
+        consoleInEl.value = "";
+        if (line.trim() !== "") { history.push(line); histPos = history.length; }
+        runConsoleLine(line);
+      } else if (ev.key === "ArrowUp") {
+        if (histPos > 0) { histPos--; consoleInEl.value = history[histPos] || ""; ev.preventDefault(); }
+      } else if (ev.key === "ArrowDown") {
+        if (histPos < history.length) { histPos++; consoleInEl.value = history[histPos] || ""; ev.preventDefault(); }
+      }
+    });
+    cHello();
+
+    // -------------------- wiring --------------------
+    document.getElementById("btnRun") .addEventListener("click", runDinner);
+    document.getElementById("btnStop").addEventListener("click", () => stopDinner());
+    document.getElementById("btnShowSrc").addEventListener("click", async () => {
+      const src = await loadSource();
+      logDiv.innerHTML = "";
+      rawAppend("// ---- distributed_philosophers_browser.abcl ----");
+      rawAppend(src);
+    });
+
+    connectBridge();
+    window.addEventListener("load", runDinner);
+  </script>
+</body>
+</html>

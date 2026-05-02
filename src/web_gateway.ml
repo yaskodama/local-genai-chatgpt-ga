@@ -86,6 +86,16 @@ let ws_send_to_sid (sid:string) (f:out_channel -> unit) : unit =
   Mutex.unlock ws_clients_mu;
   List.iter (fun oc -> try f oc with _ -> ()) targets
 
+let ws_sid_has_clients (sid:string) : bool =
+  Mutex.lock ws_clients_mu;
+  let n =
+    match Hashtbl.find_opt ws_clients sid with
+    | Some r -> List.length !r
+    | None -> 0
+  in
+  Mutex.unlock ws_clients_mu;
+  n > 0
+
 (* ---------- WebSocket helpers (RFC6455) ---------- *)
 
 let ws_guid = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11"
@@ -560,6 +570,38 @@ let json_get_bool (k:string) (o:(string * jv) list) : bool option =
   | Some (JBool b) -> Some b
   | _ -> None
 
+let rec jv_to_json (v:jv) : string =
+  match v with
+  | JNull -> "null"
+  | JBool true -> "true"
+  | JBool false -> "false"
+  | JNumber n ->
+      if Float.is_finite n && abs_float (n -. Float.floor n) < 1e-9
+      then string_of_int (int_of_float (Float.round n))
+      else Printf.sprintf "%g" n
+  | JString s -> "\"" ^ json_escape s ^ "\""
+  | JArray xs -> "[" ^ String.concat "," (List.map jv_to_json xs) ^ "]"
+  | JObject kvs ->
+      "{" ^
+      String.concat ","
+        (List.map
+           (fun (k,v) -> "\"" ^ json_escape k ^ "\":" ^ jv_to_json v)
+           kvs)
+      ^ "}"
+
+(* Push a bridge frame to all WS clients subscribed to sid="bridge". Used when
+   an incoming /api/json/send targets an actor that doesn't exist locally: the
+   frame lets a browser-hosted actor runtime pick up the message and deliver
+   it to its in-browser mailbox. *)
+let push_bridge ~(to_:string) ~(meth:string) ~(args_json:jv list) ~(from:string) : unit =
+  let args_s = String.concat "," (List.map jv_to_json args_json) in
+  let frame =
+    Printf.sprintf
+      {|{"type":"bridge","to":"%s","method":"%s","args":[%s],"from":"%s"}|}
+      (json_escape to_) (json_escape meth) args_s (json_escape from)
+  in
+  ws_send_to_sid "bridge" (fun oc -> ws_send_text oc frame)
+
 let ast_of_json_value (v:jv) : Ast.expr =
   match v with
   | JString s -> Ast.mk_expr (Ast.String s)
@@ -737,7 +779,17 @@ let handle_send_direct_json (body:string) : (int * string * string) =
 	let unsafe = match json_get_bool "unsafe" o with Some b -> b | None -> false in
         if to_ = "" || meth = "" then
           (400, "text/plain; charset=utf-8", "missing to/method")
-        else
+        else if sid = ""
+             && not (Eval_thread.actor_exists real_to)
+             && ws_sid_has_clients "bridge" then (
+          (* Local actor doesn't exist, but a browser is subscribed to the
+             bridge — forward this as a remote send so the browser-side
+             runtime delivers it to its in-browser actor. *)
+          push_bridge ~to_:real_to ~meth ~args_json ~from:from_;
+          Eval_thread.push_web_evt
+            (Printf.sprintf "[BRIDGE->web] to=%s.%s from=%s" real_to meth from_);
+          (200, "text/plain; charset=utf-8", "bridged")
+        ) else
           let exprs = List.map ast_of_json_value args_json in
           if sid <> "" && real_to <> to_ then (
             if not (Eval_thread.actor_exists real_to) then
@@ -924,6 +976,223 @@ let handle_api_events (query:(string,string) Hashtbl.t) =
   in
   (200, "application/json; charset=utf-8", body)
 
+(* ---- IDE helper endpoints ---- *)
+
+(* Small JSON-string escaper reused by /api/actors and /api/browse. *)
+let json_str_esc (s:string) : string =
+  let b = Buffer.create (String.length s + 8) in
+  String.iter (function
+    | '"' -> Buffer.add_string b "\\\""
+    | '\\' -> Buffer.add_string b "\\\\"
+    | '\n' -> Buffer.add_string b "\\n"
+    | '\r' -> Buffer.add_string b "\\r"
+    | '\t' -> Buffer.add_string b "\\t"
+    | c -> Buffer.add_char b c
+  ) s;
+  Buffer.contents b
+
+(* Return the current actor table as structured JSON. This is the
+   counterpart of the REPL `actors` command, but designed for the IDE:
+   it does not write anything to stdout and does not go through the
+   REPL buffer, so polling it does not flood the server terminal. *)
+let handle_api_actors () : int * string * string =
+  let buf = Buffer.create 256 in
+  Buffer.add_char buf '[';
+  let first = ref true in
+  Eval_thread.iter_actor_table (fun aname a ->
+    let cls = Eval_thread.actor_class_name aname a in
+    let mbox_n = Eval_thread.mailbox_len a in
+    let mnames = Eval_thread.method_names a in
+    let ty_str =
+      let ms = Types.lookup_class_methods_inst cls in
+      if ms = [] then "actor(" ^ cls ^ ")"
+      else Types.string_of_ty_pretty (Types.TActor (cls, ms))
+    in
+    if not !first then Buffer.add_char buf ',';
+    first := false;
+    let methods_json =
+      String.concat ","
+        (List.map (fun m -> "\"" ^ json_str_esc m ^ "\"") mnames)
+    in
+    Buffer.add_string buf
+      (Printf.sprintf
+         {|{"name":"%s","class":"%s","type":"%s","mbox":%d,"methods":[%s]}|}
+         (json_str_esc aname) (json_str_esc cls) (json_str_esc ty_str)
+         mbox_n methods_json)
+  );
+  Buffer.add_char buf ']';
+  (200, "application/json; charset=utf-8", Buffer.contents buf)
+
+(* Browse a directory. Returns subdirs and files in the requested dir,
+   with an optional extension filter. Used by the IDE's File menu to let
+   users pick their own .bat / .abcl files from anywhere on disk. *)
+let handle_api_browse (query:(string,string) Hashtbl.t) : int * string * string =
+  let dir_raw =
+    match Hashtbl.find_opt query "dir" with
+    | Some s -> s
+    | None -> "."
+  in
+  let ext_filter =
+    match Hashtbl.find_opt query "ext" with
+    | Some s -> String.lowercase_ascii (trim s)
+    | None -> ""
+  in
+  let dir =
+    let d = trim dir_raw in
+    if d = "" then "." else d
+  in
+  (* Expand a leading "~/" to the user's home. *)
+  let dir =
+    if String.length dir >= 2 && dir.[0] = '~' && dir.[1] = '/' then
+      try
+        let home = Sys.getenv "HOME" in
+        home ^ String.sub dir 1 (String.length dir - 1)
+      with Not_found -> dir
+    else dir
+  in
+  let has_ext name =
+    if ext_filter = "" then true
+    else
+      let nlen = String.length name in
+      let elen = String.length ext_filter + 1 in
+      nlen > elen
+      && String.lowercase_ascii (String.sub name (nlen - elen) elen)
+         = ("." ^ ext_filter)
+  in
+  try
+    let entries = Sys.readdir dir in
+    Array.sort compare entries;
+    let dirs  = ref [] in
+    let files = ref [] in
+    Array.iter (fun name ->
+      if name = "" || name.[0] = '.' then ()  (* hide dotfiles by default *)
+      else begin
+        let path =
+          if dir = "." then name
+          else if dir = "/" then "/" ^ name
+          else dir ^ "/" ^ name
+        in
+        try
+          if Sys.is_directory path then dirs := name :: !dirs
+          else if has_ext name then files := name :: !files
+        with _ -> ()
+      end
+    ) entries;
+    let dirs  = List.rev !dirs in
+    let files = List.rev !files in
+    (* Compute absolute path for display and a reasonable parent. *)
+    let abs_dir =
+      try
+        if Filename.is_relative dir then
+          Filename.concat (Sys.getcwd ()) dir
+        else dir
+      with _ -> dir
+    in
+    (* Normalize trailing "/." (arises from Filename.concat cwd ".") so the
+       path joins cleanly on the client side. *)
+    let abs_dir =
+      let n = String.length abs_dir in
+      if n >= 2 && abs_dir.[n-1] = '.' && abs_dir.[n-2] = '/'
+      then (if n = 2 then "/" else String.sub abs_dir 0 (n-2))
+      else abs_dir
+    in
+    let abs_dir =
+      let n = String.length abs_dir in
+      if n > 1 && abs_dir.[n-1] = '/' then String.sub abs_dir 0 (n-1)
+      else abs_dir
+    in
+    let parent =
+      let strip_trailing_slash s =
+        let n = String.length s in
+        if n > 1 && s.[n-1] = '/' then String.sub s 0 (n-1) else s
+      in
+      let d = strip_trailing_slash abs_dir in
+      if d = "/" then "" else Filename.dirname d
+    in
+    let json_list xs =
+      "[" ^
+      String.concat ","
+        (List.map (fun s -> "\"" ^ json_str_esc s ^ "\"") xs)
+      ^ "]"
+    in
+    let body =
+      Printf.sprintf
+        {|{"dir":"%s","abs":"%s","parent":"%s","ext":"%s","dirs":%s,"files":%s}|}
+        (json_str_esc dir) (json_str_esc abs_dir) (json_str_esc parent)
+        (json_str_esc ext_filter) (json_list dirs) (json_list files)
+    in
+    (200, "application/json; charset=utf-8", body)
+  with
+  | Sys_error msg ->
+      let body =
+        Printf.sprintf {|{"error":"%s","dir":"%s"}|}
+          (json_str_esc msg) (json_str_esc dir)
+      in
+      (400, "application/json; charset=utf-8", body)
+  | exn ->
+      let body =
+        Printf.sprintf {|{"error":"%s"}|}
+          (json_str_esc (Printexc.to_string exn))
+      in
+      (500, "application/json; charset=utf-8", body)
+
+(* List project files matching an extension. Used by the IDE's File menu to
+   populate the list of available .bat / .abcl scripts. We only look at a
+   small fixed set of project-relative directories so that this cannot be
+   turned into an arbitrary directory browser. *)
+let handle_api_files (query:(string,string) Hashtbl.t) : int * string * string =
+  let ext =
+    match Hashtbl.find_opt query "ext" with
+    | Some s -> String.lowercase_ascii (trim s)
+    | None -> "bat"
+  in
+  let ext = if ext = "" then "bat" else ext in
+  let has_ext name =
+    let elen = String.length ext + 1 in
+    let nlen = String.length name in
+    nlen > elen
+    && String.lowercase_ascii (String.sub name (nlen - elen) elen) = ("." ^ ext)
+  in
+  let search_dirs = [ "abclc"; "src"; "." ] in
+  let collected = ref [] in
+  List.iter (fun dir ->
+    let dir_candidates = [ dir; "../" ^ dir ] in
+    let rec first_readable = function
+      | [] -> None
+      | d :: rest ->
+          (try Some (d, Sys.readdir d) with _ -> first_readable rest)
+    in
+    match first_readable dir_candidates with
+    | None -> ()
+    | Some (d, arr) ->
+        Array.sort compare arr;
+        Array.iter (fun name ->
+          if has_ext name then begin
+            let path =
+              if d = "." then name else d ^ "/" ^ name
+            in
+            collected := path :: !collected
+          end
+        ) arr
+  ) search_dirs;
+  let files = List.rev !collected in
+  let esc s =
+    let b = Buffer.create (String.length s + 8) in
+    String.iter (function
+      | '"' -> Buffer.add_string b "\\\""
+      | '\\' -> Buffer.add_string b "\\\\"
+      | '\n' -> Buffer.add_string b "\\n"
+      | c -> Buffer.add_char b c
+    ) s;
+    Buffer.contents b
+  in
+  let body =
+    Printf.sprintf {|{"ext":"%s","files":[%s]}|}
+      (esc ext)
+      (String.concat "," (List.map (fun s -> "\"" ^ esc s ^ "\"") files))
+  in
+  (200, "application/json; charset=utf-8", body)
+
 let handle_ws (client:file_descr) (headers:(string,string) Hashtbl.t) (q:(string,string) Hashtbl.t) : unit =
   let ic = in_channel_of_descr client in
   let oc = out_channel_of_descr client in
@@ -1072,6 +1341,28 @@ let serve_asset (name:string) (ctype:string) : int * string * string =
        "asset not found: " ^ name ^
        " (looked in ., src/, ../src/)")
 
+(* Assets that live under src/browser-abcl/src/ (runtime, interpreter, parser,
+   ast) need their own lookup path. *)
+let read_browser_asset (rel:string) : string option =
+  let candidates = [
+    "src/browser-abcl/src/" ^ rel;
+    "browser-abcl/src/" ^ rel;
+    "../src/browser-abcl/src/" ^ rel;
+    "../browser-abcl/src/" ^ rel;
+  ] in
+  let rec loop = function
+    | []      -> None
+    | p :: ps -> (try Some (read_file p) with _ -> loop ps)
+  in
+  loop candidates
+
+let serve_browser_asset (rel:string) (ctype:string) : int * string * string =
+  match read_browser_asset rel with
+  | Some body -> (200, ctype, body)
+  | None ->
+      (404, "text/plain; charset=utf-8",
+       "browser asset not found: " ^ rel)
+
 let handle_client (client: file_descr) : unit =
   let ic = in_channel_of_descr client in
   let oc = out_channel_of_descr client in
@@ -1124,14 +1415,28 @@ let handle_client (client: file_descr) : unit =
 	 let code, ctype, resp_body =
            match meth, path with
 	   | "GET", "/" -> (200, "text/html; charset=utf-8", html_index ())
+	   | "GET", "/ide" -> serve_asset "ide.html" "text/html; charset=utf-8"
+	   | "GET", "/ide.html" -> serve_asset "ide.html" "text/html; charset=utf-8"
+	   | "GET", "/ide.js" -> serve_asset "ide.js" "application/javascript; charset=utf-8"
 	   | "GET", "/app.js" -> serve_asset "app.js" "application/javascript; charset=utf-8"
            | "GET", "/console_server.js" -> serve_asset "console_server.js" "application/javascript; charset=utf-8"
 	   | "GET", "/console_browser.js" -> serve_asset "console_browser.js" "application/javascript; charset=utf-8"
 	   | "GET", "/viz_philosophers.html" -> serve_asset "viz_philosophers.html" "text/html; charset=utf-8"
 	   | "GET", "/viz_philosophers.js" -> serve_asset "viz_philosophers.js" "application/javascript; charset=utf-8"
 	   | "GET", "/viz_philosophers.abcl" -> serve_asset "viz_philosophers.abcl" "text/plain; charset=utf-8"
+	   | "GET", "/distributed_philosophers.html" -> serve_asset "distributed_philosophers.html" "text/html; charset=utf-8"
+	   | "GET", "/distributed_philosophers.js" -> serve_asset "distributed_philosophers.js" "application/javascript; charset=utf-8"
+	   | "GET", "/distributed_philosophers_browser.abcl" -> serve_asset "distributed_philosophers_browser.abcl" "text/plain; charset=utf-8"
+	   | "GET", "/distributed_philosophers_ocaml.abcl" -> serve_asset "distributed_philosophers_ocaml.abcl" "text/plain; charset=utf-8"
+	   | "GET", "/src/ast.js" -> serve_browser_asset "ast.js" "application/javascript; charset=utf-8"
+	   | "GET", "/src/runtime.js" -> serve_browser_asset "runtime.js" "application/javascript; charset=utf-8"
+	   | "GET", "/src/interpreter.js" -> serve_browser_asset "interpreter.js" "application/javascript; charset=utf-8"
+	   | "GET", "/src/parser/parser.js" -> serve_browser_asset "parser/parser.js" "application/javascript; charset=utf-8"
            | "GET", "/api/log" -> handle_api_log q
-	   | "GET", "/api/events" -> handle_api_events q  
+	   | "GET", "/api/events" -> handle_api_events q
+	   | "GET", "/api/files" -> handle_api_files q
+	   | "GET", "/api/actors" -> handle_api_actors ()
+	   | "GET", "/api/browse" -> handle_api_browse q
 	   | "POST", "/api/send" -> let params = parse_form_urlencoded body in handle_send_direct params
            | "POST", "/api/json/send" -> handle_send_direct_json body
            | "POST", "/api/repl" -> handle_api_repl body

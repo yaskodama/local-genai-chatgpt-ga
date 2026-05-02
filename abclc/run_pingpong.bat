@@ -1,0 +1,2 @@
+load PingPong.abcl
+compile
