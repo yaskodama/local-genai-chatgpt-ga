@@ -11,6 +11,7 @@ from abcl_ast import (
     VarDecl, VarNew, Assign, Send, CallStmt,
     If, While, Become, Block,
     IntLit, FloatLit, StringLit, Var, Binop, Neg, New, CallExpr,
+    NowCall, FutureCall,
 )
 
 
@@ -35,6 +36,15 @@ class _Builder(Transformer):
     def neg(self, inner):       return Neg(inner)
     def new_expr(self, name, args):     return New(str(name), list(args.children))
     def call_expr(self, name, args):    return CallExpr(str(name), list(args.children))
+
+    def now_self(self, method, args):     return NowCall("self", str(method), list(args.children))
+    def now_sender(self, method, args):   return NowCall("sender", str(method), list(args.children))
+    def now_call(self, target, method, args):
+        return NowCall(str(target), str(method), list(args.children))
+    def future_self(self, method, args):     return FutureCall("self", str(method), list(args.children))
+    def future_sender(self, method, args):   return FutureCall("sender", str(method), list(args.children))
+    def future_call(self, target, method, args):
+        return FutureCall(str(target), str(method), list(args.children))
 
     @v_args(inline=False)
     def args(self, items):

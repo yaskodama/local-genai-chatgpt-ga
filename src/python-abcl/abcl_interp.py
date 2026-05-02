@@ -16,17 +16,35 @@ from abcl_ast import (
     VarDecl, VarNew, Assign, Send, CallStmt,
     If, While, Become, Block,
     IntLit, FloatLit, StringLit, Var, Binop, Neg, New, CallExpr,
+    NowCall, FutureCall,
 )
-from abcl_runtime import Actor, Scheduler
+from abcl_runtime import Actor, Future, Scheduler
 
 
 class Frame:
     """Lexical frame: locals chain back to a parent frame."""
-    def __init__(self, actor: Optional[Actor], sender: Optional[Actor], parent: "Optional[Frame]" = None):
+    def __init__(
+        self,
+        actor: Optional[Actor],
+        sender: Optional[Actor],
+        parent: "Optional[Frame]" = None,
+        reply_future: Optional[Future] = None,
+    ):
         self.actor = actor
         self.sender = sender
         self.locals = {}
         self.parent = parent
+        # reply_future is set on the *top* frame of a now-/future-type
+        # message dispatch; nested blocks reach it via parent chain.
+        self.reply_future = reply_future
+
+    def get_reply_future(self) -> Optional[Future]:
+        f = self
+        while f is not None:
+            if f.reply_future is not None:
+                return f.reply_future
+            f = f.parent
+        return None
 
     def find_local_frame(self, name):
         f = self
@@ -120,17 +138,31 @@ class Interpreter:
             actor.send_method("init", ctor_args, sender=None)
         return actor
 
-    def dispatch(self, actor: Actor, method_name: str, args: list, sender: Optional[Actor]):
+    def dispatch(
+        self,
+        actor: Actor,
+        method_name: str,
+        args: list,
+        sender: Optional[Actor],
+        reply_future: Optional[Future] = None,
+    ):
         method = next((m for m in actor.cls.methods if m.name == method_name), None)
         if method is None:
+            if reply_future is not None:
+                reply_future.set(None)
             return  # silently ignore unknown method
         if len(args) != len(method.params):
             print(f"[arity] {actor.name}.{method_name}: expected {len(method.params)}, got {len(args)}")
+            if reply_future is not None:
+                reply_future.set(None)
             return
-        frame = Frame(actor=actor, sender=sender)
+        frame = Frame(actor=actor, sender=sender, reply_future=reply_future)
         for p, v in zip(method.params, args):
             frame.locals[p] = v
         self.exec_block(method.body, frame)
+        # If the method never called reply(), unblock any waiter with None.
+        if reply_future is not None:
+            reply_future.set(None)
 
     # ------------------------------------------------------------------
     # Execution
@@ -173,23 +205,25 @@ class Interpreter:
         else:
             raise RuntimeError(f"unknown stmt: {s!r}")
 
+    def _resolve_actor(self, target_name: str, frame: Frame) -> Optional[Actor]:
+        if target_name == "self":
+            return frame.actor
+        if target_name == "sender":
+            return frame.sender
+        f = frame.find_local_frame(target_name)
+        if f is not None and isinstance(f.locals[target_name], Actor):
+            return f.locals[target_name]
+        if frame.actor is not None and target_name in frame.actor.fields \
+           and isinstance(frame.actor.fields[target_name], Actor):
+            return frame.actor.fields[target_name]
+        with self._global_lock:
+            v = self.globals.get(target_name)
+        return v if isinstance(v, Actor) else None
+
     def _do_send(self, target_name: str, method: str, raw_args: list, frame: Frame):
         args = [self.eval_expr(a, frame) for a in raw_args]
-        # resolve target
-        if target_name == "self":
-            tgt = frame.actor
-        elif target_name == "sender":
-            tgt = frame.sender
-        else:
-            f = frame.find_local_frame(target_name)
-            if f is not None and isinstance(f.locals[target_name], Actor):
-                tgt = f.locals[target_name]
-            elif frame.actor is not None and target_name in frame.actor.fields and isinstance(frame.actor.fields[target_name], Actor):
-                tgt = frame.actor.fields[target_name]
-            else:
-                with self._global_lock:
-                    tgt = self.globals.get(target_name)
-        if not isinstance(tgt, Actor):
+        tgt = self._resolve_actor(target_name, frame)
+        if tgt is None:
             print(f"[send] {target_name}.{method}(): no such actor")
             return
         tgt.send_method(method, args, sender=frame.actor)
@@ -231,7 +265,31 @@ class Interpreter:
         if kind is CallExpr:
             args = [self.eval_expr(a, frame) for a in e.args]
             return self._call_builtin(e.name, args, frame, returning=True)
+        if kind is NowCall:
+            return self._do_now_send(e.target, e.method, e.args, frame)
+        if kind is FutureCall:
+            return self._do_future_send(e.target, e.method, e.args, frame)
         raise RuntimeError(f"unknown expr: {e!r}")
+
+    def _do_now_send(self, target_name: str, method: str, raw_args: list, frame: Frame):
+        tgt = self._resolve_actor(target_name, frame)
+        if tgt is None:
+            print(f"[now] {target_name}.{method}(): no such actor")
+            return None
+        args = [self.eval_expr(a, frame) for a in raw_args]
+        fut = Future()
+        tgt.send_method(method, args, sender=frame.actor, reply_future=fut)
+        return fut.get()
+
+    def _do_future_send(self, target_name: str, method: str, raw_args: list, frame: Frame):
+        tgt = self._resolve_actor(target_name, frame)
+        if tgt is None:
+            print(f"[future] {target_name}.{method}(): no such actor")
+            return None
+        args = [self.eval_expr(a, frame) for a in raw_args]
+        fut = Future()
+        tgt.send_method(method, args, sender=frame.actor, reply_future=fut)
+        return fut
 
     # ------------------------------------------------------------------
     # Builtins
@@ -301,13 +359,39 @@ def _b_print(args, frame, interp):
     return None
 
 def _b_reply(args, frame, interp):
-    # ABCL "reply(x)": send the value back to sender.method? In our
-    # simplified semantics we just print [REPLY] x; richer use would
-    # need a per-message reply mailbox.
+    """ABCL reply(x).
+
+    For now-/future-type sends, fulfils the caller's Future so it can
+    unblock with `x` as the value.  For plain past-type sends (no
+    reply_future on the frame chain), prints [REPLY] x as before so
+    debugging output stays visible.
+    """
     val = args[0] if args else None
+    fut = frame.get_reply_future()
+    if fut is not None:
+        fut.set(val)
+        return None
     print(f"[REPLY] {_to_str(val)}")
     sys.stdout.flush()
     return None
+
+
+def _b_await(args, frame, interp):
+    """await(f): block until the future is fulfilled and return its value."""
+    if not args:
+        return None
+    f = args[0]
+    if isinstance(f, Future):
+        return f.get()
+    # Allow await on a plain value as a no-op for ergonomic chaining
+    return f
+
+
+def _b_future_done(args, frame, interp):
+    if not args:
+        return False
+    f = args[0]
+    return f.done() if isinstance(f, Future) else True
 
 def _b_wait(args, frame, interp):
     ms = int(args[0]) if args else 0
@@ -372,6 +456,9 @@ _BUILTINS = {
     "abs":     lambda a, f, i: abs(a[0]),
     "max":     lambda a, f, i: max(a),
     "min":     lambda a, f, i: min(a),
+    # Future / synchronisation
+    "await":       _b_await,
+    "future_done": _b_future_done,
     # AI integration (Anthropic Claude)
     "ai_call":             _b_ai_call,
     "ai_call_with_system": _b_ai_call_with_system,

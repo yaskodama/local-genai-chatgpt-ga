@@ -45,8 +45,23 @@ class CallExpr:
     name: str
     args: List['Expr']
 
+@dataclass
+class NowCall:
+    """Synchronous send: caller blocks until receiver replies."""
+    target: str   # 'self' / 'sender' / a variable name
+    method: str
+    args: List['Expr']
 
-Expr = Union[IntLit, FloatLit, StringLit, Var, Binop, Neg, New, CallExpr]
+@dataclass
+class FutureCall:
+    """Asynchronous send returning a Future; await(f) to retrieve value."""
+    target: str
+    method: str
+    args: List['Expr']
+
+
+Expr = Union[IntLit, FloatLit, StringLit, Var, Binop, Neg, New, CallExpr,
+             NowCall, FutureCall]
 
 
 # ---------- Statements ----------

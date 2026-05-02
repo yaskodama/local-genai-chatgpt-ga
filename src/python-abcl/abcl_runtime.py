@@ -12,6 +12,37 @@ import threading
 from typing import Optional
 
 
+class Future:
+    """Single-shot result holder used by now-/future-type sends.
+
+    The callee fulfils it via `reply(value)`; the caller blocks on
+    `get()` (or polls via `done()`).  `set()` is idempotent — calling
+    it twice keeps the first value.
+    """
+
+    def __init__(self):
+        self._cond = threading.Condition()
+        self._done = False
+        self._value = None
+
+    def set(self, value) -> None:
+        with self._cond:
+            if not self._done:
+                self._value = value
+                self._done = True
+                self._cond.notify_all()
+
+    def done(self) -> bool:
+        with self._cond:
+            return self._done
+
+    def get(self, timeout: Optional[float] = None):
+        with self._cond:
+            if not self._done:
+                self._cond.wait(timeout=timeout)
+            return self._value
+
+
 class Mailbox:
     def __init__(self):
         self._q: "queue.Queue" = queue.Queue()
@@ -52,7 +83,7 @@ class Actor:
     def stop(self):
         self._stopped = True
         # Sentinel wakes the worker.
-        self.mailbox.put(("__stop__", [], None, None))
+        self.mailbox.put(("__stop__", [], None, None, None))
 
     def _run(self):
         while not self._stopped:
@@ -60,23 +91,36 @@ class Actor:
                 msg = self.mailbox.get(timeout=0.05)
             except queue.Empty:
                 continue
-            method_name, args, sender, msg_id = msg
+            method_name, args, sender, msg_id, reply_future = msg
             if method_name == "__stop__":
                 break
             try:
-                self._dispatch(self, method_name, args, sender)
+                self._dispatch(self, method_name, args, sender, reply_future)
             except Exception as e:
                 print(f"[actor {self.name}.{method_name}] error: {e}")
+                if reply_future is not None:
+                    reply_future.set(None)
             finally:
                 self.scheduler.message_done()
 
     # ------------------------------------------------------------------
     # API used by the interpreter
 
-    def send_method(self, method: str, args: list, sender: "Optional[Actor]" = None):
-        """Enqueue a message on this actor and bump the outstanding count."""
+    def send_method(
+        self,
+        method: str,
+        args: list,
+        sender: "Optional[Actor]" = None,
+        reply_future: "Optional[Future]" = None,
+    ):
+        """Enqueue a message on this actor and bump the outstanding count.
+
+        `reply_future` is set for now-/future-type sends.  When the
+        callee finishes (or calls `reply(x)`), the future is fulfilled
+        so the caller can unblock.
+        """
         self.scheduler.message_started()
-        self.mailbox.put((method, args, sender, None))
+        self.mailbox.put((method, args, sender, None, reply_future))
 
 
 class Scheduler:
