@@ -264,6 +264,16 @@ def _record_usage(model: str, input_tokens: int, output_tokens: int) -> None:
         _usage["cost_usd"]      += _cost_usd(model, input_tokens or 0,
                                              output_tokens or 0)
         _save_persistent_usage_locked()
+    # Best-effort fan-out to dashboard subscribers; never block the
+    # caller if the broker isn't loaded.
+    try:
+        from abcl_events import publish
+        publish("ai_call",
+                model=model,
+                input_tokens=int(input_tokens or 0),
+                output_tokens=int(output_tokens or 0))
+    except Exception:
+        pass
 
 
 def get_usage() -> dict:

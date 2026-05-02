@@ -211,7 +211,12 @@ class _Handler(BaseHTTPRequestHandler):
 
         # Print so a server-side .abcl program shows traffic in its
         # log without explicit handler instrumentation.
-        print(f"[gateway] -> {to_name}.{method}({args}) from={from_name!r}")
+        print(f"[gateway] -> {to_name}.{method}({args}) from={from_name!r}", flush=True)
+        try:
+            from abcl_events import publish as _pub
+            _pub("remote_in", to=to_name, method=method, sync=False, from_=from_name)
+        except Exception:
+            pass
 
         try:
             actor.send_method(method, list(args), sender=None)
@@ -264,7 +269,12 @@ class _Handler(BaseHTTPRequestHandler):
 
         from abcl_runtime import Future
         fut = Future()
-        print(f"[gateway] (call) -> {to_name}.{method}({args}) from={from_name!r}")
+        print(f"[gateway] (call) -> {to_name}.{method}({args}) from={from_name!r}", flush=True)
+        try:
+            from abcl_events import publish as _pub
+            _pub("remote_in", to=to_name, method=method, sync=True, from_=from_name)
+        except Exception:
+            pass
         try:
             actor.send_method(method, list(args), sender=None, reply_future=fut)
         except Exception as e:
@@ -302,6 +312,14 @@ def _make_signed_request(url: str, payload: bytes) -> "urllib.request.Request":
     return urllib.request.Request(url, data=payload, method="POST", headers=headers)
 
 
+def _publish_remote_out(hostport: str, to_actor: str, method: str, sync: bool):
+    try:
+        from abcl_events import publish
+        publish("remote_out", host=hostport, to=to_actor, method=method, sync=sync)
+    except Exception:
+        pass
+
+
 def remote_send(hostport: str, to_actor: str, method: str,
                 args: list, from_name: str = "") -> None:
     """Fire-and-forget remote send.  Matches the OCaml
@@ -314,6 +332,7 @@ def remote_send(hostport: str, to_actor: str, method: str,
         "from":   from_name,
     }).encode("utf-8")
     req = _make_signed_request(url, payload)
+    _publish_remote_out(hostport, to_actor, method, sync=False)
     try:
         with urllib.request.urlopen(req, timeout=5) as resp:
             resp.read()
@@ -337,6 +356,7 @@ def remote_call_sync(hostport: str, to_actor: str, method: str,
         "from":   from_name,
     }).encode("utf-8")
     req = _make_signed_request(url, payload)
+    _publish_remote_out(hostport, to_actor, method, sync=True)
     try:
         with urllib.request.urlopen(req, timeout=timeout_s + 5) as resp:
             data = json.loads(resp.read().decode("utf-8"))
