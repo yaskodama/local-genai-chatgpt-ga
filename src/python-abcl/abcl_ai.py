@@ -49,7 +49,32 @@ class BudgetExceeded(RuntimeError):
 
 
 _usage_lock = threading.Lock()
-_usage = {"calls": 0, "input_tokens": 0, "output_tokens": 0}
+_usage = {"calls": 0, "input_tokens": 0, "output_tokens": 0, "cost_usd": 0.0}
+
+
+# Per-million-token pricing in USD, sourced from each provider's
+# pricing page (cached 2026-04).  Lookup falls back to (0, 0) for
+# unrecognised models — the call still runs, it just isn't priced.
+PRICING_USD_PER_M_TOKENS = {
+    # Anthropic
+    "claude-opus-4-7":   (5.00, 25.00),
+    "claude-opus-4-6":   (5.00, 25.00),
+    "claude-sonnet-4-6": (3.00, 15.00),
+    "claude-haiku-4-5":  (1.00,  5.00),
+    # Gemini
+    "gemini-2.5-pro":         (1.25, 10.00),
+    "gemini-2.5-flash":       (0.075, 0.30),
+    "gemini-2.5-flash-lite":  (0.10,  0.40),
+}
+
+
+def _price_for(model: str) -> tuple:
+    return PRICING_USD_PER_M_TOKENS.get(model, (0.0, 0.0))
+
+
+def _cost_usd(model: str, input_tokens: int, output_tokens: int) -> float:
+    in_p, out_p = _price_for(model)
+    return (input_tokens / 1_000_000.0) * in_p + (output_tokens / 1_000_000.0) * out_p
 
 DEFAULT_PRIORITY = 10
 
@@ -157,11 +182,13 @@ def _check_budget() -> None:
         )
 
 
-def _record_usage(input_tokens: int, output_tokens: int) -> None:
+def _record_usage(model: str, input_tokens: int, output_tokens: int) -> None:
     with _usage_lock:
-        _usage["calls"] += 1
-        _usage["input_tokens"] += int(input_tokens or 0)
+        _usage["calls"]         += 1
+        _usage["input_tokens"]  += int(input_tokens or 0)
         _usage["output_tokens"] += int(output_tokens or 0)
+        _usage["cost_usd"]      += _cost_usd(model, input_tokens or 0,
+                                             output_tokens or 0)
 
 
 def get_usage() -> dict:
@@ -173,7 +200,13 @@ def get_usage() -> dict:
             "input_tokens":  _usage["input_tokens"],
             "output_tokens": _usage["output_tokens"],
             "total_tokens":  _usage["input_tokens"] + _usage["output_tokens"],
+            "cost_usd":      _usage["cost_usd"],
         }
+
+
+def get_cost_usd() -> float:
+    with _usage_lock:
+        return _usage["cost_usd"]
 
 
 def get_remaining() -> int:
@@ -278,6 +311,7 @@ def _do_claude(
     usage = getattr(response, "usage", None)
     if usage is not None:
         _record_usage(
+            model,
             getattr(usage, "input_tokens", 0) or 0,
             getattr(usage, "output_tokens", 0) or 0,
         )
@@ -313,6 +347,7 @@ def _do_gemini(
     meta = getattr(response, "usage_metadata", None)
     if meta is not None:
         _record_usage(
+            model,
             getattr(meta, "prompt_token_count", 0) or 0,
             getattr(meta, "candidates_token_count", 0) or 0,
         )

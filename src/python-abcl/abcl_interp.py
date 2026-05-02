@@ -464,13 +464,20 @@ def _b_ai_usage(args, frame, interp):
     from abcl_ai import get_usage
     u = get_usage()
     return (f"calls={u['calls']} in={u['input_tokens']} "
-            f"out={u['output_tokens']} total={u['total_tokens']}")
+            f"out={u['output_tokens']} total={u['total_tokens']} "
+            f"cost=${u['cost_usd']:.6f}")
 
 
 def _b_ai_remaining(args, frame, interp):
     """Tokens still allowed by ABCL_AI_TOKEN_BUDGET; -1 if no budget."""
     from abcl_ai import get_remaining
     return get_remaining()
+
+
+def _b_ai_cost(args, frame, interp):
+    """Returns running cost in USD as a float."""
+    from abcl_ai import get_cost_usd
+    return get_cost_usd()
 
 
 _BUILTINS = {
@@ -501,4 +508,5 @@ _BUILTINS = {
     "ai_call_priority_with_system":  _b_ai_call_priority_with_system,
     "ai_usage":                      _b_ai_usage,
     "ai_remaining":                  _b_ai_remaining,
+    "ai_cost":                       _b_ai_cost,
 }
