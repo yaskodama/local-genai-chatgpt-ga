@@ -117,6 +117,63 @@ let wait_reply_slot (slot:reply_slot) ~(timeout_s:float) : string option =
   Mutex.unlock slot.rs_mu;
   v
 
+(* ---- HMAC-SHA256 over the request body, matched against the
+        X-ABCL-Sig header.  Mirrors the Python sender's wire format
+        and is gated on ABCL_REMOTE_SECRET.  Verification shells out
+        to openssl so we don't pull in a new opam dep. ---- *)
+
+let read_all_in (ic:in_channel) : string =
+  let b = Buffer.create 256 in
+  (try while true do Buffer.add_channel b ic 256 done
+   with End_of_file -> ());
+  Buffer.contents b
+
+let strip_trailing_newline (s:string) : string =
+  let n = String.length s in
+  if n > 0 && s.[n - 1] = '\n' then String.sub s 0 (n - 1) else s
+
+let hmac_sha256_hex ~(secret:string) ~(data:string) : string =
+  let cmd = Printf.sprintf "openssl dgst -sha256 -hmac %s" (Filename.quote secret) in
+  let (ic, oc) = Unix.open_process cmd in
+  output_string oc data;
+  close_out oc;
+  let line = strip_trailing_newline (read_all_in ic) in
+  let _ = Unix.close_process (ic, oc) in
+  (* openssl prints either "(stdin)= <hex>" or just "<hex>"; take the
+     last whitespace-separated token. *)
+  match String.rindex_opt line ' ' with
+  | Some i when i + 1 < String.length line ->
+      String.sub line (i + 1) (String.length line - i - 1)
+  | _ -> line
+
+let constant_time_eq (a:string) (b:string) : bool =
+  if String.length a <> String.length b then false
+  else
+    let r = ref 0 in
+    for i = 0 to String.length a - 1 do
+      r := !r lor (Char.code a.[i] lxor Char.code b.[i])
+    done;
+    !r = 0
+
+(* None when the request is allowed; Some response when rejected. *)
+let verify_hmac_or_reject ~(headers:(string,string) Hashtbl.t) ~(body:string)
+    : (int * string * string) option =
+  match Sys.getenv_opt "ABCL_REMOTE_SECRET" with
+  | None -> None
+  | Some "" -> None
+  | Some secret ->
+      let provided =
+        match Hashtbl.find_opt headers "x-abcl-sig" with
+        | Some s -> String.trim s
+        | None -> ""
+      in
+      if provided = "" then
+        Some (401, "text/plain; charset=utf-8", "missing X-ABCL-Sig")
+      else
+        let expected = hmac_sha256_hex ~secret ~data:body in
+        if constant_time_eq provided expected then None
+        else Some (401, "text/plain; charset=utf-8", "invalid X-ABCL-Sig")
+
 (* ---- websocket clients per sid ---- *)
 let ws_clients : (string, out_channel list ref) Hashtbl.t = Hashtbl.create 64
 let ws_clients_mu = Mutex.create ()
@@ -1547,8 +1604,14 @@ let handle_client (client: file_descr) : unit =
 	   | "GET", "/api/actors" -> handle_api_actors ()
 	   | "GET", "/api/browse" -> handle_api_browse q
 	   | "POST", "/api/send" -> let params = parse_form_urlencoded body in handle_send_direct params
-           | "POST", "/api/json/send" -> handle_send_direct_json body
-           | "POST", "/api/json/call" -> handle_call_direct_json body q
+           | "POST", "/api/json/send" ->
+               (match verify_hmac_or_reject ~headers ~body with
+                | Some err -> err
+                | None -> handle_send_direct_json body)
+           | "POST", "/api/json/call" ->
+               (match verify_hmac_or_reject ~headers ~body with
+                | Some err -> err
+                | None -> handle_call_direct_json body q)
            | "POST", "/api/repl" -> handle_api_repl body
            | "POST", _ when String.length path >= String.length "/api/x/" &&
                             String.sub path 0 (String.length "/api/x/") = "/api/x/" ->
