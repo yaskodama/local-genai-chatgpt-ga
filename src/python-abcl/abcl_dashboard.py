@@ -14,6 +14,8 @@ abcl_ai.get_usage() / get_remaining().  The page itself polls
 import json
 import os
 import queue
+import subprocess
+import sys
 import threading
 import time
 import urllib.error
@@ -22,6 +24,29 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 import abcl_ai
 import abcl_events
+
+
+# Web IDE: serve files from the python-abcl source tree (where this
+# module lives).  Path traversal is blocked by _ide_safe_path.
+_IDE_ROOT = os.path.dirname(os.path.abspath(__file__))
+
+
+def _ide_safe_path(rel: str):
+    """Resolve `rel` against _IDE_ROOT, returning the absolute path
+    iff it stays inside the workspace and ends in `.abcl`.  None for
+    anything fishy (path traversal, wrong extension, empty)."""
+    if not rel:
+        return None
+    rel = rel.replace("\\", "/").lstrip("/")
+    if ".." in rel.split("/"):
+        return None
+    if not rel.endswith(".abcl"):
+        return None
+    full = os.path.realpath(os.path.join(_IDE_ROOT, rel))
+    root = os.path.realpath(_IDE_ROOT) + os.sep
+    if not (full == os.path.realpath(_IDE_ROOT) or full.startswith(root)):
+        return None
+    return full
 
 
 # Runtime peer list — combines the static env-var seed with anyone
@@ -103,7 +128,7 @@ _HTML = """<!doctype html>
   #peers tr.bad td { color: #f88; }
   #peers tr.total td { color: #cde; border-top: 1px solid #223; font-weight: 700; }
 </style></head><body>
-<h1>ABCL/c+ AI-OS Dashboard</h1>
+<h1>ABCL/c+ AI-OS Dashboard <small style="color:#667"><a style="color:#6af" href="/ide">→ Web IDE</a></small></h1>
 <table id="t"></table>
 <small id="ts"></small>
 <h2>Cluster (this node + peers)</h2>
@@ -274,10 +299,128 @@ class _Handler(BaseHTTPRequestHandler):
             self._serve_events()
         elif self.path.startswith("/healthz"):
             self._serve_healthz()
+        elif self.path.startswith("/api/files"):
+            self._serve_ide_files()
+        elif self.path.startswith("/api/file?"):
+            self._serve_ide_file_get()
+        elif self.path == "/ide" or self.path.startswith("/ide?"):
+            self._serve_ide_html()
         elif self.path == "/" or self.path.startswith("/?"):
             self._serve_html()
         else:
             self.send_error(404, "Not Found")
+
+    # ---- IDE: list / read / write / run ----
+
+    def _serve_ide_files(self):
+        """List every .abcl file under the workspace, grouped by
+        directory."""
+        out = []
+        for dirpath, dirnames, filenames in os.walk(_IDE_ROOT):
+            dirnames[:] = [d for d in dirnames
+                           if not d.startswith(("_", ".", "__"))]
+            for fn in sorted(filenames):
+                if not fn.endswith(".abcl"):
+                    continue
+                full = os.path.join(dirpath, fn)
+                rel = os.path.relpath(full, _IDE_ROOT)
+                try:
+                    size = os.path.getsize(full)
+                except OSError:
+                    size = 0
+                out.append({"path": rel, "size": size})
+        body = json.dumps({"files": out}).encode("utf-8")
+        self._send_bytes(200, "application/json", body)
+
+    def _serve_ide_file_get(self):
+        from urllib.parse import parse_qs, urlsplit
+        q = parse_qs(urlsplit(self.path).query)
+        rel = (q.get("path") or [""])[0]
+        full = _ide_safe_path(rel)
+        if full is None or not os.path.isfile(full):
+            return self.send_error(404, f"file not found: {rel}")
+        try:
+            content = open(full).read()
+        except OSError as e:
+            return self.send_error(500, f"read error: {e}")
+        body = json.dumps({"path": rel, "content": content}).encode("utf-8")
+        self._send_bytes(200, "application/json", body)
+
+    def do_POST(self):
+        if self.path.startswith("/api/peer/register"):
+            self._handle_register()
+        elif self.path.startswith("/api/file/save"):
+            self._handle_ide_save()
+        elif self.path.startswith("/api/run"):
+            self._handle_ide_run()
+        else:
+            self.send_error(404, "Not Found")
+
+    def _read_json_body(self) -> "dict | None":
+        try:
+            length = int(self.headers.get("Content-Length", "0") or "0")
+        except ValueError:
+            length = 0
+        body = self.rfile.read(length).decode("utf-8") if length > 0 else ""
+        try:
+            data = json.loads(body) if body else {}
+        except (json.JSONDecodeError, ValueError):
+            self.send_error(400, "bad json")
+            return None
+        if not isinstance(data, dict):
+            self.send_error(400, "json body must be an object")
+            return None
+        return data
+
+    def _handle_ide_save(self):
+        data = self._read_json_body()
+        if data is None:
+            return
+        rel = str(data.get("path", ""))
+        content = str(data.get("content", ""))
+        full = _ide_safe_path(rel)
+        if full is None:
+            return self.send_error(400, "invalid path")
+        try:
+            os.makedirs(os.path.dirname(full), exist_ok=True)
+            with open(full, "w") as f:
+                f.write(content)
+        except OSError as e:
+            return self.send_error(500, f"write error: {e}")
+        body = json.dumps({"ok": True, "path": rel,
+                           "size": len(content)}).encode("utf-8")
+        self._send_bytes(200, "application/json", body)
+
+    def _handle_ide_run(self):
+        """Run a .abcl program through abcl_main.py and return the
+        captured stdout+stderr.  Bounded to ABCL_IDE_RUN_TIMEOUT
+        seconds (default 8) so a runaway sample can't tie up the
+        dashboard."""
+        data = self._read_json_body()
+        if data is None:
+            return
+        rel = str(data.get("path", ""))
+        full = _ide_safe_path(rel)
+        if full is None or not os.path.isfile(full):
+            return self.send_error(404, f"file not found: {rel}")
+        try:
+            timeout = float(os.environ.get("ABCL_IDE_RUN_TIMEOUT", "8"))
+        except ValueError:
+            timeout = 8.0
+        cmd = [sys.executable, os.path.join(_IDE_ROOT, "abcl_main.py"),
+               "--timeout", str(timeout), full]
+        try:
+            r = subprocess.run(cmd, capture_output=True, text=True,
+                               timeout=timeout + 4, cwd=_IDE_ROOT)
+            out = (r.stdout or "") + (r.stderr or "")
+            ok = (r.returncode == 0)
+        except subprocess.TimeoutExpired as e:
+            out = (e.stdout or "") + (e.stderr or "") + "\n[ide] run timed out"
+            if isinstance(out, bytes):
+                out = out.decode("utf-8", errors="replace")
+            ok = False
+        body = json.dumps({"ok": ok, "output": out}).encode("utf-8")
+        self._send_bytes(200, "application/json", body)
 
     def _serve_healthz(self):
         body = json.dumps({
@@ -292,11 +435,8 @@ class _Handler(BaseHTTPRequestHandler):
         body = json.dumps({"edges": edges}).encode("utf-8")
         self._send_bytes(200, "application/json", body)
 
-    def do_POST(self):
-        if self.path.startswith("/api/peer/register"):
-            self._handle_register()
-        else:
-            self.send_error(404, "Not Found")
+    # (do_POST is defined earlier with the IDE routes — peer
+    #  registration is handled there too.)
 
     def _handle_register(self):
         try:
@@ -386,6 +526,10 @@ class _Handler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(body)
 
+    def _serve_ide_html(self):
+        body = _IDE_HTML.encode("utf-8")
+        self._send_bytes(200, "text/html; charset=utf-8", body)
+
     def _serve_json(self):
         usage = abcl_ai.get_usage()
         # Augment with budget info — useful for the page header.
@@ -403,6 +547,152 @@ class _Handler(BaseHTTPRequestHandler):
         self.send_header("Cache-Control", "no-store")
         self.end_headers()
         self.wfile.write(body)
+
+
+_IDE_HTML = """<!doctype html>
+<html><head><meta charset="utf-8"><title>ABCL/c+ Web IDE</title>
+<style>
+  html, body { margin: 0; padding: 0; height: 100%;
+               font-family: ui-monospace, Menlo, Consolas, monospace;
+               color: #ddd; background: #0e1116; }
+  header { padding: 0.6rem 1rem; background: #11161e; border-bottom: 1px solid #223;
+           display: flex; align-items: center; gap: 1rem; }
+  header h1 { font-size: 0.95rem; color: #8af; margin: 0; }
+  header a { color: #6af; text-decoration: none; font-size: 0.85rem; }
+  #wrap { display: grid; grid-template-columns: 220px 1fr; height: calc(100% - 41px); }
+  #files { background: #11161e; border-right: 1px solid #223; padding: 0.5rem 0;
+           overflow-y: auto; font-size: 0.78rem; }
+  .group  { color: #6a8; padding: 0.4rem 0.7rem 0.2rem; }
+  .file   { padding: 0.18rem 0.7rem; cursor: pointer; color: #cde; }
+  .file:hover { background: #1a2332; }
+  .file.active { background: #1f2c3e; color: #fff; }
+  #right { display: grid; grid-template-rows: 1fr 36px 38% ; min-height: 0; }
+  #editor { width: 100%; height: 100%; box-sizing: border-box;
+            background: #050810; color: #cde; border: 0; outline: 0;
+            padding: 0.6rem 0.8rem; resize: none; font: 0.82rem ui-monospace, Menlo, monospace;
+            tab-size: 2; }
+  #bar { background: #11161e; border-top: 1px solid #223; border-bottom: 1px solid #223;
+         display: flex; align-items: center; gap: 0.5rem; padding: 0 0.7rem;
+         font-size: 0.78rem; color: #889; }
+  #bar button { background: #1c2a3e; color: #cde; border: 1px solid #335;
+                padding: 0.18rem 0.7rem; cursor: pointer;
+                font: inherit; }
+  #bar button:hover { background: #28395a; }
+  #bar .right { margin-left: auto; }
+  #out { background: #050810; color: #aab; padding: 0.6rem 0.8rem;
+         font-size: 0.78rem; white-space: pre-wrap; overflow-y: auto;
+         border-top: 1px solid #223; }
+  .err { color: #f88; }
+  .ok  { color: #6f8; }
+</style></head>
+<body>
+<header>
+  <h1>ABCL/c+ Web IDE</h1>
+  <a href="/">← dashboard</a>
+  <span id="path" style="color:#667;font-size:0.78rem"></span>
+</header>
+<div id="wrap">
+  <nav id="files"><div style="color:#667;padding:0.5rem 0.7rem">loading…</div></nav>
+  <section id="right">
+    <textarea id="editor" spellcheck="false" placeholder="Pick a file on the left or type a fresh program here."></textarea>
+    <div id="bar">
+      <button id="save">Save</button>
+      <button id="run">Run</button>
+      <button id="fmt">Format</button>
+      <span id="status" class="right"></span>
+    </div>
+    <pre id="out">(output will appear here)</pre>
+  </section>
+</div>
+<script>
+let currentPath = null;
+const E = (id) => document.getElementById(id);
+
+async function loadList() {
+  const r = await fetch('/api/files', { cache: 'no-store' });
+  const d = await r.json();
+  const groups = {};
+  for (const f of d.files) {
+    const dir = f.path.includes('/') ? f.path.split('/').slice(0, -1).join('/') : '(root)';
+    (groups[dir] = groups[dir] || []).push(f);
+  }
+  const html = Object.keys(groups).sort().map(dir => {
+    const files = groups[dir]
+      .map(f => `<div class="file" data-p="${f.path}">${f.path.split('/').pop()}</div>`)
+      .join('');
+    return `<div class="group">${dir}</div>${files}`;
+  }).join('');
+  E('files').innerHTML = html;
+  for (const el of document.querySelectorAll('.file')) {
+    el.addEventListener('click', () => openFile(el.dataset.p));
+  }
+}
+
+async function openFile(p) {
+  const r = await fetch('/api/file?path=' + encodeURIComponent(p), { cache: 'no-store' });
+  if (!r.ok) { setStatus('open failed: ' + r.status, 'err'); return; }
+  const d = await r.json();
+  currentPath = p;
+  E('editor').value = d.content;
+  E('path').textContent = p;
+  for (const el of document.querySelectorAll('.file')) el.classList.toggle('active', el.dataset.p === p);
+  setStatus('opened (' + d.content.length + ' bytes)', 'ok');
+}
+
+function setStatus(msg, cls) {
+  const s = E('status');
+  s.textContent = msg;
+  s.className = 'right ' + (cls || '');
+  if (cls) setTimeout(() => { if (s.textContent === msg) s.textContent = ''; }, 3500);
+}
+
+async function save() {
+  if (!currentPath) { setStatus('no file open', 'err'); return; }
+  const r = await fetch('/api/file/save', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({ path: currentPath, content: E('editor').value }),
+  });
+  if (r.ok) setStatus('saved', 'ok'); else setStatus('save failed: ' + r.status, 'err');
+}
+
+async function run() {
+  if (!currentPath) { setStatus('no file open', 'err'); return; }
+  await save();
+  E('out').textContent = 'running…';
+  const r = await fetch('/api/run', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({ path: currentPath }),
+  });
+  const d = await r.json();
+  E('out').textContent = d.output || '(no output)';
+  setStatus(d.ok ? 'done' : 'failed', d.ok ? 'ok' : 'err');
+}
+
+async function fmt() {
+  // Lightweight client-side reformat — just normalises blank lines.
+  // The real formatter is abcl_fmt.py; expose later via /api/fmt.
+  const t = E('editor').value;
+  E('editor').value = t.replace(/\\n{3,}/g, '\\n\\n').replace(/[ \\t]+$/gm, '');
+  setStatus('whitespace tidied (full fmt via abcl_fmt CLI)', 'ok');
+}
+
+E('save').addEventListener('click', save);
+E('run').addEventListener('click', run);
+E('fmt').addEventListener('click', fmt);
+
+// Cmd-S / Ctrl-S to save, Cmd-Enter to run.
+document.addEventListener('keydown', (e) => {
+  const mod = e.metaKey || e.ctrlKey;
+  if (mod && e.key === 's') { e.preventDefault(); save(); }
+  if (mod && e.key === 'Enter') { e.preventDefault(); run(); }
+});
+
+loadList();
+</script>
+</body></html>
+"""
 
 
 def start(port: int) -> None:
