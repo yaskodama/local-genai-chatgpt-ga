@@ -1,0 +1,80 @@
+// Parallel fan-out / aggregator pattern.
+//
+// One Coordinator actor sends the same topic to three Specialist
+// actors (optimist / skeptic / pragmatist), each with its own
+// persona, and aggregates their replies.  Because each Specialist
+// runs on its own worker thread, dispatching with `future` makes the
+// three AI calls run in parallel — total wall-clock time tracks the
+// slowest call rather than the sum.
+//
+// For comparison, `run_sequential()` uses `now` instead of
+// `future` + `await`, so the three calls run back-to-back on the
+// caller's thread.  Try running both and watching the elapsed time
+// printed at the end.
+
+class Specialist {
+  var role = "?";
+  var persona = "";
+
+  method init(r) {
+    role = r;
+    persona = "You are a " + r + ".  Reply in two short sentences with your perspective on the topic.  No preamble.";
+  }
+
+  method analyze(topic) {
+    var resp = ai_call_with_system(persona, topic);
+    reply(resp);
+  }
+}
+
+class Coordinator {
+  var optimist   = 0;
+  var skeptic    = 0;
+  var pragmatist = 0;
+
+  method init() {
+    optimist   = new Specialist("optimist");
+    skeptic    = new Specialist("skeptic");
+    pragmatist = new Specialist("pragmatist");
+  }
+
+  // Parallel: three futures dispatched at once, awaited in any order.
+  method run_parallel(topic) {
+    var t0 = now_ms();
+    print("[parallel] dispatching 3 specialists in parallel");
+    var f_o = future optimist.analyze(topic);
+    var f_s = future skeptic.analyze(topic);
+    var f_p = future pragmatist.analyze(topic);
+    var ans_o = await(f_o);
+    var ans_s = await(f_s);
+    var ans_p = await(f_p);
+    var elapsed = now_ms() - t0;
+    print("=== Optimist (parallel) ===");
+    print(ans_o);
+    print("=== Skeptic (parallel) ===");
+    print(ans_s);
+    print("=== Pragmatist (parallel) ===");
+    print(ans_p);
+    print("[parallel] elapsed_ms = " + elapsed);
+  }
+
+  // Sequential: same calls but waiting for each before issuing the next.
+  method run_sequential(topic) {
+    var t0 = now_ms();
+    print("[sequential] calling 3 specialists one at a time");
+    var ans_o = now optimist.analyze(topic);
+    var ans_s = now skeptic.analyze(topic);
+    var ans_p = now pragmatist.analyze(topic);
+    var elapsed = now_ms() - t0;
+    print("=== Optimist (sequential) ===");
+    print(ans_o);
+    print("=== Skeptic (sequential) ===");
+    print(ans_s);
+    print("=== Pragmatist (sequential) ===");
+    print(ans_p);
+    print("[sequential] elapsed_ms = " + elapsed);
+  }
+}
+
+var c = new Coordinator();
+send c.run_parallel("Should small startups put AI agents in their core product workflow today?");
