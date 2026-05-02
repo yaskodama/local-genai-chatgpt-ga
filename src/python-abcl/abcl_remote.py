@@ -29,10 +29,35 @@ from typing import Optional
 _exposed_lock = threading.Lock()
 _exposed_actors: dict = {}
 
+# Optional fallback that finds an actor by its variable name in the
+# running interpreter's globals — installed by Interpreter.run() so
+# any locally-spawned actor is reachable by name from a remote send,
+# matching OCaml's "actor_exists" behaviour.  Keeps web_expose
+# optional, used only when you want to alias an actor under a
+# different public name.
+_actor_lookup = None
+
+
+def set_actor_lookup(callback) -> None:
+    """callback(name: str) -> Optional[Actor]"""
+    global _actor_lookup
+    _actor_lookup = callback
+
+
 # Track whether a gateway is running so the interpreter knows not to
 # auto-shutdown when actors go idle.
 _gateway_lock = threading.Lock()
 _gateway_count = 0
+
+
+def _normalize(name: str) -> str:
+    """OCaml's web_expose strips a leading slash so `/foo` and `foo`
+    register under the same key.  Mirror that on every lookup so
+    incoming traffic from an OCaml-style sender lands the same way."""
+    n = (name or "").strip()
+    if n.startswith("/"):
+        n = n[1:]
+    return n
 
 
 def expose(name: str, actor) -> None:
@@ -40,12 +65,24 @@ def expose(name: str, actor) -> None:
     targeting that name from any client (Python or OCaml) are
     delivered to the actor's mailbox."""
     with _exposed_lock:
-        _exposed_actors[name] = actor
+        _exposed_actors[_normalize(name)] = actor
 
 
-def get_exposed(name: str):
+def find_actor(name: str):
+    """Resolve a remote `to` field to a local Actor.  Tries the
+    explicit expose() table first (alias names), then the
+    interpreter's globals (any local var that holds an actor)."""
+    n = _normalize(name)
     with _exposed_lock:
-        return _exposed_actors.get(name)
+        a = _exposed_actors.get(n)
+    if a is not None:
+        return a
+    if _actor_lookup is not None:
+        try:
+            return _actor_lookup(n)
+        except Exception:
+            return None
+    return None
 
 
 def list_exposed_names() -> list:
@@ -126,7 +163,7 @@ class _Handler(BaseHTTPRequestHandler):
             return self.send_error(400, "args must be an array")
         from_name = str(payload.get("from", ""))
 
-        actor = get_exposed(to_name)
+        actor = find_actor(to_name)
         if actor is None:
             print(f"[gateway] unknown actor: {to_name!r} (from={from_name})")
             return self.send_error(404, f"no exposed actor: {to_name}")

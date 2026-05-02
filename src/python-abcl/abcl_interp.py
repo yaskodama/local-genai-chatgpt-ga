@@ -107,6 +107,17 @@ class Interpreter:
         for d in self.program.decls:
             if isinstance(d, GlobalStmt):
                 self.exec_stmt(d.stmt, frame)
+        # Make every globally-scoped actor reachable by name to remote
+        # senders, matching OCaml's "actor_exists" behaviour.
+        try:
+            from abcl_remote import set_actor_lookup
+            def _lookup(name):
+                v = self.globals.get(name)
+                return v if isinstance(v, Actor) else None
+            set_actor_lookup(_lookup)
+        except Exception:
+            pass
+
         # If a remote gateway was started during top-level execution,
         # stay alive until the user interrupts — auto-idle would shut
         # the listener down right after binding the port.

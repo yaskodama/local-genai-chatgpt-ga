@@ -1,0 +1,23 @@
+// OCaml client targeting a remote ABCL/c+ runtime.
+//
+// Same wire format on both sides — works against:
+//   - the Python server (samples-remote/server.abcl, port 8080), or
+//   - another OCaml runtime that called web_listen(8080) and has a
+//     local actor named "mailbox".
+//
+// Run after the receiver is up:
+//   ./_build/default/src/repl_thread.exe
+//   load samples-remote/client.abcl
+//   compile
+class Driver {
+  method run() {
+    print("[ocaml client] sending 3 messages to mailbox@localhost:8080");
+    send remote("localhost:8080", "mailbox").ping();
+    send remote("localhost:8080", "mailbox").deliver("ocaml", "hello from OCaml");
+    send remote("localhost:8080", "mailbox").deliver("ocaml", "another from OCaml");
+    print("[ocaml client] done");
+  }
+}
+
+var d = new Driver();
+send d.run();
