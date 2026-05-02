@@ -24,11 +24,29 @@ import abcl_ai
 import abcl_events
 
 
+# Runtime peer list — combines the static env-var seed with anyone
+# who's POSTed /api/peer/register on this dashboard.
+_dyn_peers_lock = threading.Lock()
+_dyn_peers: set = set()
+
+
+def register_peer(hostport: str) -> None:
+    h = hostport.strip()
+    if not h:
+        return
+    with _dyn_peers_lock:
+        _dyn_peers.add(h)
+
+
 def _peer_dashboards() -> list:
+    seeds = []
     raw = os.environ.get("ABCL_PEER_DASHBOARDS", "").strip()
-    if not raw:
-        return []
-    return [p.strip() for p in raw.split(",") if p.strip()]
+    if raw:
+        seeds = [p.strip() for p in raw.split(",") if p.strip()]
+    with _dyn_peers_lock:
+        dyn = list(_dyn_peers)
+    # Stable order: env seeds first, then alphabetical dynamic.
+    return list(dict.fromkeys(seeds + sorted(dyn)))
 
 
 # Tiny per-key cache so a noisy page-refresh doesn't hammer peers.
@@ -273,6 +291,30 @@ class _Handler(BaseHTTPRequestHandler):
         edges.sort(key=lambda e: -e["count"])
         body = json.dumps({"edges": edges}).encode("utf-8")
         self._send_bytes(200, "application/json", body)
+
+    def do_POST(self):
+        if self.path.startswith("/api/peer/register"):
+            self._handle_register()
+        else:
+            self.send_error(404, "Not Found")
+
+    def _handle_register(self):
+        try:
+            length = int(self.headers.get("Content-Length", "0") or "0")
+        except ValueError:
+            length = 0
+        body = self.rfile.read(length).decode("utf-8") if length > 0 else ""
+        try:
+            payload = json.loads(body) if body else {}
+        except (json.JSONDecodeError, ValueError) as e:
+            return self.send_error(400, f"bad json: {e}")
+        host = str(payload.get("host", "")).strip()
+        port = payload.get("port")
+        if not host or not isinstance(port, int):
+            return self.send_error(400, "host (str) and port (int) required")
+        register_peer(f"{host}:{port}")
+        body_resp = json.dumps({"ok": True, "peers": _peer_dashboards()}).encode("utf-8")
+        self._send_bytes(200, "application/json", body_resp)
 
     def _serve_aggregate(self):
         peers = _peer_dashboards()

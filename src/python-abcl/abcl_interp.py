@@ -710,6 +710,30 @@ def _b_serve_forever(args, frame, interp):
     return None
 
 
+def _b_register_with(args, frame, interp):
+    """register_with(coordinator_dashboard_host:port, my_host, my_port)
+    — announce this node to a coordinator's dashboard so it appears
+    in the peer aggregation view without an env-var rebuild."""
+    if len(args) < 3:
+        raise ValueError(
+            "register_with(coord_hostport, my_host, my_port)")
+    coord = _to_str(args[0])
+    my_host = _to_str(args[1])
+    my_port = int(args[2])
+    import json as _json
+    import urllib.request as _u
+    import urllib.error as _ue
+    payload = _json.dumps({"host": my_host, "port": my_port}).encode("utf-8")
+    req = _u.Request(f"http://{coord}/api/peer/register",
+                     data=payload, method="POST",
+                     headers={"Content-Type": "application/json"})
+    try:
+        with _u.urlopen(req, timeout=2) as resp:
+            return resp.read().decode("utf-8")
+    except (_ue.URLError, _ue.HTTPError) as e:
+        return f"error: {e}"
+
+
 def _b_save_state(args, frame, interp):
     """Persist every actor's int/float/string/bool fields to
     ABCL_NODE_STATE_FILE (no-op if the env var is unset).  Reloaded
@@ -1036,6 +1060,7 @@ _BUILTINS = {
     "remote_now":                    _b_remote_now,
     "remote_future":                 _b_remote_future,
     "serve_forever":                 _b_serve_forever,
+    "register_with":                 _b_register_with,
     # Per-node persistent state
     "save_state":                    _b_save_state,
     # ---- stdlib: strings ----
