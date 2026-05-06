@@ -1,0 +1,125 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>ABCL/c+ — Rotate 4 Lines (Web Worker threads)</title>
+  <style>
+    body { margin: 0; background: #0d0d1a; color: #ccc; font-family: monospace; display: flex; flex-direction: column; align-items: center; }
+    h2 { margin: 12px 0 4px; font-size: 1rem; color: #faa; }
+    #info { font-size: 0.75rem; color: #888; margin-bottom: 8px; max-width: 560px; text-align: center; }
+    canvas { border: 1px solid #333; display: block; }
+    #controls { margin: 10px 0; display: flex; gap: 8px; }
+    button { padding: 6px 14px; background: #222; color: #aef; border: 1px solid #446; cursor: pointer; font-family: monospace; }
+    button:hover { background: #334; }
+    #log { width: 400px; height: 140px; background: #050510; color: #4a4; font-size: 0.72rem; overflow-y: auto; padding: 6px; margin-top: 6px; white-space: pre-wrap; }
+    nav { margin: 6px; font-size: 0.8rem; }
+    nav a { color: #6af; margin: 0 6px; }
+    .badge { display:inline-block; background:#333; color:#fc6; padding:2px 8px; border-radius:6px; font-size:0.7rem; }
+  </style>
+</head>
+<body>
+  <h2>ABCL/c+ — Rotate 4 Lines &nbsp;<span class="badge">Web Worker threads</span></h2>
+  <div id="info">
+    Each <code>Line</code> actor runs in its own Web Worker — real OS threads, scheduled
+    by the browser/V8, not setTimeout cooperative dispatch. Compare with the
+    <a href="/rotate4lines.html">setTimeout version</a>.
+  </div>
+  <canvas id="canvas" width="400" height="400"></canvas>
+  <div id="controls">
+    <button id="btnRun">▶ Run</button>
+    <button id="btnStop">■ Stop</button>
+    <button id="btnShowSrc">Show ABCL source</button>
+  </div>
+  <div id="log"></div>
+  <nav>
+    <a href="/browser_console.html">Console</a> |
+    <a href="/rotate4lines.html">Rotate 4 (setTimeout)</a> |
+    <a href="/philosophers.html">Dining Philosophers</a> |
+    <a href="/bounded_buffer.html">Bounded Buffer</a>
+  </nav>
+
+  <script src="/src/parser/parser.js"></script>
+  <script type="module">
+    import * as AST from "/src/ast.js";
+    import { WorkerRuntime } from "/src/worker_runtime.js";
+
+    const ABCL_SOURCE = `\
+class Line {
+  var cx = 0.0;
+  var cy = 0.0;
+  var angle = 0.0;
+  var len = 60.0;
+
+  method init(startCx, startCy, startAngle) {
+    cx = startCx;
+    cy = startCy;
+    angle = startAngle;
+  }
+
+  method rotate() {
+    angle = angle + 3.0;
+    var rad = angle * 3.14159 / 180.0;
+    var dx = cos(rad) * len;
+    var dy = sin(rad) * len;
+    var x1 = cx - dx;
+    var y1 = cy - dy;
+    var x2 = cx + dx;
+    var y2 = cy + dy;
+    call canvas_line(x1, y1, x2, y2);
+    call wait(32);
+    send self.rotate();
+  }
+}
+
+var li1 = new Line(100.0, 100.0,   0.0);
+var li2 = new Line(300.0, 100.0,  90.0);
+var li3 = new Line(100.0, 300.0, 180.0);
+var li4 = new Line(300.0, 300.0, 270.0);
+send li1.rotate();
+send li2.rotate();
+send li3.rotate();
+send li4.rotate();
+`;
+
+    const canvas = document.getElementById("canvas");
+    const logDiv = document.getElementById("log");
+    let runtime = null;
+
+    function appendLog(line) {
+      if (line === undefined || line === null) return;
+      const s = String(line);
+      if (s.startsWith("[send]")) return;       // too chatty
+      logDiv.textContent += s + "\n";
+      logDiv.scrollTop = logDiv.scrollHeight;
+    }
+
+    function stopAll() {
+      if (runtime) runtime.reset();
+      runtime = null;
+    }
+
+    function runProgram() {
+      stopAll();
+      logDiv.textContent = "";
+      const parser = window.parser;
+      if (!parser) { appendLog("[ERROR] parser not loaded"); return; }
+      parser.yy = AST;
+      try {
+        const ast = parser.parse(ABCL_SOURCE);
+        appendLog("[parse ok]");
+        runtime = new WorkerRuntime(appendLog);
+        runtime.setCanvas(canvas);
+        runtime.runProgram(ast);
+        appendLog("[4 actor Workers spawned — real threads]");
+      } catch (e) {
+        appendLog("[ERROR] " + e);
+      }
+    }
+
+    document.getElementById("btnRun").addEventListener("click", runProgram);
+    document.getElementById("btnStop").addEventListener("click", () => { stopAll(); appendLog("[stopped]"); });
+    document.getElementById("btnShowSrc").addEventListener("click", () => { logDiv.textContent = ABCL_SOURCE; });
+    window.addEventListener("load", runProgram);
+  </script>
+</body>
+</html>

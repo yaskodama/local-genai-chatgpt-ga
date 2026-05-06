@@ -2,6 +2,7 @@
   "name": "browser-abcl",
   "version": "0.1.0",
   "private": true,
+  "type": "module",
   "scripts": {
     "build-parser": "jison src/parser/grammar.jison -o src/parser/parser.js",
     "start": "npx serve ."

@@ -1,0 +1,96 @@
+// Three-actor cooperative solve, instrumented with both an order-only
+// protocol trace AND a typed session protocol.  The session declaration
+// type-checks every aios_now / aios_future call AT RUNTIME (separately
+// from the regular Hindley-Milner type inference) and records any
+// mismatches into session_events().
+//
+// Run:
+//   /opt/homebrew/bin/python3.13 abcl_main.py samples-ai/SessionTyped.abcl
+
+class SolverActor {
+  method solve(problem) {
+    aios_emit("solver.problem:" + problem);
+    var answer = "12 because 3 boxes times 4 apples is 12";
+    aios_emit("solver.answer:" + answer);
+    reply(answer);
+  }
+}
+
+class ReviewerActor {
+  method review(problem, answer) {
+    aios_emit("reviewer.problem:" + problem);
+    aios_emit("reviewer.answer:" + answer);
+    var review = "accepted: the answer is correct";
+    aios_emit("reviewer.review:" + review);
+    reply(review);
+  }
+}
+
+class PlannerActor {
+  method solve(problem) {
+    aios_emit("planner.problem:" + problem);
+
+    var answer_future = aios_future("solver", "solve", problem);
+    var answer = await(answer_future);
+    aios_emit("planner.answer:" + answer);
+
+    var review_future = aios_future("reviewer", "review", problem, answer);
+    var review = await(review_future);
+    aios_emit("planner.review:" + review);
+
+    reply("answer: " + answer + " | review: " + review);
+  }
+}
+
+var solver = new SolverActor();
+var reviewer = new ReviewerActor();
+var planner = new PlannerActor();
+
+aios_register_service("solver", "solver");
+aios_register_service("reviewer", "reviewer");
+aios_register_service("planner", "planner");
+
+print("== Three actor cooperative solve (with session types) ==");
+print(aios_services());
+
+// Order-only protocol — does not type-check
+protocol_define("ThreeActorSolve", "planner.solve -> solver.solve -> reviewer.review");
+var psid = protocol_start("ThreeActorSolve");
+print(protocol_state(psid));
+
+// TYPED session #1 — declared in *completion order* (= the order in which
+// each call's reply arrives, which is how the runtime observes them).
+// Solver completes first, then Reviewer, then the outer Planner.
+// All three calls match their declared (string,string?,string)! string
+// signatures, so this session passes with 0 violations.
+session_define("ThreeActorSolveCompletion",
+  "solver.solve(string) ! string -> reviewer.review(string,string) ! string -> planner.solve(string) ! string");
+var ssidGood = session_start("ThreeActorSolveCompletion");
+print(session_state(ssidGood));
+
+// TYPED session #2 — same shape but the reply type of solver is wrong on
+// purpose (declared `int`, actually `string`). Demonstrates that the
+// session type-checker catches the mismatch and reports a SESSION VIOLATION.
+session_define("ThreeActorSolveBad",
+  "solver.solve(string) ! int -> reviewer.review(string,string) ! string -> planner.solve(string) ! string");
+var ssidBad = session_start("ThreeActorSolveBad");
+print(session_state(ssidBad));
+
+var result = aios_now("planner", "solve", "If there are 3 boxes with 4 apples each, how many apples are there?");
+
+print("");
+print("final result = " + result);
+print(protocol_state(psid));
+print(session_state(ssidGood));
+print(session_state(ssidBad));
+protocol_end(psid);
+session_end(ssidGood);
+session_end(ssidBad);
+
+print("");
+print("== protocol events ==");
+print(protocol_events());
+
+print("");
+print("== session events (type-check trace) ==");
+print(session_events());

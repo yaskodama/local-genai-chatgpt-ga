@@ -1,0 +1,114 @@
+{
+  "name": "ReceptionWorkflowZEvolution",
+  "runtime": "ocaml_abcl_cplus",
+  "input": "aice-z-evolution/examples/ReceptionWorkflowZEvolution.aice",
+  "abcl": "aice-z-evolution/out/ReceptionWorkflowZEvolution.abcl",
+  "report": "aice-z-evolution/out/ReceptionWorkflowZEvolution.report.md",
+  "target_language": "ABCL",
+  "checks": [
+    {
+      "name": "z_schema_review",
+      "ok": true,
+      "score": 0.82,
+      "findings": [
+        "Z schema is structurally complete"
+      ],
+      "artifact": "[Participant, Reception, RegisteredLedger, SameDayLedger, Materials, Receipt, VALUE]\n\nSystemState\n  registered_ledger_contains_pre_registered_partic : VALUE\n  same_day_ledger_contains_accepted_same_day_parti : VALUE\n  fee_status_is_paid_or_unpaid : VALUE\n  materials_are_issued_only_after_acceptance : VALUE\nwhere\n    A_participant_must_receive_materials_only_when_r\n    A_participant_must_receive_a_receipt_only_when_t\n    Rejected_participants_must_not_be_written_to_the\n    Every_accepted_same_day_participant_must_be_writ\n\nlookup_participant_in_registered_ledger\n  Delta SystemState\n  input? : VALUE\n  output! : VALUE\n  pre lookup_participant_in_registered_ledger_pre\n  post lookup_participant_in_registered_ledger_post\n\ncollect_fee_for_same_day_participant\n  Delta SystemState\n  input? : VALUE\n  output! : VALUE\n  pre collect_fee_for_same_day_participant_pre\n  post collect_fee_for_same_day_participant_post\n\nwrite_accepted_same_day_participant_to_same_day_\n  Delta SystemState\n  input? : VALUE\n  output! : VALUE\n  pre write_accepted_same_day_participant_to_same_day__pre\n  post write_accepted_same_day_participant_to_same_day__post\n\nissue_materials_and_receipt\n  Delta SystemState\n  input? : VALUE\n  output! : VALUE\n  pre issue_materials_and_receipt_pre\n  post issue_materials_and_receipt_post\n\nreject_participant_when_fee_is_unpaid\n  Delta SystemState\n  input? : VALUE\n  output! : VALUE\n  pre reject_participant_when_fee_is_unpaid_pre\n  post reject_participant_when_fee_is_unpaid_post"
+    },
+    {
+      "name": "predicate_normal_form",
+      "ok": true,
+      "score": 0.9,
+      "findings": [
+        "no direct predicate contradiction found"
+      ],
+      "artifact": "P1: participant receive materials only when registered or same day accepted\nP2: participant receive receipt only when participation fee paid\nP3: not rejected participants written same day ledger\nP4: every accepted same day participant written same day ledger after fee collection\nP5: lookup participant in registered ledger\nP6: collect fee for same day participant\nP7: write accepted same day participant same day ledger\nP8: issue materials and receipt\nP9: reject participant when fee unpaid\nP10: final program demonstrates registered participant\nP11: final program demonstrates same day paid participant\nP12: final program demonstrates rejected unpaid participant\nP13: final program includes final formal verification step against z specification"
+    },
+    {
+      "name": "state_transition_model",
+      "ok": true,
+      "score": 0.75,
+      "findings": [
+        "all transitions have enough structure for preservation checks"
+      ],
+      "artifact": "S1: registered ledger contains pre-registered participants\nS2: same-day ledger contains accepted same-day participants\nS3: fee status is paid or unpaid\nS4: materials are issued only after acceptance\nT1: lookup participant in registered ledger\nT2: collect fee for same-day participant\nT3: write accepted same-day participant to same-day ledger\nT4: issue materials and receipt\nT5: reject participant when fee is unpaid\nI1: preserved(A participant must receive materials only when registered or same-day accepted)\nI2: preserved(A participant must receive a receipt only when the participation fee is paid)\nI3: preserved(Rejected participants must not be written to the same-day ledger)\nI4: preserved(Every accepted same-day participant must be written to the same-day ledger after fee collection)"
+    }
+  ],
+  "winners": [
+    {
+      "generation": 1,
+      "variant": "defensive",
+      "genome": {
+        "target_language": "ABCL",
+        "formal_basis": "Z + predicate_normal_form + state_transition_model",
+        "verification": "three_reviewers_then_best",
+        "repair": "logical_consensus",
+        "style": "defensive",
+        "generation": "1",
+        "mutation": "M1_TargetLanguagePolicy: set target_language to ABCL. Use OCaml ABCL/c+ as the default target. The meta file may still select any or another concrete target language explicitly."
+      },
+      "score": 0.8783333333333333,
+      "findings": []
+    },
+    {
+      "generation": 2,
+      "variant": "auditable",
+      "genome": {
+        "target_language": "ABCL",
+        "formal_basis": "Z + predicate_normal_form + state_transition_model",
+        "verification": "three_reviewers_then_best",
+        "repair": "logical_consensus",
+        "style": "auditable",
+        "generation": "2",
+        "mutation": "M2_ZFirst: set z_schema to generated_from_initial_specification. Check the first specification by translating it to Z before program generation."
+      },
+      "score": 0.9383333333333332,
+      "findings": []
+    },
+    {
+      "generation": 3,
+      "variant": "defensive",
+      "genome": {
+        "target_language": "ABCL",
+        "formal_basis": "Z + predicate_normal_form + state_transition_model",
+        "verification": "three_reviewers_then_best",
+        "repair": "logical_consensus",
+        "style": "defensive",
+        "generation": "3",
+        "mutation": "M3_TwoLogicalTransforms: set predicate_normal_form to checked_with_state_transition_model. Use two recommended logical transformations and compare their findings."
+      },
+      "score": 0.9983333333333333,
+      "findings": []
+    },
+    {
+      "generation": 4,
+      "variant": "defensive",
+      "genome": {
+        "target_language": "ABCL",
+        "formal_basis": "Z + predicate_normal_form + state_transition_model",
+        "verification": "three_reviewers_then_best",
+        "repair": "logical_consensus",
+        "style": "defensive",
+        "generation": "4",
+        "mutation": "M4_ReviewThree: set final_formal_review to three_reviews_best_decision. Run three reviews again at the end and select the best logical decision."
+      },
+      "score": 1.0,
+      "findings": []
+    },
+    {
+      "generation": 5,
+      "variant": "auditable",
+      "genome": {
+        "target_language": "ABCL",
+        "formal_basis": "Z + predicate_normal_form + state_transition_model",
+        "verification": "three_reviewers_then_best",
+        "repair": "logical_consensus",
+        "style": "auditable",
+        "generation": "5",
+        "mutation": "M5_FinalProgramCheck: set generated_program to checked_against_z_specification. The final program is accepted only after checking against the logical Z specification."
+      },
+      "score": 1.0,
+      "findings": []
+    }
+  ]
+}

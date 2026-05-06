@@ -56,7 +56,7 @@ echo " 4/4  Distributed 3-node mock smoke (src/python-abcl/_smoke_dist.py)"
 echo "============================================================"
 # Use the same Python that the rest of the Python suite uses so the
 # subprocesses _smoke_dist.py spawns inherit the right `lark` install.
-DIST_PY=${PYTHON:-/usr/bin/python3}
+DIST_PY=${PYTHON:-/opt/homebrew/bin/python3.13}
 dist_out=$("$DIST_PY" ./src/python-abcl/_smoke_dist.py 2>&1)
 dist_rc=$?
 echo "$dist_out"

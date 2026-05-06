@@ -81,3 +81,15 @@ export function Select(cases, timeoutMs = null, timeoutBody = null) {
 export function SelectCase(method, params, body) {
   return { type: "SelectCase", method, params, body };
 }
+
+export function Now(target, method, args) {
+  return { type: "Now", target, method, args };
+}
+
+export function Future(target, method, args) {
+  return { type: "Future", target, method, args };
+}
+
+export function Await(expr) {
+  return { type: "Await", expr };
+}

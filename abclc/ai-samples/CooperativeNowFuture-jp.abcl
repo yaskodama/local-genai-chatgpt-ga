@@ -1,0 +1,65 @@
+// 3 役の AI 協調を now / future / await で書いた日本語版。
+//
+//   Planner.plan(q)        — 同期 (now)。先に方針を決めないと solver が動けない
+//   Solver.solve(plan)     — Reviewer.brief() と並列 (future) で実行
+//   Reviewer.review(ans)   — 最後の同期 (now)
+//
+// 実行例:
+//   ABCL_AI_PROVIDER=mock _build/default/src/repl_thread.exe   (オフライン高速
+)
+//   GEMINI_API_KEY=...   _build/default/src/repl_thread.exe   (実 Gemini)
+
+class Planner {
+  method plan(q) {
+    var sketch = ai_call_with_system(
+      "あなたは計画担当です。質問への取り組み方針を 1 行で出力してください。前置きは不要です。",
+      q);
+    reply(sketch);
+  }
+}
+
+class Solver {
+  method solve(plan) {
+    var ans = ai_call_with_system(
+      "あなたは解答担当です。与えられた方針に従い、簡潔に答えだけを出力してください。",
+      plan);
+    reply(ans);
+  }
+}
+
+class Reviewer {
+  method review(ans) {
+    var verdict = ai_call_with_system(
+      "あなたはレビュー担当です。受け取った答えを評価し、'OK: 〜' または 'NG: 〜' の形で 1 行返してください。",
+      ans);
+    reply(verdict);
+  }
+  method brief() {
+    var b = ai_call("コードレビュアが見るポイントを 1 文で日本語で答えてください。");
+    reply(b);
+  }
+}
+
+var planner  = new Planner();
+var solver   = new Solver();
+var reviewer = new Reviewer();
+
+var question = "12 × 11 を計算してください。数値だけ出力してください。";
+
+// 1) 計画 (同期)
+var plan = now planner.plan(question);
+print("[計画] " + plan);
+
+// 2) 解答とレビュアの観点を並列に発火 (future)
+var fut_ans   = future solver.solve(plan);
+var fut_brief = future reviewer.brief();
+
+var answer = await fut_ans;
+print("[解答] " + answer);
+
+var brief = await fut_brief;
+print("[観点] " + brief);
+
+// 3) 最終レビュー (同期)
+var verdict = now reviewer.review(answer);
+print("[判定] " + verdict);

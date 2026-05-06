@@ -1,0 +1,297 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <title>ABCL/c+ — AI Cooperative Chat (now/future/await)</title>
+  <style>
+    :root {
+      --bg: #0d0d1a;
+      --panel: #16162a;
+      --border: #2a2a45;
+      --text: #ddd;
+      --muted: #888;
+      --user-bg: #2a2a3d;
+      --user-fg: #ddd;
+      --planner-bg: #1e3a5f;
+      --planner-fg: #aed7ff;
+      --solver-bg: #1e4d35;
+      --solver-fg: #a8e9c4;
+      --reviewer-bg: #5c3a16;
+      --reviewer-fg: #ffd8a8;
+      --verdict-bg: #5c2030;
+      --verdict-fg: #ffb3c0;
+    }
+    body {
+      margin: 0; background: var(--bg); color: var(--text);
+      font-family: -apple-system, "Helvetica Neue", "Hiragino Sans", system-ui, monospace;
+    }
+    header {
+      padding: 14px 20px; background: var(--panel); border-bottom: 1px solid var(--border);
+      display: flex; flex-direction: column; gap: 8px;
+    }
+    header h1 { margin: 0; font-size: 1.1rem; color: #faa; }
+    header .sub { color: var(--muted); font-size: 0.85rem; }
+    .controls { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+    .controls input[type="text"] {
+      flex: 1; min-width: 320px; padding: 8px 10px; border-radius: 6px;
+      background: #0a0a14; color: var(--text); border: 1px solid var(--border);
+      font-family: inherit; font-size: 0.95rem;
+    }
+    .controls button {
+      padding: 8px 16px; background: #2a2a45; color: #aef;
+      border: 1px solid #446; border-radius: 6px; cursor: pointer; font-family: inherit;
+    }
+    .controls button:hover { background: #334; }
+    .controls button:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    main {
+      max-width: 920px; margin: 0 auto; padding: 18px;
+    }
+
+    .chat { display: flex; flex-direction: column; gap: 12px; }
+
+    .row { display: flex; gap: 10px; align-items: flex-start; }
+    .row.right { flex-direction: row-reverse; }
+
+    .avatar {
+      width: 36px; height: 36px; border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-weight: bold; font-size: 0.85rem; flex-shrink: 0;
+    }
+    .avatar.user     { background: var(--user-bg);     color: var(--user-fg); }
+    .avatar.planner  { background: var(--planner-bg);  color: var(--planner-fg); }
+    .avatar.solver   { background: var(--solver-bg);   color: var(--solver-fg); }
+    .avatar.reviewer { background: var(--reviewer-bg); color: var(--reviewer-fg); }
+    .avatar.verdict  { background: var(--verdict-bg);  color: var(--verdict-fg); }
+
+    .bubble {
+      max-width: 70%; padding: 10px 14px; border-radius: 12px;
+      line-height: 1.4; font-size: 0.95rem; word-break: break-word; white-space: pre-wrap;
+      animation: fadein 0.3s ease-out;
+    }
+    .bubble.user     { background: var(--user-bg);     color: var(--user-fg); border-top-right-radius: 4px; }
+    .bubble.planner  { background: var(--planner-bg);  color: var(--planner-fg); border-top-left-radius: 4px; }
+    .bubble.solver   { background: var(--solver-bg);   color: var(--solver-fg); border-top-left-radius: 4px; }
+    .bubble.reviewer { background: var(--reviewer-bg); color: var(--reviewer-fg); border-top-left-radius: 4px; }
+    .bubble.verdict  { background: var(--verdict-bg);  color: var(--verdict-fg); border-top-left-radius: 4px; }
+
+    .meta {
+      font-size: 0.72rem; color: var(--muted); margin-bottom: 4px;
+      display: flex; align-items: center; gap: 6px;
+    }
+    .meta .stage { background: #2a2a45; padding: 1px 6px; border-radius: 3px; font-size: 0.7rem; }
+
+    .stack { display: flex; flex-direction: column; min-width: 0; flex: 1; }
+
+    @keyframes fadein {
+      from { opacity: 0; transform: translateY(6px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    .legend {
+      display: flex; gap: 14px; flex-wrap: wrap; margin: 8px 0 4px; font-size: 0.78rem; color: var(--muted);
+    }
+    .legend span { display: flex; align-items: center; gap: 5px; }
+    .legend .dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
+
+    footer {
+      padding: 10px 20px; background: var(--panel); border-top: 1px solid var(--border);
+      color: var(--muted); font-size: 0.78rem;
+    }
+    nav { margin-top: 8px; font-size: 0.8rem; }
+    nav a { color: #6af; margin-right: 12px; }
+
+    .hint { font-size: 0.78rem; color: var(--muted); margin-top: 4px; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>ABCL/c+ — AI Cooperative Chat <small style="color:var(--muted);font-weight:normal">(now/future/await + actor 越しの 3 役協調)</small></h1>
+    <div class="sub">
+      Planner → Solver → Reviewer の 3 actor が <code>now</code> / <code>future</code> / <code>await</code> で協調する流れを吹き出しで可視化します。
+      ブラウザ版 ABCL/c+ は AI mock を使用 (本物の Gemini は OCaml/Node 版で動かしてください)。
+    </div>
+    <div class="controls">
+      <input id="question" type="text" value="What is 12 * 11? Show only the number.">
+      <button id="btnRun">▶ 実行</button>
+      <button id="btnClear">クリア</button>
+    </div>
+    <div class="legend">
+      <span><span class="dot" style="background:var(--user-bg);"></span> あなたの質問</span>
+      <span><span class="dot" style="background:var(--planner-bg);"></span> Planner (方針)</span>
+      <span><span class="dot" style="background:var(--solver-bg);"></span> Solver (解答)</span>
+      <span><span class="dot" style="background:var(--reviewer-bg);"></span> Reviewer (観点)</span>
+      <span><span class="dot" style="background:var(--verdict-bg);"></span> Reviewer (判定)</span>
+    </div>
+  </header>
+
+  <main>
+    <div id="chat" class="chat"></div>
+  </main>
+
+  <footer>
+    <div id="status">Ready.</div>
+    <nav>
+      <a href="/">Index</a>
+      <a href="/browser_console.html">Console</a>
+      <a href="/rotate4lines.html">Rotate 4 Lines</a>
+      <a href="/rotate4lines_workers.html">Rotate 4 Lines (Workers)</a>
+    </nav>
+  </footer>
+
+  <script src="/src/parser/parser.js"></script>
+  <script type="module">
+    import * as AST from "/src/ast.js";
+    import { Interpreter } from "/src/interpreter.js";
+
+    const chatEl   = document.getElementById("chat");
+    const statusEl = document.getElementById("status");
+    const btnRun   = document.getElementById("btnRun");
+    const btnClear = document.getElementById("btnClear");
+    const qInput   = document.getElementById("question");
+
+    // Map ABCL/c+ print labels → role styling for bubbles
+    const ROLES = {
+      "[plan]":            { kind: "planner",  who: "Planner",  emoji: "🧠", stage: "now planner.plan" },
+      "[answer]":          { kind: "solver",   who: "Solver",   emoji: "⚙️", stage: "future + await solver.solve" },
+      "[reviewer brief]":  { kind: "reviewer", who: "Reviewer", emoji: "📋", stage: "future + await reviewer.brief" },
+      "[verdict]":         { kind: "verdict",  who: "Reviewer", emoji: "✅", stage: "now reviewer.review" },
+    };
+
+    function escapeForAbclString(s) {
+      return s.replace(/\\/g, "\\\\").replace(/"/g, '\\"');
+    }
+
+    function buildSource(question) {
+      const q = escapeForAbclString(question);
+      return `
+class Planner {
+  method plan(q) {
+    var sketch = ai_call_with_system(
+      "You are a planner. Output a 1-line plan, no preamble.",
+      q);
+    reply(sketch);
+  }
+}
+
+class Solver {
+  method solve(plan) {
+    var ans = ai_call_with_system(
+      "You are a solver. Apply the given plan and answer concisely.",
+      plan);
+    reply(ans);
+  }
+}
+
+class Reviewer {
+  method review(ans) {
+    var verdict = ai_call_with_system(
+      "You are a reviewer. Reply with 'OK: <reason>' or 'NG: <reason>' only.",
+      ans);
+    reply(verdict);
+  }
+  method brief() {
+    var b = ai_call("In one short sentence: what does a code reviewer look for?");
+    reply(b);
+  }
+}
+
+var planner  = new Planner();
+var solver   = new Solver();
+var reviewer = new Reviewer();
+
+var question = "${q}";
+
+var plan = now planner.plan(question);
+print("[plan] " + plan);
+
+var fut_ans   = future solver.solve(plan);
+var fut_brief = future reviewer.brief();
+
+var answer = await fut_ans;
+print("[answer] " + answer);
+
+var brief = await fut_brief;
+print("[reviewer brief] " + brief);
+
+var verdict = now reviewer.review(answer);
+print("[verdict] " + verdict);
+`;
+    }
+
+    function addBubble({ kind, who, emoji, stage, text, side = "left" }) {
+      const row = document.createElement("div");
+      row.className = "row" + (side === "right" ? " right" : "");
+
+      const avatar = document.createElement("div");
+      avatar.className = "avatar " + kind;
+      avatar.textContent = emoji;
+      row.appendChild(avatar);
+
+      const stack = document.createElement("div");
+      stack.className = "stack";
+      const meta = document.createElement("div");
+      meta.className = "meta";
+      meta.innerHTML = `<strong>${who}</strong>` + (stage ? `<span class="stage">${stage}</span>` : "");
+      stack.appendChild(meta);
+
+      const bubble = document.createElement("div");
+      bubble.className = "bubble " + kind;
+      bubble.textContent = text;
+      stack.appendChild(bubble);
+
+      row.appendChild(stack);
+      chatEl.appendChild(row);
+      window.scrollTo(0, document.body.scrollHeight);
+    }
+
+    function clearChat() { chatEl.innerHTML = ""; }
+
+    function setStatus(s) { statusEl.textContent = s; }
+
+    function run() {
+      btnRun.disabled = true;
+      clearChat();
+      const question = qInput.value.trim() || "(empty)";
+      addBubble({ kind: "user", who: "You", emoji: "👤", stage: "", text: question, side: "right" });
+      setStatus("running…");
+
+      const parser = window.parser;
+      if (!parser) { setStatus("ERROR: parser not loaded"); btnRun.disabled = false; return; }
+      parser.yy = AST;
+
+      const printer = (line) => {
+        if (line === undefined || line === null) return;
+        const s = String(line);
+        for (const [label, role] of Object.entries(ROLES)) {
+          if (s.startsWith(label)) {
+            const text = s.slice(label.length).trimStart();
+            addBubble({ ...role, text });
+            return;
+          }
+        }
+        // Other prints (debug, [send], [REPLY] etc.) — skip
+      };
+
+      try {
+        const src = buildSource(question);
+        const ast = parser.parse(src);
+        const interp = new Interpreter(printer);
+        interp.runProgram(ast);
+        setStatus("done.");
+      } catch (e) {
+        setStatus("ERROR: " + e.message);
+      } finally {
+        btnRun.disabled = false;
+      }
+    }
+
+    btnRun.addEventListener("click", run);
+    btnClear.addEventListener("click", () => { clearChat(); setStatus("cleared."); });
+    qInput.addEventListener("keydown", (ev) => {
+      if (ev.key === "Enter" && !ev.shiftKey) { ev.preventDefault(); run(); }
+    });
+    window.addEventListener("load", run);
+  </script>
+</body>
+</html>

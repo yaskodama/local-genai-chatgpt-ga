@@ -1,0 +1,237 @@
+aice TrafficLightEvolutionOnly {
+
+  target_language = ABCL;
+
+  task = "Evolve a traffic-light tick program for the OCaml ABCL/c+ runtime. Formal verification is handled outside this meta program; this file only describes evolutionary search, selection, mutation, crossover, and archive flow.";
+
+  nodes {
+    node local {
+      runtime = "ocaml_abcl_cplus";
+      executable = "dune exec ./src/repl_thread.exe";
+      host = "localhost";
+    }
+  }
+
+  memory {
+    store archive in "aice-z-evolution/out/evolution/traffic_light_only/";
+  }
+
+  names {
+    bind generator = actor("EvolutionGenerator") on local;
+    bind selector  = actor("EvolutionSelector") on local;
+    bind archive   = actor("EvolutionArchive") on local;
+  }
+
+  evolution TrafficLightOnlyGA {
+
+    objective = "Improve the traffic-light tick implementation through paradigms while preserving Red -> Yellow -> Green -> Red behavior.";
+
+    genome {
+      target_language;
+      paradigm;
+      state_representation;
+      transition_style;
+      encapsulation;
+      type_safety;
+      readability;
+      extensibility;
+      executable_demo;
+    }
+
+    population 3;
+    generations 5;
+
+    seed IntegerStateSeed {
+      target_language = ABCL;
+      paradigm = procedural;
+      state_representation = integer;
+      transition_style = increment_and_wrap;
+      encapsulation = none;
+      type_safety = low;
+      readability = low;
+      extensibility = low;
+      executable_demo = minimal;
+    }
+
+    mutate manual {
+      rule M1_Keep_OCaml_ABCL {
+        target = target_language;
+        from = ABCL;
+        to = ABCL;
+        reason = "Keep all generated candidates executable on the OCaml ABCL/c+ runtime.";
+      }
+
+      rule M2_Integer_to_Named_State {
+        target = state_representation;
+        from = integer;
+        to = named_state_values;
+        reason = "Use symbolic names for Red, Yellow, and Green instead of bare numeric states.";
+      }
+
+      rule M3_Wrap_to_Explicit_Transition {
+        target = transition_style;
+        from = increment_and_wrap;
+        to = explicit_cases;
+        reason = "Represent each transition case directly: Red to Yellow, Yellow to Green, Green to Red.";
+      }
+
+      rule M4_Add_TrafficLight_Class {
+        target = encapsulation;
+        from = none;
+        to = TrafficLight_class;
+        reason = "Place state and tick behavior inside a TrafficLight class.";
+      }
+
+      rule M5_Add_Demo_Ticks {
+        target = executable_demo;
+        from = minimal;
+        to = four_tick_cycle_demo;
+        reason = "Demonstrate at least one full cycle plus the next state.";
+      }
+
+      rule M6_Improve_Type_Safety {
+        target = type_safety;
+        from = low;
+        to = guarded_symbolic_state;
+        reason = "Avoid unknown states by routing every update through the tick method.";
+      }
+
+      rule M7_Improve_Extensibility {
+        target = extensibility;
+        from = low;
+        to = isolated_transition_policy;
+        reason = "Make it easy to add another signal phase without rewriting demo code.";
+      }
+    }
+
+    crossover manual {
+      rule C1_Encapsulated_Symbolic_Demo {
+        parent1 = EncapsulatedWinner;
+        parent2 = SymbolicDemoWinner;
+        child = FinalTrafficLightWinner;
+
+        combine {
+          take EncapsulatedWinner.encapsulation;
+          take EncapsulatedWinner.transition_style;
+          take SymbolicDemoWinner.state_representation;
+          take SymbolicDemoWinner.executable_demo;
+          take SymbolicDemoWinner.readability;
+        }
+
+        reason = "Merge class encapsulation with readable symbolic state names and an executable cycle demo.";
+      }
+    }
+
+    fitness {
+      correctness       weight 0.35;
+      executability     weight 0.25;
+      readability       weight 0.15;
+      type_safety       weight 0.15;
+      extensibility     weight 0.10;
+    }
+
+    generation 1 ProceduralBaseline {
+      create 3 variants {
+        brevity;
+        comments;
+        named_consts;
+      }
+
+      select top 1 by correctness, executability;
+      archive winner as ProceduralBaselineWinner;
+    }
+
+    generation 2 SymbolicStates {
+      inherit ProceduralBaselineWinner;
+
+      apply mutation M1_Keep_OCaml_ABCL;
+      apply mutation M2_Integer_to_Named_State;
+      apply mutation M3_Wrap_to_Explicit_Transition;
+
+      create 3 variants {
+        brevity;
+        comments;
+        named_consts;
+      }
+
+      select top 1 by correctness, readability, type_safety;
+      archive winner as SymbolicStatesWinner;
+    }
+
+    generation 3 EncapsulatedActor {
+      inherit SymbolicStatesWinner;
+
+      apply mutation M1_Keep_OCaml_ABCL;
+      apply mutation M4_Add_TrafficLight_Class;
+      apply mutation M5_Add_Demo_Ticks;
+
+      create 3 variants {
+        brevity;
+        comments;
+        named_consts;
+      }
+
+      select top 1 by executability, encapsulation, readability;
+      archive winner as EncapsulatedWinner;
+    }
+
+    fork from EncapsulatedWinner {
+
+      branch GuardedState {
+        inherit EncapsulatedWinner;
+        apply mutation M1_Keep_OCaml_ABCL;
+        apply mutation M6_Improve_Type_Safety;
+
+        create 3 variants {
+          brevity;
+          comments;
+          named_consts;
+        }
+
+        select top 1 by type_safety, correctness;
+        archive winner as GuardedStateWinner;
+      }
+
+      branch SymbolicDemo {
+        inherit EncapsulatedWinner;
+        apply mutation M1_Keep_OCaml_ABCL;
+        apply mutation M5_Add_Demo_Ticks;
+        apply mutation M7_Improve_Extensibility;
+
+        create 3 variants {
+          brevity;
+          comments;
+          named_consts;
+        }
+
+        select top 1 by executability, extensibility, readability;
+        archive winner as SymbolicDemoWinner;
+      }
+    }
+
+    generation 5 FinalTrafficLight {
+      apply crossover C1_Encapsulated_Symbolic_Demo
+        using GuardedStateWinner, SymbolicDemoWinner;
+
+      apply mutation M1_Keep_OCaml_ABCL;
+
+      create 3 variants {
+        brevity;
+        comments;
+        named_consts;
+      }
+
+      select top 1 by correctness, executability, type_safety, extensibility;
+      archive winner as FinalTrafficLightWinner;
+    }
+
+    report {
+      show generations;
+      show winners;
+      show mutations;
+      show crossover;
+      show fitness_scores;
+      omit formal_checks;
+    }
+  }
+}

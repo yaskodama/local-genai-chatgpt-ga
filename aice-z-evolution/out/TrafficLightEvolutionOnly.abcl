@@ -1,0 +1,154 @@
+// Generated from aice-z-evolution/examples/TrafficLightEvolutionOnly.aice
+// Runtime: OCaml ABCL/c+ (src/repl_thread.ml / abclrepl_thread).
+// Scope: evolutionary search only. Formal checks are intentionally external.
+
+class TrafficLightEvolutionOnly {
+  var task = "Evolve a traffic-light tick program for the OCaml ABCL/c+ runtime. Preserve Red -> Yellow -> Green -> Red behavior. Formal verification is external; this run only performs evolutionary generation, selection, crossover, and archive logging.";
+  var generator_persona = "You generate short executable OCaml ABCL/c+ candidate programs. Use class, var fields, method declarations, if statements, send, new, and print. Do not use Z, formal proof text, or pseudocode. Return the candidate program plus one short IMPROVES line.";
+  var selector_persona = "You are an evolutionary-programming selector. Compare three candidates by correctness, executability, readability, type safety, and extensibility. Return exactly one character: 1, 2, or 3.";
+  var weights = "correctness=0.35, executability=0.25, readability=0.15, type_safety=0.15, extensibility=0.10";
+
+  method run() {
+    print("================== AICE EVOLUTION ONLY ==================");
+    print(task);
+    print("formal_checks = external");
+    print("population = 3");
+    print("generations = 5");
+    print("");
+
+    print("================== GEN 1 : ProceduralBaseline ==================");
+    var g1_base = "Generation 1 ProceduralBaseline. Seed genome: target_language=ABCL, paradigm=procedural, state_representation=integer, transition_style=increment_and_wrap, encapsulation=none, executable_demo=minimal. Focus axes: correctness, executability. ";
+    var g1_c1 = ai_call_with_system(generator_persona, task + "\n\n" + g1_base + "Variant brevity: smallest correct ABCL/c+ traffic-light tick demo.");
+    var g1_c2 = ai_call_with_system(generator_persona, task + "\n\n" + g1_base + "Variant comments: clear identifiers and short comments.");
+    var g1_c3 = ai_call_with_system(generator_persona, task + "\n\n" + g1_base + "Variant named_consts: prefer named state constants over magic literals.");
+    print("--- ProceduralBaseline candidate 1 [brevity] ---");
+    print(g1_c1);
+    print("--- ProceduralBaseline candidate 2 [comments] ---");
+    print(g1_c2);
+    print("--- ProceduralBaseline candidate 3 [named_consts] ---");
+    print(g1_c3);
+    var g1_pick = ai_call_with_system(selector_persona, "Pick best ProceduralBaseline candidate. Weights: " + weights + "\nFocus: correctness, executability\n\n1:\n" + g1_c1 + "\n\n2:\n" + g1_c2 + "\n\n3:\n" + g1_c3);
+    var ProceduralBaselineWinner = g1_c1;
+    if (g1_pick == "2") { ProceduralBaselineWinner = g1_c2; }
+    if (g1_pick == "3") { ProceduralBaselineWinner = g1_c3; }
+    print("[selector picked ProceduralBaseline: " + g1_pick + "]");
+    print("[aice/archive] BEGIN ProceduralBaselineWinner");
+    print(ProceduralBaselineWinner);
+    print("[aice/archive] END ProceduralBaselineWinner");
+    print("");
+
+    print("================== GEN 2 : SymbolicStates ==================");
+    var g2_base = "Generation 2 SymbolicStates. Inherit ProceduralBaselineWinner. Apply M1_Keep_OCaml_ABCL, M2_Integer_to_Named_State, M3_Wrap_to_Explicit_Transition. Genome target: named_state_values and explicit_cases. Focus axes: correctness, readability, type_safety. Previous winner:\n" + ProceduralBaselineWinner;
+    var g2_c1 = ai_call_with_system(generator_persona, task + "\n\n" + g2_base + "\nVariant brevity.");
+    var g2_c2 = ai_call_with_system(generator_persona, task + "\n\n" + g2_base + "\nVariant comments.");
+    var g2_c3 = ai_call_with_system(generator_persona, task + "\n\n" + g2_base + "\nVariant named_consts.");
+    print("--- SymbolicStates candidate 1 [brevity] ---");
+    print(g2_c1);
+    print("--- SymbolicStates candidate 2 [comments] ---");
+    print(g2_c2);
+    print("--- SymbolicStates candidate 3 [named_consts] ---");
+    print(g2_c3);
+    var g2_pick = ai_call_with_system(selector_persona, "Pick best SymbolicStates candidate. Weights: " + weights + "\nFocus: correctness, readability, type_safety\n\n1:\n" + g2_c1 + "\n\n2:\n" + g2_c2 + "\n\n3:\n" + g2_c3);
+    var SymbolicStatesWinner = g2_c1;
+    if (g2_pick == "2") { SymbolicStatesWinner = g2_c2; }
+    if (g2_pick == "3") { SymbolicStatesWinner = g2_c3; }
+    print("[selector picked SymbolicStates: " + g2_pick + "]");
+    print("[aice/archive] BEGIN SymbolicStatesWinner");
+    print(SymbolicStatesWinner);
+    print("[aice/archive] END SymbolicStatesWinner");
+    print("");
+
+    print("================== GEN 3 : EncapsulatedActor ==================");
+    var g3_base = "Generation 3 EncapsulatedActor. Inherit SymbolicStatesWinner. Apply M1_Keep_OCaml_ABCL, M4_Add_TrafficLight_Class, M5_Add_Demo_Ticks. Genome target: TrafficLight_class and four_tick_cycle_demo. Focus axes: executability, encapsulation, readability. Previous winner:\n" + SymbolicStatesWinner;
+    var g3_c1 = ai_call_with_system(generator_persona, task + "\n\n" + g3_base + "\nVariant brevity.");
+    var g3_c2 = ai_call_with_system(generator_persona, task + "\n\n" + g3_base + "\nVariant comments.");
+    var g3_c3 = ai_call_with_system(generator_persona, task + "\n\n" + g3_base + "\nVariant named_consts.");
+    print("--- EncapsulatedActor candidate 1 [brevity] ---");
+    print(g3_c1);
+    print("--- EncapsulatedActor candidate 2 [comments] ---");
+    print(g3_c2);
+    print("--- EncapsulatedActor candidate 3 [named_consts] ---");
+    print(g3_c3);
+    var g3_pick = ai_call_with_system(selector_persona, "Pick best EncapsulatedActor candidate. Weights: " + weights + "\nFocus: executability, encapsulation, readability\n\n1:\n" + g3_c1 + "\n\n2:\n" + g3_c2 + "\n\n3:\n" + g3_c3);
+    var EncapsulatedWinner = g3_c1;
+    if (g3_pick == "2") { EncapsulatedWinner = g3_c2; }
+    if (g3_pick == "3") { EncapsulatedWinner = g3_c3; }
+    print("[selector picked EncapsulatedActor: " + g3_pick + "]");
+    print("[aice/archive] BEGIN EncapsulatedWinner");
+    print(EncapsulatedWinner);
+    print("[aice/archive] END EncapsulatedWinner");
+    print("");
+
+    print("================== FORK : GuardedState ==================");
+    var gs_base = "Fork branch GuardedState. Inherit EncapsulatedWinner. Apply M1_Keep_OCaml_ABCL and M6_Improve_Type_Safety. Focus axes: type_safety, correctness. Parent:\n" + EncapsulatedWinner;
+    var gs_c1 = ai_call_with_system(generator_persona, task + "\n\n" + gs_base + "\nVariant brevity.");
+    var gs_c2 = ai_call_with_system(generator_persona, task + "\n\n" + gs_base + "\nVariant comments.");
+    var gs_c3 = ai_call_with_system(generator_persona, task + "\n\n" + gs_base + "\nVariant named_consts.");
+    print("--- GuardedState candidate 1 [brevity] ---");
+    print(gs_c1);
+    print("--- GuardedState candidate 2 [comments] ---");
+    print(gs_c2);
+    print("--- GuardedState candidate 3 [named_consts] ---");
+    print(gs_c3);
+    var gs_pick = ai_call_with_system(selector_persona, "Pick best GuardedState candidate. Weights: " + weights + "\nFocus: type_safety, correctness\n\n1:\n" + gs_c1 + "\n\n2:\n" + gs_c2 + "\n\n3:\n" + gs_c3);
+    var GuardedStateWinner = gs_c1;
+    if (gs_pick == "2") { GuardedStateWinner = gs_c2; }
+    if (gs_pick == "3") { GuardedStateWinner = gs_c3; }
+    print("[selector picked GuardedState: " + gs_pick + "]");
+    print("[aice/archive] BEGIN GuardedStateWinner");
+    print(GuardedStateWinner);
+    print("[aice/archive] END GuardedStateWinner");
+    print("");
+
+    print("================== FORK : SymbolicDemo ==================");
+    var sd_base = "Fork branch SymbolicDemo. Inherit EncapsulatedWinner. Apply M1_Keep_OCaml_ABCL, M5_Add_Demo_Ticks, M7_Improve_Extensibility. Focus axes: executability, extensibility, readability. Parent:\n" + EncapsulatedWinner;
+    var sd_c1 = ai_call_with_system(generator_persona, task + "\n\n" + sd_base + "\nVariant brevity.");
+    var sd_c2 = ai_call_with_system(generator_persona, task + "\n\n" + sd_base + "\nVariant comments.");
+    var sd_c3 = ai_call_with_system(generator_persona, task + "\n\n" + sd_base + "\nVariant named_consts.");
+    print("--- SymbolicDemo candidate 1 [brevity] ---");
+    print(sd_c1);
+    print("--- SymbolicDemo candidate 2 [comments] ---");
+    print(sd_c2);
+    print("--- SymbolicDemo candidate 3 [named_consts] ---");
+    print(sd_c3);
+    var sd_pick = ai_call_with_system(selector_persona, "Pick best SymbolicDemo candidate. Weights: " + weights + "\nFocus: executability, extensibility, readability\n\n1:\n" + sd_c1 + "\n\n2:\n" + sd_c2 + "\n\n3:\n" + sd_c3);
+    var SymbolicDemoWinner = sd_c1;
+    if (sd_pick == "2") { SymbolicDemoWinner = sd_c2; }
+    if (sd_pick == "3") { SymbolicDemoWinner = sd_c3; }
+    print("[selector picked SymbolicDemo: " + sd_pick + "]");
+    print("[aice/archive] BEGIN SymbolicDemoWinner");
+    print(SymbolicDemoWinner);
+    print("[aice/archive] END SymbolicDemoWinner");
+    print("");
+
+    print("================== GEN 5 : FinalTrafficLight ==================");
+    var final_parent = "Crossover C1_Encapsulated_Symbolic_Demo. Parent 1 GuardedStateWinner contributes encapsulation and transition_style. Parent 2 SymbolicDemoWinner contributes state_representation, executable_demo, and readability.\n\nParent 1:\n" + GuardedStateWinner + "\n\nParent 2:\n" + SymbolicDemoWinner;
+    var f_c1 = ai_call_with_system(generator_persona, task + "\n\n" + final_parent + "\nFinal generation variant brevity. Apply M1_Keep_OCaml_ABCL.");
+    var f_c2 = ai_call_with_system(generator_persona, task + "\n\n" + final_parent + "\nFinal generation variant comments. Apply M1_Keep_OCaml_ABCL.");
+    var f_c3 = ai_call_with_system(generator_persona, task + "\n\n" + final_parent + "\nFinal generation variant named_consts. Apply M1_Keep_OCaml_ABCL.");
+    print("--- FinalTrafficLight candidate 1 [brevity] ---");
+    print(f_c1);
+    print("--- FinalTrafficLight candidate 2 [comments] ---");
+    print(f_c2);
+    print("--- FinalTrafficLight candidate 3 [named_consts] ---");
+    print(f_c3);
+    var f_pick = ai_call_with_system(selector_persona, "Pick best FinalTrafficLight candidate. Weights: " + weights + "\nFocus: correctness, executability, type_safety, extensibility\n\n1:\n" + f_c1 + "\n\n2:\n" + f_c2 + "\n\n3:\n" + f_c3);
+    var FinalTrafficLightWinner = f_c1;
+    if (f_pick == "2") { FinalTrafficLightWinner = f_c2; }
+    if (f_pick == "3") { FinalTrafficLightWinner = f_c3; }
+    print("[selector picked FinalTrafficLight: " + f_pick + "]");
+    print("[aice/archive] BEGIN FinalTrafficLightWinner");
+    print(FinalTrafficLightWinner);
+    print("[aice/archive] END FinalTrafficLightWinner");
+    print("");
+
+    print("================== REPORT ==================");
+    print("Generations: ProceduralBaseline -> SymbolicStates -> EncapsulatedActor -> fork(GuardedState, SymbolicDemo) -> FinalTrafficLight");
+    print("Formal checks: omitted by design; run them as a separate stage.");
+    print("Archive root: aice-z-evolution/out/evolution/traffic_light_only/");
+    print(ai_usage());
+  }
+}
+
+var coordinator = new TrafficLightEvolutionOnly();
+send coordinator.run();

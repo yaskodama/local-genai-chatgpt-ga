@@ -1,0 +1,117 @@
+aice TrafficLightZEvolution {
+
+  target_language = ABCL;
+
+  task = "Create a correct traffic-light tick program for the OCaml ABCL/c+ runtime. The final program must model the state transitions Red -> Yellow -> Green -> Red, exclude illegal states by construction as much as ABCL/c+ allows, encapsulate state in an actor/class, and demonstrate several ticks.";
+
+  specification {
+    entities {
+      "TrafficLight";
+      "LightState";
+      "Red";
+      "Yellow";
+      "Green";
+      "Tick";
+    }
+
+    state {
+      "current light state is one of Red, Yellow, Green";
+      "initial light state is Red";
+      "tick count is a non-negative integer";
+    }
+
+    invariants {
+      "The light state must always be Red or Yellow or Green";
+      "The transition from Red must produce Yellow";
+      "The transition from Yellow must produce Green";
+      "The transition from Green must produce Red";
+      "A tick must increase tick count by one";
+      "The program must not create an unknown light state";
+    }
+
+    operations {
+      "initialize traffic light to Red";
+      "perform one tick transition";
+      "print current light state";
+      "demonstrate Red to Yellow to Green to Red cycle";
+    }
+
+    acceptance {
+      "The final program is valid OCaml ABCL/c+";
+      "The final program defines a TrafficLight class or actor";
+      "The final program demonstrates at least four printed states";
+      "The final program includes a final formal verification step against the Z specification";
+    }
+  }
+
+  formal_check {
+    convert initial_specification to Z;
+    transform predicate_normal_form;
+    transform state_transition_model;
+    reviewers 3;
+    select best_review by consistency, invariant_preservation, acceptance_coverage;
+    repair contradictions by logical_consensus;
+    carry repaired_specification to next_generation;
+  }
+
+  evolution TrafficLightZGA {
+    genome {
+      target_language;
+      z_schema;
+      state_representation;
+      transition_style;
+      encapsulation;
+      type_safety;
+      final_formal_review;
+    }
+
+    population 3;
+    generations 5;
+
+    seed AssemblySeed {
+      target_language = ABCL;
+      state_representation = integer;
+      transition_style = increment_and_wrap;
+      encapsulation = none;
+      type_safety = low;
+      final_formal_review = required;
+    }
+
+    mutate manual {
+      rule M1_Target_OCaml_ABCL {
+        target = target_language;
+        from = any;
+        to = ABCL;
+        reason = "Use the OCaml ABCL/c+ runtime as the executable target.";
+      }
+
+      rule M2_Integer_to_Symbolic_State {
+        target = state_representation;
+        from = integer;
+        to = symbolic_state_names;
+        reason = "Replace raw numeric states with Red, Yellow, and Green names.";
+      }
+
+      rule M3_Wrap_to_Explicit_Cases {
+        target = transition_style;
+        from = increment_and_wrap;
+        to = explicit_transition_cases;
+        reason = "Make Red->Yellow, Yellow->Green, and Green->Red explicit.";
+      }
+
+      rule M4_Add_Actor_Encapsulation {
+        target = encapsulation;
+        from = none;
+        to = TrafficLight_class;
+        reason = "Keep current state and tick behavior inside a TrafficLight class/actor.";
+      }
+
+      rule M5_Final_Z_Check {
+        target = final_formal_review;
+        from = unchecked;
+        to = checked_against_z_specification;
+        reason = "Accept the final program only after three formal reviews against the Z specification.";
+      }
+    }
+  }
+}

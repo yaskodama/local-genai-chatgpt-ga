@@ -1,0 +1,11 @@
+// Remote calc server: hosts a Calc actor on the local /api/json/call endpoint.
+// Pair with RemoteCalcClient.abcl from another REPL.
+class Calc {
+  method add(a, b) {
+    reply(a + b);
+  }
+}
+
+var calc = new Calc();
+web_listen(9091);
+web_expose("/calc", "calc");

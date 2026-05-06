@@ -1,0 +1,64 @@
+// 3-role AI cooperation expressed with now / future / await.
+//
+// Planner.plan(q)        — synchronous (now): plan must finish before solving
+// Solver.solve(plan)     — fired in parallel with Reviewer.brief() via future,
+//                          await both later for the joined response.
+// Reviewer.review(ans)   — final synchronous step (now)
+//
+// Run with: ABCL_AI_PROVIDER=mock so it stays fast / offline. Replace with
+// GEMINI_API_KEY=... to drive the real Gemini provider.
+
+class Planner {
+  method plan(q) {
+    var sketch = ai_call_with_system(
+      "You are a planner. Output a 1-line plan, no preamble.",
+      q);
+    reply(sketch);
+  }
+}
+
+class Solver {
+  method solve(plan) {
+    var ans = ai_call_with_system(
+      "You are a solver. Apply the given plan and answer concisely.",
+      plan);
+    reply(ans);
+  }
+}
+
+class Reviewer {
+  method review(ans) {
+    var verdict = ai_call_with_system(
+      "You are a reviewer. Reply with 'OK: <reason>' or 'NG: <reason>' only.",
+      ans);
+    reply(verdict);
+  }
+  method brief() {
+    var b = ai_call("In one short sentence: what does a code reviewer look for?");
+    reply(b);
+  }
+}
+
+var planner  = new Planner();
+var solver   = new Solver();
+var reviewer = new Reviewer();
+
+var question = "What is 12 * 11? Show only the number.";
+
+// 1) plan synchronously
+var plan = now planner.plan(question);
+print("[plan] " + plan);
+
+// 2) solve and reviewer-brief in parallel (future)
+var fut_ans   = future solver.solve(plan);
+var fut_brief = future reviewer.brief();
+
+var answer = await fut_ans;
+print("[answer] " + answer);
+
+var brief = await fut_brief;
+print("[reviewer brief] " + brief);
+
+// 3) final review synchronously
+var verdict = now reviewer.review(answer);
+print("[verdict] " + verdict);

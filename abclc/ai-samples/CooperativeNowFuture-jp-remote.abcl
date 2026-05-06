@@ -1,0 +1,53 @@
+// 3 役 AI 協調 (now/future/await) — reviewer は別マシン (Docker) で動く版。
+//
+// ローカル: Planner, Solver
+// リモート: Reviewer  (Python ABCL/c+ Docker container, port 9100)
+//
+// 起動:
+//   bash /tmp/coop_remote_jp.sh
+//
+// 内部では:
+//   now    remote("localhost:9100", "reviewer").review(answer)
+//   future remote("localhost:9100", "reviewer").brief()
+// が HTTP /api/json/call 経由で reviewer ノードを呼ぶ。
+
+class Planner {
+  method plan(q) {
+    var sketch = ai_call_with_system(
+      "あなたは計画担当です。質問への取り組み方針を 1 行で出力してください。前置きは不要です。",
+      q);
+    reply(sketch);
+  }
+}
+
+class Solver {
+  method solve(plan) {
+    var ans = ai_call_with_system(
+      "あなたは解答担当です。与えられた方針に従い、簡潔に答えだけを出力してください。",
+      plan);
+    reply(ans);
+  }
+}
+
+var planner = new Planner();
+var solver  = new Solver();
+
+var question = "12 × 11 を計算してください。数値だけ出力してください。";
+
+// 1) 計画 (ローカル同期)
+var plan = now planner.plan(question);
+print("[計画] " + plan);
+
+// 2) 解答 (ローカル) と reviewer.brief (リモート) を並列発火
+var fut_ans   = future solver.solve(plan);
+var fut_brief = future remote("localhost:9100", "reviewer").brief();
+
+var answer = await fut_ans;
+print("[解答] " + answer);
+
+var brief = await fut_brief;
+print("[観点] " + brief);
+
+// 3) 最終レビュー (リモート同期)
+var verdict = now remote("localhost:9100", "reviewer").review(answer);
+print("[判定] " + verdict);

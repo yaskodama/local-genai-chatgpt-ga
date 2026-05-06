@@ -13,6 +13,7 @@ type value =
   | VUnit
   | VActor of string * (string, value) Hashtbl.t
   | VArray of value array * Types.ty option
+  | VFuture of string  (* reply-slot id; resolved by reply(v) on the receiving actor *)
 
 type mmessage = {
   from : string;
@@ -39,15 +40,49 @@ let sid_log_next : (string, int ref) Hashtbl.t = Hashtbl.create 64
 let sid_logs : (string, (int * string) list ref) Hashtbl.t = Hashtbl.create 64
 let sid_log_limit = 500
 
-(* current message id while executing a message (for reply correlation) *)
-let current_msg_id : string option ref = ref None
-let set_current_msg_id (id:string option) = current_msg_id := id
-let get_current_msg_id () = !current_msg_id
+(* Thread-local message id / actor name while executing a message.
+   Each actor runs on its own Thread, so when reply(v) consults the
+   "current msg id" it must see *its* thread's id, not whatever the
+   last thread happened to set on a global ref. With a global ref,
+   two parallel `future` calls end up fulfilling each other's reply
+   slots when their actor threads interleave. *)
+let _msgid_table : (int, string option) Hashtbl.t = Hashtbl.create 32
+let _msgid_mu = Mutex.create ()
 
-(* current actor name while executing a message (for session log) *)
-let current_actor_name : string option ref = ref None
-let set_current_actor_name (nm:string option) = current_actor_name := nm
-let get_current_actor_name () = !current_actor_name
+let _aname_table : (int, string option) Hashtbl.t = Hashtbl.create 32
+let _aname_mu = Mutex.create ()
+
+let _tid () = Thread.id (Thread.self ())
+
+let set_current_msg_id (id:string option) =
+  Mutex.lock _msgid_mu;
+  Hashtbl.replace _msgid_table (_tid ()) id;
+  Mutex.unlock _msgid_mu
+
+let get_current_msg_id () =
+  Mutex.lock _msgid_mu;
+  let v =
+    match Hashtbl.find_opt _msgid_table (_tid ()) with
+    | Some x -> x
+    | None   -> None
+  in
+  Mutex.unlock _msgid_mu;
+  v
+
+let set_current_actor_name (nm:string option) =
+  Mutex.lock _aname_mu;
+  Hashtbl.replace _aname_table (_tid ()) nm;
+  Mutex.unlock _aname_mu
+
+let get_current_actor_name () =
+  Mutex.lock _aname_mu;
+  let v =
+    match Hashtbl.find_opt _aname_table (_tid ()) with
+    | Some x -> x
+    | None   -> None
+  in
+  Mutex.unlock _aname_mu;
+  v
 
 (* ---------------- Web/Debug log buffer (per actor) ---------------- *)
 type log_entry = int * string
@@ -332,6 +367,7 @@ let rec string_of_value v =
   | VBool b   -> string_of_bool b
   | VUnit     -> "()"
   | VActor (n,_) -> "<actor:" ^ n ^ ">"
+  | VFuture id   -> "<future:" ^ id ^ ">"
   | VArray (a,_) ->
       let items =
         a |> Array.to_list |> List.map string_of_value |> String.concat ", "
@@ -349,6 +385,7 @@ let type_name_of_value = function
   | VBool _   -> "bool"
   | VUnit     -> "unit"
   | VActor _  -> "actor"
+  | VFuture _ -> "future"
   | VArray _  -> "array"
 
 let lookup_opt (env : (string, 'a) Hashtbl.t) (k : string) : 'a option =
@@ -415,6 +452,7 @@ let to_string_plain = function
   | VBool  b  -> if b then "true" else "false"
   | VUnit     -> "()"
   | VActor (n,_)  -> "<actor:" ^ n ^ ">"
+  | VFuture id   -> "<future:" ^ id ^ ">"
   | VArray (a,_)   ->                           (* 追加：簡易表現でOK *)
       let items =
         a |> Array.to_list
@@ -425,6 +463,7 @@ let to_string_plain = function
                 | VBool b   -> if b then "true" else "false"
                 | VUnit     -> "()"
                 | VActor (n,_)  -> "<actor:" ^ n ^ ">"
+                | VFuture id    -> "<future:" ^ id ^ ">"
                 | VArray (_,_)  -> "<array>")
           |> String.concat ", "
       in
@@ -468,6 +507,99 @@ let apply_binop op v1 v2 =
   | "!=", VString a, VString b -> VBool (a <> b)
   | _ ->
     failwith ("unsupported binop/operands: " ^ op)
+
+(* Convert a JSON atomic literal (number/string/bool/null) into an OCaml
+   ABCL/c+ value. Used to deserialize replies from /api/json/call. *)
+let value_of_json_atom (s:string) : value =
+  let s = String.trim s in
+  if s = "" || s = "null" then VUnit
+  else if s = "true" then VBool true
+  else if s = "false" then VBool false
+  else if String.length s >= 2 && s.[0] = '"' && s.[String.length s - 1] = '"' then
+    (* string: strip surrounding quotes and un-escape standard JSON escapes *)
+    let inner = String.sub s 1 (String.length s - 2) in
+    let buf = Buffer.create (String.length inner) in
+    let n = String.length inner in
+    let i = ref 0 in
+    let hex_of c =
+      if c >= '0' && c <= '9' then Some (Char.code c - Char.code '0')
+      else if c >= 'a' && c <= 'f' then Some (Char.code c - Char.code 'a' + 10)
+      else if c >= 'A' && c <= 'F' then Some (Char.code c - Char.code 'A' + 10)
+      else None
+    in
+    let utf8_encode (cp:int) : unit =
+      if cp < 0x80 then
+        Buffer.add_char buf (Char.chr cp)
+      else if cp < 0x800 then begin
+        Buffer.add_char buf (Char.chr (0xC0 lor (cp lsr 6)));
+        Buffer.add_char buf (Char.chr (0x80 lor (cp land 0x3F)))
+      end else if cp < 0x10000 then begin
+        Buffer.add_char buf (Char.chr (0xE0 lor (cp lsr 12)));
+        Buffer.add_char buf (Char.chr (0x80 lor ((cp lsr 6) land 0x3F)));
+        Buffer.add_char buf (Char.chr (0x80 lor (cp land 0x3F)))
+      end else begin
+        Buffer.add_char buf (Char.chr (0xF0 lor (cp lsr 18)));
+        Buffer.add_char buf (Char.chr (0x80 lor ((cp lsr 12) land 0x3F)));
+        Buffer.add_char buf (Char.chr (0x80 lor ((cp lsr 6) land 0x3F)));
+        Buffer.add_char buf (Char.chr (0x80 lor (cp land 0x3F)))
+      end
+    in
+    while !i < n do
+      let c = inner.[!i] in
+      if c = '\\' && !i + 1 < n then begin
+        (match inner.[!i + 1] with
+         | 'n'  -> Buffer.add_char buf '\n'; i := !i + 2
+         | 't'  -> Buffer.add_char buf '\t'; i := !i + 2
+         | 'r'  -> Buffer.add_char buf '\r'; i := !i + 2
+         | '"'  -> Buffer.add_char buf '"';  i := !i + 2
+         | '\\' -> Buffer.add_char buf '\\'; i := !i + 2
+         | '/'  -> Buffer.add_char buf '/';  i := !i + 2
+         | 'u' when !i + 5 < n ->
+             (* \uXXXX (basic multilingual plane only; surrogates handled below) *)
+             let h0 = hex_of inner.[!i + 2]
+             and h1 = hex_of inner.[!i + 3]
+             and h2 = hex_of inner.[!i + 4]
+             and h3 = hex_of inner.[!i + 5] in
+             (match h0, h1, h2, h3 with
+              | Some a, Some b, Some c, Some d ->
+                  let cp = (a lsl 12) lor (b lsl 8) lor (c lsl 4) lor d in
+                  if cp >= 0xD800 && cp <= 0xDBFF
+                     && !i + 11 < n
+                     && inner.[!i + 6] = '\\' && inner.[!i + 7] = 'u' then begin
+                    (* high surrogate; look for matching low surrogate *)
+                    let g0 = hex_of inner.[!i + 8]
+                    and g1 = hex_of inner.[!i + 9]
+                    and g2 = hex_of inner.[!i + 10]
+                    and g3 = hex_of inner.[!i + 11] in
+                    (match g0, g1, g2, g3 with
+                     | Some a, Some b, Some c, Some d ->
+                         let lo = (a lsl 12) lor (b lsl 8) lor (c lsl 4) lor d in
+                         if lo >= 0xDC00 && lo <= 0xDFFF then begin
+                           let combined = 0x10000 + ((cp - 0xD800) lsl 10) + (lo - 0xDC00) in
+                           utf8_encode combined;
+                           i := !i + 12
+                         end else begin
+                           utf8_encode cp; i := !i + 6
+                         end
+                     | _ -> utf8_encode cp; i := !i + 6)
+                  end else begin
+                    utf8_encode cp; i := !i + 6
+                  end
+              | _ -> Buffer.add_char buf c; incr i)
+         | other -> Buffer.add_char buf '\\'; Buffer.add_char buf other; i := !i + 2)
+      end else begin
+        Buffer.add_char buf c; incr i
+      end
+    done;
+    VString (Buffer.contents buf)
+  else
+    (* number — try int first, then float, else fall back to VString *)
+    (match int_of_string_opt s with
+     | Some n -> VInt n
+     | None ->
+         (match float_of_string_opt s with
+          | Some f -> VFloat f
+          | None   -> VString s))
 
 let expr_of_value = function
   | VInt n    -> Int n            (* keep integers as Int, not String *)
@@ -515,6 +647,58 @@ let create_actor name cls =
     methods = Hashtbl.create 32;
     last_sender = "";
   }
+
+(* ---------------- in-process reply slots for now/future/await ---------------- *)
+type reply_slot = {
+  rs_mutex  : Mutex.t;
+  rs_cond   : Condition.t;
+  mutable rs_result : value option;  (* None = pending, Some v = fulfilled *)
+}
+
+let reply_slots : (string, reply_slot) Hashtbl.t = Hashtbl.create 32
+let reply_slots_mu = Mutex.create ()
+let reply_slot_counter = ref 0
+
+let new_reply_slot () : string * reply_slot =
+  Mutex.lock reply_slots_mu;
+  incr reply_slot_counter;
+  let id = Printf.sprintf "rs-%d-%d" (!reply_slot_counter) (int_of_float (Unix.gettimeofday () *. 1000.0)) in
+  let s = { rs_mutex = Mutex.create (); rs_cond = Condition.create (); rs_result = None } in
+  Hashtbl.add reply_slots id s;
+  Mutex.unlock reply_slots_mu;
+  (id, s)
+
+(* Called by reply(v) when current_msg_id matches a pending slot.
+   Returns true if a slot was found and fulfilled. *)
+let try_fulfill_reply_slot (id:string) (v:value) : bool =
+  Mutex.lock reply_slots_mu;
+  let slot_opt = Hashtbl.find_opt reply_slots id in
+  Mutex.unlock reply_slots_mu;
+  match slot_opt with
+  | None -> false
+  | Some s ->
+      Mutex.lock s.rs_mutex;
+      s.rs_result <- Some v;
+      Condition.broadcast s.rs_cond;
+      Mutex.unlock s.rs_mutex;
+      true
+
+(* Block until slot fulfilled, return the value, then clean up. *)
+let wait_reply_slot (id:string) : value =
+  Mutex.lock reply_slots_mu;
+  let s_opt = Hashtbl.find_opt reply_slots id in
+  Mutex.unlock reply_slots_mu;
+  match s_opt with
+  | None -> failwith ("await: unknown reply slot: " ^ id)
+  | Some s ->
+      Mutex.lock s.rs_mutex;
+      while s.rs_result = None do Condition.wait s.rs_cond s.rs_mutex done;
+      let v = match s.rs_result with Some v -> v | None -> VUnit in
+      Mutex.unlock s.rs_mutex;
+      Mutex.lock reply_slots_mu;
+      Hashtbl.remove reply_slots id;
+      Mutex.unlock reply_slots_mu;
+      v
 
 let send_message ?msg_id ~from (target_name:string) (stmt:Ast.stmt) : unit = (
 (*  let log_message () = (
@@ -893,6 +1077,72 @@ let rec eval_expr (actor:actor) (e : expr) =
       failwith "eval_expr: New is not supported here"
   | Array (_es, _tyopt) ->
       failwith "eval_expr: Array is not supported here"
+  | Now (target, meth, args) ->
+      (* Synchronous: send a CallStmt with a fresh msg_id, block on the slot
+         until the receiving actor calls reply(v), then return v.
+         For RemoteTarget, dispatch via the HTTP /api/json/call endpoint and
+         convert the JSON reply to an OCaml value. *)
+      let arg_vals = List.map (eval_expr actor) args in
+      let arg_exprs = List.map (fun v -> mk_expr (expr_of_value v)) arg_vals in
+      (match target with
+       | LocalTarget tgt ->
+           let actual_target =
+             if tgt = "self" then actor.name
+             else if tgt = "sender" then actor.last_sender
+             else
+               (match Hashtbl.find_opt actor.env tgt with
+                | Some (VString s) when s <> "" -> s
+                | Some (VActor (n, _)) -> n
+                | _ -> tgt)
+           in
+           let (slot_id, _) = new_reply_slot () in
+           send_message ~msg_id:slot_id ~from:actor.name actual_target
+             (mk_stmt (CallStmt (meth, arg_exprs)));
+           wait_reply_slot slot_id
+       | RemoteTarget (hostport, to_actor) ->
+           let json_reply = Remote_client.remote_call ~hostport ~to_actor
+             ~meth ~args:arg_exprs ~from:actor.name () in
+           value_of_json_atom json_reply)
+  | Future (target, meth, args) ->
+      (* Non-blocking: send a CallStmt with a fresh msg_id, return VFuture
+         immediately. await on the future blocks until reply(v) fulfills it.
+         For RemoteTarget, spawn a thread that issues the synchronous HTTP
+         call and fulfills a local slot when it returns. *)
+      let arg_vals = List.map (eval_expr actor) args in
+      let arg_exprs = List.map (fun v -> mk_expr (expr_of_value v)) arg_vals in
+      (match target with
+       | LocalTarget tgt ->
+           let actual_target =
+             if tgt = "self" then actor.name
+             else if tgt = "sender" then actor.last_sender
+             else
+               (match Hashtbl.find_opt actor.env tgt with
+                | Some (VString s) when s <> "" -> s
+                | Some (VActor (n, _)) -> n
+                | _ -> tgt)
+           in
+           let (slot_id, _) = new_reply_slot () in
+           send_message ~msg_id:slot_id ~from:actor.name actual_target
+             (mk_stmt (CallStmt (meth, arg_exprs)));
+           VFuture slot_id
+       | RemoteTarget (hostport, to_actor) ->
+           let (slot_id, _) = new_reply_slot () in
+           let from_name = actor.name in
+           ignore (Thread.create (fun () ->
+             try
+               let json_reply = Remote_client.remote_call ~hostport ~to_actor
+                 ~meth ~args:arg_exprs ~from:from_name () in
+               let v = value_of_json_atom json_reply in
+               ignore (try_fulfill_reply_slot slot_id v)
+             with exn ->
+               Printf.eprintf "[future remote] %s: %s\n%!" hostport (Printexc.to_string exn);
+               ignore (try_fulfill_reply_slot slot_id (VString ("error: " ^ Printexc.to_string exn)))
+           ) ());
+           VFuture slot_id)
+  | Await fe ->
+      (match eval_expr actor fe with
+       | VFuture slot_id -> wait_reply_slot slot_id
+       | v -> failwith ("await: expected future, got " ^ type_name_of_value v))
 and eval_stmt (actor:actor) (s : Ast.stmt) =
   match s.sdesc with
   | Assign (x, e) -> set_var_a actor x (eval_expr actor e)

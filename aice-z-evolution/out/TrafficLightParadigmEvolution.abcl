@@ -1,0 +1,214 @@
+// Generated from aice-z-evolution/examples/TrafficLightParadigmEvolution.aice
+// Runtime: OCaml ABCL/c+.
+// Topology: Assembler -> BASIC -> fork { C -> Java OOP, Functional -> Functional OOP } -> Parallel OOP.
+
+class TrafficLightParadigmEvolution {
+  var task = "Solve the traffic-light tick problem while evolving through paradigms. Preserve Red -> Yellow -> Green -> Red and demonstrate repeated ticks.";
+  var generator_persona = "You generate concise candidate programs for a programming-paradigm evolution experiment. Return only one candidate solution and one IMPROVES line. Keep code short and specific to the requested paradigm.";
+  var correctness_reviewer = "You are CorrectnessReviewer. Score the three candidates for traffic-light correctness, transition completeness, and demo behavior. Return compact scores and best candidate id.";
+  var paradigm_reviewer = "You are ParadigmReviewer. Score the three candidates for paradigm fit, idiomatic use, and abstraction level. Return compact scores and best candidate id.";
+  var engineering_reviewer = "You are EngineeringReviewer. Score the three candidates for executability, readability, evolvability, and type safety. Return compact scores and best candidate id.";
+  var selector_persona = "You are Selector. Given candidates and three reviews, choose the best candidate. Return exactly one digit: 1, 2, or 3.";
+  var weights = "correctness=0.35, executability=0.20, paradigm_fit=0.15, readability=0.10, type_safety=0.10, evolvability=0.10";
+
+  method run() {
+    print("===== TrafficLightParadigmEvolution =====");
+    print("topology = Assembler -> BASIC -> fork { C -> Java OOP, Functional -> Functional OOP } -> Parallel OOP");
+    print("candidate_count = 3");
+    print("reviewer_count = 3");
+    print("weights = " + weights);
+    print("");
+
+    print("===== GENERATION 1: Assembly =====");
+    print("genome: paradigm=assembler, target_language=pseudo_assembly, state_representation=register_integer, transition_style=increment_compare_jump, control_abstraction=labels_and_jumps, data_abstraction=none, encapsulation=none, type_safety=none, concurrency_model=none, executable_demo=tick_subroutine");
+    print("mutations: none");
+    var a_base = task + "\n\nGeneration Assembly. Genome: assembler, pseudo_assembly, register_integer, increment_compare_jump, labels_and_jumps. Make a traffic light tick subroutine.";
+    var a1 = ai_call_with_system(generator_persona, a_base + "\nCandidate 1 style=minimal_registers.");
+    var a2 = ai_call_with_system(generator_persona, a_base + "\nCandidate 2 style=commented_labels.");
+    var a3 = ai_call_with_system(generator_persona, a_base + "\nCandidate 3 style=named_addresses.");
+    print("--- A1 ---"); print(a1);
+    print("--- A2 ---"); print(a2);
+    print("--- A3 ---"); print(a3);
+    var a_payload = "Generation Assembly\nCandidates:\n1:\n" + a1 + "\n\n2:\n" + a2 + "\n\n3:\n" + a3;
+    var ar1 = ai_call_with_system(correctness_reviewer, a_payload);
+    var ar2 = ai_call_with_system(paradigm_reviewer, a_payload);
+    var ar3 = ai_call_with_system(engineering_reviewer, a_payload);
+    print("[review CorrectnessReviewer Assembly]"); print(ar1);
+    print("[review ParadigmReviewer Assembly]"); print(ar2);
+    print("[review EngineeringReviewer Assembly]"); print(ar3);
+    var apick = ai_call_with_system(selector_persona, a_payload + "\n\nReviews:\n" + ar1 + "\n" + ar2 + "\n" + ar3);
+    var AssemblyWinner = a1;
+    if (apick == "2") { AssemblyWinner = a2; }
+    if (apick == "3") { AssemblyWinner = a3; }
+    print("[selector picked Assembly: " + apick + "]");
+    print("[aice/archive] BEGIN AssemblyWinner"); print(AssemblyWinner); print("[aice/archive] END AssemblyWinner");
+    print("");
+
+    print("===== GENERATION 2: BASIC =====");
+    print("genome: paradigm=BASIC, target_language=BASIC, state_representation=global_numeric_variable, transition_style=if_goto_increment_wrap, control_abstraction=line_numbers_if_then_goto, data_abstraction=named_numeric_constants optional, encapsulation=none, type_safety=low, concurrency_model=none, executable_demo=four_tick_cycle_demo");
+    print("mutations: M1_Assembly_to_BASIC, M9_Add_Demo, optional M7_Integer_to_Symbolic_State");
+    var b_base = task + "\n\nPrevious AssemblyWinner:\n" + AssemblyWinner + "\n\nGeneration BASIC. Use line numbers, variables, IF/THEN/GOTO, and four tick demo.";
+    var b1 = ai_call_with_system(generator_persona, b_base + "\nCandidate 1 style=line_number_minimal.");
+    var b2 = ai_call_with_system(generator_persona, b_base + "\nCandidate 2 style=commented_if_goto.");
+    var b3 = ai_call_with_system(generator_persona, b_base + "\nCandidate 3 style=named_numeric_constants.");
+    print("--- B1 ---"); print(b1);
+    print("--- B2 ---"); print(b2);
+    print("--- B3 ---"); print(b3);
+    var b_payload = "Generation BASIC\nCandidates:\n1:\n" + b1 + "\n\n2:\n" + b2 + "\n\n3:\n" + b3;
+    var br1 = ai_call_with_system(correctness_reviewer, b_payload);
+    var br2 = ai_call_with_system(paradigm_reviewer, b_payload);
+    var br3 = ai_call_with_system(engineering_reviewer, b_payload);
+    print("[review CorrectnessReviewer BASIC]"); print(br1);
+    print("[review ParadigmReviewer BASIC]"); print(br2);
+    print("[review EngineeringReviewer BASIC]"); print(br3);
+    var bpick = ai_call_with_system(selector_persona, b_payload + "\n\nReviews:\n" + br1 + "\n" + br2 + "\n" + br3);
+    var BASICWinner = b1;
+    if (bpick == "2") { BASICWinner = b2; }
+    if (bpick == "3") { BASICWinner = b3; }
+    print("[selector picked BASIC: " + bpick + "]");
+    print("[aice/archive] BEGIN BASICWinner"); print(BASICWinner); print("[aice/archive] END BASICWinner");
+    print("");
+
+    print("===== FORK from BASICWinner =====");
+    print("branch imperative_object_path: BASICWinner -> C -> JavaOOP");
+    print("branch functional_object_path: BASICWinner -> Functional -> FunctionalOOP");
+    print("");
+
+    print("===== GENERATION 3A: C =====");
+    print("genome: paradigm=C, target_language=C, state_representation=enum_state, transition_style=switch_or_if_explicit_cases, control_abstraction=functions_and_blocks, data_abstraction=enum_and_function_signature, encapsulation=none, type_safety=medium, concurrency_model=none, executable_demo=main_function_four_ticks");
+    print("mutations: M2_BASIC_to_C, M7_Integer_to_Symbolic_State, M8_Implicit_Wrap_to_Explicit_Cases");
+    print("crossover: C1_BASIC_to_C_from_AssemblyTraits optional, combining BASIC readable flow with Assembly minimal tick core");
+    var c_base = task + "\n\nPrevious BASICWinner:\n" + BASICWinner + "\n\nGeneration C. Use enum state, functions, switch/if explicit cases, main demo.";
+    var c1 = ai_call_with_system(generator_persona, c_base + "\nCandidate 1 style=enum_and_function.");
+    var c2 = ai_call_with_system(generator_persona, c_base + "\nCandidate 2 style=switch_cases.");
+    var c3 = ai_call_with_system(generator_persona, c_base + "\nCandidate 3 style=testable_tick_function.");
+    print("--- C1 ---"); print(c1);
+    print("--- C2 ---"); print(c2);
+    print("--- C3 ---"); print(c3);
+    var c_payload = "Generation C\nCandidates:\n1:\n" + c1 + "\n\n2:\n" + c2 + "\n\n3:\n" + c3;
+    var cr1 = ai_call_with_system(correctness_reviewer, c_payload);
+    var cr2 = ai_call_with_system(paradigm_reviewer, c_payload);
+    var cr3 = ai_call_with_system(engineering_reviewer, c_payload);
+    print("[review CorrectnessReviewer C]"); print(cr1);
+    print("[review ParadigmReviewer C]"); print(cr2);
+    print("[review EngineeringReviewer C]"); print(cr3);
+    var cpick = ai_call_with_system(selector_persona, c_payload + "\n\nReviews:\n" + cr1 + "\n" + cr2 + "\n" + cr3);
+    var CWinner = c1;
+    if (cpick == "2") { CWinner = c2; }
+    if (cpick == "3") { CWinner = c3; }
+    print("[selector picked C: " + cpick + "]");
+    print("[aice/archive] BEGIN CWinner"); print(CWinner); print("[aice/archive] END CWinner");
+    print("");
+
+    print("===== GENERATION 4A: JavaOOP =====");
+    print("genome: paradigm=Java_OOP, target_language=Java, state_representation=enum_inside_class, transition_style=method_switch_cases, control_abstraction=methods, data_abstraction=class_and_enum, encapsulation=private_state_public_tick, type_safety=high, concurrency_model=none, executable_demo=main_method_four_ticks");
+    print("mutations: M3_C_to_Java_OOP, M9_Add_Demo");
+    var j_base = task + "\n\nPrevious CWinner:\n" + CWinner + "\n\nGeneration Java OOP. Use TrafficLight class, private state, public tick, Java enum, main demo.";
+    var j1 = ai_call_with_system(generator_persona, j_base + "\nCandidate 1 style=TrafficLight_class.");
+    var j2 = ai_call_with_system(generator_persona, j_base + "\nCandidate 2 style=enum_inside_class.");
+    var j3 = ai_call_with_system(generator_persona, j_base + "\nCandidate 3 style=private_state_public_tick.");
+    print("--- J1 ---"); print(j1);
+    print("--- J2 ---"); print(j2);
+    print("--- J3 ---"); print(j3);
+    var j_payload = "Generation JavaOOP\nCandidates:\n1:\n" + j1 + "\n\n2:\n" + j2 + "\n\n3:\n" + j3;
+    var jr1 = ai_call_with_system(correctness_reviewer, j_payload);
+    var jr2 = ai_call_with_system(paradigm_reviewer, j_payload);
+    var jr3 = ai_call_with_system(engineering_reviewer, j_payload);
+    print("[review CorrectnessReviewer JavaOOP]"); print(jr1);
+    print("[review ParadigmReviewer JavaOOP]"); print(jr2);
+    print("[review EngineeringReviewer JavaOOP]"); print(jr3);
+    var jpick = ai_call_with_system(selector_persona, j_payload + "\n\nReviews:\n" + jr1 + "\n" + jr2 + "\n" + jr3);
+    var JavaOOPWinner = j1;
+    if (jpick == "2") { JavaOOPWinner = j2; }
+    if (jpick == "3") { JavaOOPWinner = j3; }
+    print("[selector picked JavaOOP: " + jpick + "]");
+    print("[aice/archive] BEGIN JavaOOPWinner"); print(JavaOOPWinner); print("[aice/archive] END JavaOOPWinner");
+    print("");
+
+    print("===== GENERATION 3B: Functional =====");
+    print("genome: paradigm=Functional, target_language=ML_or_Haskell_style, state_representation=algebraic_data_type, transition_style=pure_pattern_match, control_abstraction=expression_evaluation, data_abstraction=ADT, encapsulation=none, type_safety=high, concurrency_model=none, executable_demo=immutable_list_of_ticks");
+    print("mutations: M4_BASIC_to_Functional, M7_Integer_to_Symbolic_State, M8_Implicit_Wrap_to_Explicit_Cases");
+    var f_base = task + "\n\nPrevious BASICWinner:\n" + BASICWinner + "\n\nGeneration Functional. Use ADT-style states, pure next function, pattern match, immutable demo.";
+    var f1 = ai_call_with_system(generator_persona, f_base + "\nCandidate 1 style=ADT_and_match.");
+    var f2 = ai_call_with_system(generator_persona, f_base + "\nCandidate 2 style=pure_next_function.");
+    var f3 = ai_call_with_system(generator_persona, f_base + "\nCandidate 3 style=list_demo_without_mutation.");
+    print("--- F1 ---"); print(f1);
+    print("--- F2 ---"); print(f2);
+    print("--- F3 ---"); print(f3);
+    var f_payload = "Generation Functional\nCandidates:\n1:\n" + f1 + "\n\n2:\n" + f2 + "\n\n3:\n" + f3;
+    var fr1 = ai_call_with_system(correctness_reviewer, f_payload);
+    var fr2 = ai_call_with_system(paradigm_reviewer, f_payload);
+    var fr3 = ai_call_with_system(engineering_reviewer, f_payload);
+    print("[review CorrectnessReviewer Functional]"); print(fr1);
+    print("[review ParadigmReviewer Functional]"); print(fr2);
+    print("[review EngineeringReviewer Functional]"); print(fr3);
+    var fpick = ai_call_with_system(selector_persona, f_payload + "\n\nReviews:\n" + fr1 + "\n" + fr2 + "\n" + fr3);
+    var FunctionalWinner = f1;
+    if (fpick == "2") { FunctionalWinner = f2; }
+    if (fpick == "3") { FunctionalWinner = f3; }
+    print("[selector picked Functional: " + fpick + "]");
+    print("[aice/archive] BEGIN FunctionalWinner"); print(FunctionalWinner); print("[aice/archive] END FunctionalWinner");
+    print("");
+
+    print("===== GENERATION 4B: FunctionalOOP =====");
+    print("genome: paradigm=FunctionalOOP, target_language=OCaml_or_Scala_style, state_representation=algebraic_data_type_or_sealed_trait, transition_style=pure_next_method_or_pattern_match, control_abstraction=method_calls_with_expression_core, data_abstraction=module_or_class_plus_ADT, encapsulation=object_or_module_boundary, type_safety=high, concurrency_model=none, executable_demo=object_demo_four_ticks");
+    print("mutations: M5_Functional_to_FunctionalOOP, M9_Add_Demo");
+    print("crossover: C2_Functional_to_FunctionalOOP_from_BASICDemo, combining Functional ADT/pure next with BASIC demo shape");
+    var fo_base = task + "\n\nPrevious FunctionalWinner:\n" + FunctionalWinner + "\n\nAlso reuse BASIC demo shape:\n" + BASICWinner + "\n\nGeneration Functional OOP. Combine functional ADT/pure next with object/module boundary.";
+    var fo1 = ai_call_with_system(generator_persona, fo_base + "\nCandidate 1 style=class_with_pure_next.");
+    var fo2 = ai_call_with_system(generator_persona, fo_base + "\nCandidate 2 style=object_with_symbolic_state.");
+    var fo3 = ai_call_with_system(generator_persona, fo_base + "\nCandidate 3 style=module_plus_class.");
+    print("--- FO1 ---"); print(fo1);
+    print("--- FO2 ---"); print(fo2);
+    print("--- FO3 ---"); print(fo3);
+    var fo_payload = "Generation FunctionalOOP\nCandidates:\n1:\n" + fo1 + "\n\n2:\n" + fo2 + "\n\n3:\n" + fo3;
+    var for1 = ai_call_with_system(correctness_reviewer, fo_payload);
+    var for2 = ai_call_with_system(paradigm_reviewer, fo_payload);
+    var for3 = ai_call_with_system(engineering_reviewer, fo_payload);
+    print("[review CorrectnessReviewer FunctionalOOP]"); print(for1);
+    print("[review ParadigmReviewer FunctionalOOP]"); print(for2);
+    print("[review EngineeringReviewer FunctionalOOP]"); print(for3);
+    var fopick = ai_call_with_system(selector_persona, fo_payload + "\n\nReviews:\n" + for1 + "\n" + for2 + "\n" + for3);
+    var FunctionalOOPWinner = fo1;
+    if (fopick == "2") { FunctionalOOPWinner = fo2; }
+    if (fopick == "3") { FunctionalOOPWinner = fo3; }
+    print("[selector picked FunctionalOOP: " + fopick + "]");
+    print("[aice/archive] BEGIN FunctionalOOPWinner"); print(FunctionalOOPWinner); print("[aice/archive] END FunctionalOOPWinner");
+    print("");
+
+    print("===== JOIN and GENERATION 5: ParallelOOP =====");
+    print("parents: JavaOOPWinner, FunctionalOOPWinner");
+    print("genome: paradigm=ParallelOOP, target_language=ABCL, state_representation=symbolic_state_owned_by_actor, transition_style=actor_method_uses_pure_next_cases, control_abstraction=asynchronous_send_messages, data_abstraction=TrafficLight_actor_class, encapsulation=single_state_owner_actor, type_safety=guarded_symbolic_state, concurrency_model=actor_messages, executable_demo=controller_sends_four_ticks");
+    print("mutations: M6_Join_to_ParallelOOP, M10_Add_State_Owner, M9_Add_Demo");
+    print("crossover: C3_JavaOOP_FunctionalOOP_to_ParallelOOP, Java OOP contributes state owner/interface; Functional OOP contributes symbolic pure transition; child uses ABCL actor messages");
+    var p_base = task + "\n\nParent JavaOOPWinner:\n" + JavaOOPWinner + "\n\nParent FunctionalOOPWinner:\n" + FunctionalOOPWinner + "\n\nGeneration Parallel OOP. Target ABCL/c+. Use actors/classes, new, send, method tick, single state owner, four tick demo.";
+    var p1 = ai_call_with_system(generator_persona, p_base + "\nCandidate 1 style=single_TrafficLight_actor.");
+    var p2 = ai_call_with_system(generator_persona, p_base + "\nCandidate 2 style=controller_sends_ticks.");
+    var p3 = ai_call_with_system(generator_persona, p_base + "\nCandidate 3 style=parallel_tick_requests_with_ordered_state_owner.");
+    print("--- P1 ---"); print(p1);
+    print("--- P2 ---"); print(p2);
+    print("--- P3 ---"); print(p3);
+    var p_payload = "Generation ParallelOOP\nCandidates:\n1:\n" + p1 + "\n\n2:\n" + p2 + "\n\n3:\n" + p3;
+    var pr1 = ai_call_with_system(correctness_reviewer, p_payload);
+    var pr2 = ai_call_with_system(paradigm_reviewer, p_payload);
+    var pr3 = ai_call_with_system(engineering_reviewer, p_payload);
+    print("[review CorrectnessReviewer ParallelOOP]"); print(pr1);
+    print("[review ParadigmReviewer ParallelOOP]"); print(pr2);
+    print("[review EngineeringReviewer ParallelOOP]"); print(pr3);
+    var ppick = ai_call_with_system(selector_persona, p_payload + "\n\nReviews:\n" + pr1 + "\n" + pr2 + "\n" + pr3);
+    var ParallelOOPWinner = p1;
+    if (ppick == "2") { ParallelOOPWinner = p2; }
+    if (ppick == "3") { ParallelOOPWinner = p3; }
+    print("[selector picked ParallelOOP: " + ppick + "]");
+    print("[aice/archive] BEGIN ParallelOOPWinner"); print(ParallelOOPWinner); print("[aice/archive] END ParallelOOPWinner");
+    print("");
+
+    print("===== REPORT =====");
+    print("topology: Assembler -> BASIC -> fork { C -> Java OOP, Functional -> Functional OOP } -> Parallel OOP");
+    print("final_archive: ParallelOOPWinner");
+    print(ai_usage());
+  }
+}
+
+var coordinator = new TrafficLightParadigmEvolution();
+send coordinator.run();

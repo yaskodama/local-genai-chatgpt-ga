@@ -405,6 +405,17 @@ let rec process_command line =
         (String.concat ", " (List.map (fun (m,a)-> Printf.sprintf "%s/%d" m a) ms_arity));
     | _ -> ()
     ) !program_buffer;
+    (* Persistent <top> actor — re-used across all top-level stmts so that
+       global variables (e.g. `var x = now obj.foo()`) survive into later
+       prints / sends in the same compile. *)
+    let top_actor =
+      match Hashtbl.find_opt Eval_thread.actor_table "<top>" with
+      | Some a -> a
+      | None ->
+          let a = Eval_thread.create_actor "<top>" "<top>" in
+          Hashtbl.add Eval_thread.actor_table "<top>" a;
+          a
+    in
     List.iter (function
     | Global s -> (
       match s.sdesc with
@@ -426,6 +437,10 @@ let rec process_command line =
             ) obj.methods;
             Hashtbl.add Eval_thread.actor_table name actor_inst;
             ignore (Thread.create (fun () -> Eval_thread.actor_loop actor_inst) ());
+            (* Bind the actor name in <top> env as VString so subsequent
+               globals can resolve it (e.g. `now calc.add(...)` looks up
+               `calc` and gets the actor name back). *)
+            Hashtbl.replace top_actor.env name (Eval_thread.VString name);
             let init_opt = List.find_opt (fun (m:Ast.method_decl) -> m.mname = "init") obj.methods in
             (match init_opt with
             | None ->
@@ -438,7 +453,13 @@ let rec process_command line =
                 else
                   Eval_thread.send_message ~from:"<new>" name (mk_stmt (CallStmt ("init", args)))
 		  ));
-        | _ -> ())
+        | _ ->
+            (* Plain VarDecl: evaluate rhs in <top> actor and bind. *)
+            (try
+               let v = Eval_thread.eval_expr top_actor rhs in
+               Hashtbl.replace top_actor.env name v
+             with exn ->
+               Printf.printf "[Top-level VarDecl %s error] %s\n%!" name (Printexc.to_string exn)))
       | Send (tgt, mname, args) -> (
         pending_global_sends := (fun () ->
           Eval_thread.send_message ~from:"<top>" (string_of_send_target tgt) (mk_stmt (CallStmt (mname, args)))
@@ -449,13 +470,23 @@ let rec process_command line =
           ) :: !pending_global_sends)
       | CallStmt (fname, args) -> (
           (* Top-level call (for prims like web_listen / web_expose / print) *)
-          let dummy = Eval_thread.create_actor "<top>" "<top>" in
           try
-            let vs = List.map (Eval_thread.eval_expr dummy) args in
-            ignore (Eval_thread.call_prim fname vs)
+            let vs = List.map (Eval_thread.eval_expr top_actor) args in
+            if fname = "print" then begin
+              match vs with
+              | [v] -> print_endline (Eval_thread.string_of_value v)
+              | _ -> failwith "print(s): arity 1 expected"
+            end else
+              ignore (Eval_thread.call_prim fname vs)
           with exn ->
             Printf.printf "[Top-level CallStmt error] %s\n%!" (Printexc.to_string exn)
         )
+      | Assign (name, rhs) -> (
+          try
+            let v = Eval_thread.eval_expr top_actor rhs in
+            Hashtbl.replace top_actor.env name v
+          with exn ->
+            Printf.printf "[Top-level Assign %s error] %s\n%!" name (Printexc.to_string exn))
       | _ -> ())
     | Class _ -> ()
     ) !program_buffer;
@@ -847,8 +878,10 @@ let () =
       in
       (match get_current_msg_id () with
        | Some id ->
-           (* If a /api/json/call request is waiting on this msg_id,
-              resolve its slot so the HTTP response can return. *)
+           (* If an in-process now/future is waiting on this msg_id,
+              fulfill its slot with the OCaml value. *)
+           ignore (Eval_thread.try_fulfill_reply_slot id v);
+           (* Also resolve any /api/json/call HTTP slot waiting on the same id. *)
            ignore (Web_gateway.try_resolve_reply_slot id json_val);
            push_web_evt (Printf.sprintf "[REPLY] id=%s value=%s" id s)
        | None    -> push_web_evt (Printf.sprintf "[REPLY] value=%s" s));

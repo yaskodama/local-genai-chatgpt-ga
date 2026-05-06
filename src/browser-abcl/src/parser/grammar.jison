@@ -10,6 +10,9 @@
 "else"       return 'ELSE';
 "send!"      return 'UNSAFESEND';
 "send"       return 'SEND';
+"now"        return 'NOW';
+"future"     return 'FUTURE';
+"await"      return 'AWAIT';
 "print"      return 'PRINT';
 "reply"      return 'REPLY';
 "new"        return 'NEW';
@@ -117,6 +120,7 @@ stmt
   | PRINT '(' expr ')' ';'                       { $$ = yy.Print($3); }
   | REPLY '(' expr ')' ';'                       { $$ = yy.Reply($3); }
   | CALL IDENT '(' args ')' ';'                  { $$ = yy.CallStmt($2, $4); }
+  | IDENT '(' args ')' ';'                       { $$ = yy.CallStmt($1, $3); }
   | IF '(' expr ')' '{' stmts '}' else_opt       { $$ = yy.If($3, yy.Seq($6), $8); }
   | SELECT '{' select_cases timeout_opt '}'      { $$ = yy.Select($3, $4.ms, $4.body); }
   ;
@@ -163,6 +167,9 @@ expr
   | IDENT                     { $$ = yy.Var($1); }
   | NEW IDENT '(' args ')'    { $$ = yy.NewExpr($2, $4); }
   | IDENT '(' args ')'        { $$ = yy.CallExpr($1, $3); }
+  | NOW IDENT '.' IDENT '(' args ')'    { $$ = yy.Now($2, $4, $6); }
+  | FUTURE IDENT '.' IDENT '(' args ')' { $$ = yy.Future($2, $4, $6); }
+  | AWAIT expr                          { $$ = yy.Await($2); }
   | '(' expr ')'              { $$ = $2; }
   | expr '+' expr             { $$ = yy.Binop('+', $1, $3); }
   | expr '-' expr             { $$ = yy.Binop('-', $1, $3); }

@@ -1,0 +1,14 @@
+// now / future / await の動作確認
+class Calc {
+  method add(a, b) {
+    reply(a + b);
+  }
+}
+
+var calc = new Calc();
+var now_result = now calc.add(1, 2);
+print("now result = " + now_result);
+
+var future_result = future calc.add(10, 20);
+var awaited_result = await future_result;
+print("future result = " + awaited_result);

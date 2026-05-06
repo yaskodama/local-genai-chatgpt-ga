@@ -1,0 +1,114 @@
+aice ReceptionWorkflowZEvolution {
+
+  target_language = ABCL;
+
+  task = "Create a correct reception workflow program for the OCaml ABCL/c+ runtime from the specification. If target_language is any, choose the simplest language that satisfies the formal checks; otherwise use the selected target language.";
+
+  specification {
+    entities {
+      "Participant";
+      "Reception";
+      "RegisteredLedger";
+      "SameDayLedger";
+      "Materials";
+      "Receipt";
+    }
+
+    state {
+      "registered ledger contains pre-registered participants";
+      "same-day ledger contains accepted same-day participants";
+      "fee status is paid or unpaid";
+      "materials are issued only after acceptance";
+    }
+
+    invariants {
+      "A participant must receive materials only when registered or same-day accepted";
+      "A participant must receive a receipt only when the participation fee is paid";
+      "Rejected participants must not be written to the same-day ledger";
+      "Every accepted same-day participant must be written to the same-day ledger after fee collection";
+    }
+
+    operations {
+      "lookup participant in registered ledger";
+      "collect fee for same-day participant";
+      "write accepted same-day participant to same-day ledger";
+      "issue materials and receipt";
+      "reject participant when fee is unpaid";
+    }
+
+    acceptance {
+      "The final program demonstrates a registered participant";
+      "The final program demonstrates a same-day paid participant";
+      "The final program demonstrates a rejected unpaid participant";
+      "The final program includes a final formal verification step against the Z specification";
+    }
+  }
+
+  formal_check {
+    convert initial_specification to Z;
+    transform predicate_normal_form;
+    transform state_transition_model;
+    reviewers 3;
+    select best_review by consistency, invariant_preservation, acceptance_coverage;
+    repair contradictions by logical_consensus;
+    carry repaired_specification to next_generation;
+  }
+
+  evolution ReceptionWorkflowZGA {
+    genome {
+      target_language;
+      z_schema;
+      predicate_normal_form;
+      state_transition_model;
+      repair_policy;
+      generated_program;
+      final_formal_review;
+    }
+
+    population 3;
+    generations 5;
+
+    seed InitialLogicalSpec {
+      target_language = any;
+      repair_policy = logical_consensus;
+      final_formal_review = required;
+    }
+
+    mutate manual {
+      rule M1_TargetLanguagePolicy {
+        target = target_language;
+        from = any;
+        to = ABCL;
+        reason = "Use OCaml ABCL/c+ as the default target. The meta file may still select any or another concrete target language explicitly.";
+      }
+
+      rule M2_ZFirst {
+        target = z_schema;
+        from = absent;
+        to = generated_from_initial_specification;
+        reason = "Check the first specification by translating it to Z before program generation.";
+      }
+
+      rule M3_TwoLogicalTransforms {
+        target = predicate_normal_form;
+        from = absent;
+        to = checked_with_state_transition_model;
+        reason = "Use two recommended logical transformations and compare their findings.";
+      }
+
+      rule M4_ReviewThree {
+        target = final_formal_review;
+        from = single_review;
+        to = three_reviews_best_decision;
+        reason = "Run three reviews again at the end and select the best logical decision.";
+      }
+
+      rule M5_FinalProgramCheck {
+        target = generated_program;
+        from = unchecked;
+        to = checked_against_z_specification;
+        reason = "The final program is accepted only after checking against the logical Z specification.";
+      }
+    }
+  }
+}

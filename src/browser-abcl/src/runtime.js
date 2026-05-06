@@ -21,6 +21,31 @@ export class Runtime {
     this.dronePositions = new Map();   // droneId → {x,y}
     this.droneStates    = new Map();   // droneId → 0(flying)/1(arrived)/2(dead)
     this.droneKnowledge = new Map();   // droneId → Set of known obstacle ids
+
+    // ---- Reply slots for now / future / await -----------------------
+    // JS is single-threaded, so `now`/`await` need a synchronous "drain":
+    // we keep processing actor mailboxes one message at a time until the
+    // target slot is fulfilled by some actor's reply().
+    this.replySlots = new Map();         // slotId → { fulfilled, value }
+    this._nextSlotId = 1;
+
+    // ---- Bounded buffer visualization state -------------------------
+    this.bufState = null;                // null until `call buf_init(cap);`
+
+    // ---- Slider-driven runtime variables ----------------------------
+    // Read by ABCL/c+ programs via the prod_speed() / cons_speed()
+    // builtins. The console UI binds sliders to these fields so timings
+    // can be tuned live without re-running the program.
+    this._prodSpeed = 120;
+    this._consSpeed = 420;
+
+    // ---- AIOS coordination + protocol traces ------------------------
+    this._aiosServices = new Map();   // alias → actor name
+    this._aiosEvents   = [];
+    this._protoDefs    = new Map();   // name → ["a.m", ...]
+    this._protoActive  = new Map();   // sid → {name, idx, ended}
+    this._protoEvents  = [];
+    this._protoSeq     = 0;
   }
 
   setCanvas(canvas) {
@@ -32,6 +57,8 @@ export class Runtime {
     this.actors.clear();
     this.nextId = 1;
     this.replies = [];
+    this.replySlots.clear();
+    this._nextSlotId = 1;
     this.scene.clear();
     this.philoStates.clear();
     this.forkStates.clear();
@@ -43,6 +70,13 @@ export class Runtime {
     this.dronePositions.clear();
     this.droneStates.clear();
     this.droneKnowledge.clear();
+    this.bufState = null;
+    this._aiosServices.clear();
+    this._aiosEvents.length = 0;
+    this._protoDefs.clear();
+    this._protoActive.clear();
+    this._protoEvents.length = 0;
+    this._protoSeq = 0;
     if (this.canvas) {
       const ctx = this.canvas.getContext("2d");
       ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
@@ -126,8 +160,9 @@ export class Runtime {
     return actor.methods.has(methodName) || this.hasSelectableMethod(actor, methodName);
   }
 
-  // Enqueue a message — never dispatches synchronously (actor threads handle it)
-  send(actorName, methodName, args, unsafe = false, senderName = null) {
+  // Enqueue a message — never dispatches synchronously (actor threads handle it).
+  // slotId (optional) lets `now`/`future` correlate the reply back to a caller.
+  send(actorName, methodName, args, unsafe = false, senderName = null, slotId = null) {
     const actor = this.actors.get(actorName);
     if (!actor) {
       if (unsafe) return;
@@ -136,10 +171,59 @@ export class Runtime {
     if (!unsafe && !this.knowsMessage(actor, methodName)) {
       throw new Error(`unknown method: ${actor.className}.${methodName}`);
     }
-    actor.mailbox.push({ methodName, args, unsafe, senderName });
+    actor.mailbox.push({ methodName, args, unsafe, senderName, slotId });
     this.print(`[send] ${actorName}.${methodName}(${args.join(", ")})`);
     // Only schedule if not currently inside this actor's invoke
     if (!actor.processing) this.scheduleActor(actor);
+  }
+
+  // ---- Reply slot helpers (for now / future / await) ----------------
+  newReplySlot() {
+    const id = "rs-" + (this._nextSlotId++);
+    this.replySlots.set(id, { fulfilled: false, value: null });
+    return id;
+  }
+
+  fulfillReplySlot(slotId, value) {
+    const slot = this.replySlots.get(slotId);
+    if (slot && !slot.fulfilled) {
+      slot.fulfilled = true;
+      slot.value = value;
+    }
+  }
+
+  // Find any actor with a dispatchable message and process exactly one of
+  // them, synchronously (bypassing setTimeout). Returns true if a message
+  // was processed, false if nothing was dispatchable.
+  _drainOneStep() {
+    for (const [, actor] of this.actors) {
+      if (actor.processing) continue;
+      const idx = actor.mailbox.findIndex(m => actor.methods.has(m.methodName));
+      if (idx < 0) continue;
+      const msg = actor.mailbox.splice(idx, 1)[0];
+      actor.processing = true;
+      actor.__currentSlotId = msg.slotId || null;
+      try {
+        this.invoke(actor, msg.methodName, msg.args, msg.unsafe, msg.senderName);
+      } catch (e) {
+        this.print(`[ERROR in ${actor.name}.${msg.methodName}] ${e.message}`);
+      }
+      actor.__currentSlotId = null;
+      actor.processing = false;
+      return true;
+    }
+    return false;
+  }
+
+  // Drain actor mailboxes until the given slot is fulfilled. Throws if no
+  // progress can be made and the slot is still pending.
+  drainUntilSlot(slotId) {
+    while (!this.replySlots.get(slotId).fulfilled) {
+      if (!this._drainOneStep()) {
+        throw new Error(`await/now deadlock: slot ${slotId} not fulfilled`);
+      }
+    }
+    return this.replySlots.get(slotId).value;
   }
 
   // Schedule an actor to process its next dispatchable message
@@ -219,6 +303,15 @@ export class Runtime {
       case "Reply": {
         const v = this.evalExpr(stmt.expr, env);
         this.replies.push(v);
+        // If the current actor was invoked via now/future, fulfill the slot
+        // so the awaiting caller can unblock.
+        const actorName = env.__currentActor;
+        if (actorName) {
+          const actor = this.actors.get(actorName);
+          if (actor && actor.__currentSlotId) {
+            this.fulfillReplySlot(actor.__currentSlotId, v);
+          }
+        }
         this.print(`[REPLY] value=${v}`);
         return v;
       }
@@ -284,6 +377,10 @@ export class Runtime {
     const actorName = env.__currentActor || null;
     const actor = actorName ? this.actors.get(actorName) : null;
 
+    // AIOS / protocol builtins: shared dispatch (also reachable from CallExpr)
+    const ap = this._dispatchAiosProtocol(name, args, env);
+    if (ap.handled) return ap.value;
+
     switch (name) {
       case "wait": {
         // Delay next message dispatch for this actor
@@ -342,6 +439,62 @@ export class Runtime {
       case "print":
         this.print(args[0]);
         break;
+
+      // ---------------- Bounded buffer visualization -------------
+      case "buf_init": {
+        const cap = Number(args[0]) || 4;
+        this.bufState = {
+          cap,
+          slots: new Array(cap).fill(null),
+          pstate: "idle", cstate: "idle",
+          pn: 0, cn: 0,
+        };
+        this._redrawCanvas();
+        break;
+      }
+      case "buf_set": {
+        if (!this.bufState) break;
+        const idx = Number(args[0]);
+        const val = args[1];
+        if (idx >= 0 && idx < this.bufState.slots.length) {
+          this.bufState.slots[idx] = val;
+          this._redrawCanvas();
+        }
+        break;
+      }
+      case "buf_clear": {
+        if (!this.bufState) break;
+        const idx = Number(args[0]);
+        if (idx >= 0 && idx < this.bufState.slots.length) {
+          this.bufState.slots[idx] = null;
+          this._redrawCanvas();
+        }
+        break;
+      }
+      case "buf_pstate": {
+        if (!this.bufState) break;
+        this.bufState.pstate = String(args[0]);
+        this._redrawCanvas();
+        break;
+      }
+      case "buf_cstate": {
+        if (!this.bufState) break;
+        this.bufState.cstate = String(args[0]);
+        this._redrawCanvas();
+        break;
+      }
+      case "buf_pn": {
+        if (!this.bufState) break;
+        this.bufState.pn = Number(args[0]) || 0;
+        this._redrawCanvas();
+        break;
+      }
+      case "buf_cn": {
+        if (!this.bufState) break;
+        this.bufState.cn = Number(args[0]) || 0;
+        this._redrawCanvas();
+        break;
+      }
 
       // ---------------- Drone simulator built-ins ----------------
       case "world_setup": {
@@ -475,6 +628,117 @@ export class Runtime {
     if (this.droneWorld) {
       this._drawDroneWorld(ctx, W, H);
     }
+
+    // Bounded buffer
+    if (this.bufState) {
+      this._drawBufferState(ctx, W, H);
+    }
+  }
+
+  _drawBufferState(ctx, W, H) {
+    const s = this.bufState;
+    const cap = s.cap;
+
+    // Layout: producer box (left) — buffer slots (middle) — consumer box (right)
+    const PROD_X = 60;
+    const CONS_X = W - 60;
+    const ROW_Y  = Math.floor(H / 2);
+
+    const slotW = Math.max(18, Math.min(40, Math.floor((W - 240) / cap) - 2));
+    const slotH = 36;
+    const gap   = 2;
+    const totalW = cap * slotW + (cap - 1) * gap;
+    const bufLeft = Math.floor(W / 2 - totalW / 2);
+    const slotCx = (i) => bufLeft + i * (slotW + gap) + slotW / 2;
+
+    // Background row
+    ctx.fillStyle = "#10101e";
+    ctx.fillRect(bufLeft - 10, ROW_Y - slotH/2 - 6, totalW + 20, slotH + 12);
+
+    // Producer box
+    {
+      const blocked = s.pstate === "blocked";
+      ctx.fillStyle   = blocked ? "#3a2410" : "#142848";
+      ctx.strokeStyle = blocked ? "#ff9955" : "#66ccff";
+      ctx.lineWidth = 2;
+      ctx.fillRect(PROD_X - 40, ROW_Y - 28, 80, 56);
+      ctx.strokeRect(PROD_X - 40, ROW_Y - 28, 80, 56);
+      ctx.fillStyle = "#fff";
+      ctx.font = "bold 12px monospace";
+      ctx.textAlign = "center";
+      ctx.fillText("Producer", PROD_X, ROW_Y - 8);
+      ctx.fillStyle = blocked ? "#ff9955" : "#aef";
+      ctx.font = "10px monospace";
+      ctx.fillText(blocked ? "BLOCKED" : (s.pstate || "idle"), PROD_X, ROW_Y + 8);
+      ctx.fillStyle = "#88c0ff";
+      ctx.fillText("sent=" + s.pn, PROD_X, ROW_Y + 22);
+    }
+
+    // Consumer box
+    {
+      const blocked = s.cstate === "blocked";
+      ctx.fillStyle   = blocked ? "#3a2410" : "#3a2a14";
+      ctx.strokeStyle = blocked ? "#ff9955" : "#ffcc66";
+      ctx.lineWidth = 2;
+      ctx.fillRect(CONS_X - 40, ROW_Y - 28, 80, 56);
+      ctx.strokeRect(CONS_X - 40, ROW_Y - 28, 80, 56);
+      ctx.fillStyle = "#fff";
+      ctx.font = "bold 12px monospace";
+      ctx.textAlign = "center";
+      ctx.fillText("Consumer", CONS_X, ROW_Y - 8);
+      ctx.fillStyle = blocked ? "#ff9955" : "#fe9";
+      ctx.font = "10px monospace";
+      ctx.fillText(blocked ? "BLOCKED" : (s.cstate || "idle"), CONS_X, ROW_Y + 8);
+      ctx.fillStyle = "#ffd088";
+      ctx.fillText("taken=" + s.cn, CONS_X, ROW_Y + 22);
+    }
+
+    // Arrows from producer to buffer & buffer to consumer
+    ctx.strokeStyle = "#445";
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(PROD_X + 40, ROW_Y);
+    ctx.lineTo(bufLeft - 4, ROW_Y);
+    ctx.moveTo(bufLeft + totalW + 4, ROW_Y);
+    ctx.lineTo(CONS_X - 40, ROW_Y);
+    ctx.stroke();
+
+    // Buffer slots
+    let filled = 0;
+    for (let i = 0; i < cap; i++) {
+      const x = bufLeft + i * (slotW + gap);
+      const y = ROW_Y - slotH / 2;
+      const v = s.slots[i];
+      const has = v !== null && v !== undefined;
+      if (has) filled++;
+      ctx.fillStyle   = has ? "#123a20" : "#101022";
+      ctx.fillRect(x, y, slotW, slotH);
+      ctx.strokeStyle = has ? "#55ff55" : "#445";
+      ctx.lineWidth = 1.5;
+      ctx.strokeRect(x, y, slotW, slotH);
+      if (has) {
+        ctx.fillStyle = "#afe";
+        ctx.textAlign = "center";
+        const lbl = String(v);
+        ctx.font = lbl.length <= 2 ? "bold 13px monospace"
+                 : lbl.length <= 3 ? "bold 10px monospace"
+                 :                   "bold 8px monospace";
+        ctx.fillText(lbl, x + slotW/2, ROW_Y + 5);
+      }
+      // index labels every few slots
+      if (cap <= 8 || i % 5 === 0 || i === cap - 1) {
+        ctx.fillStyle = "#667";
+        ctx.font = "9px monospace";
+        ctx.fillText("s" + i, x + slotW/2, y + slotH + 10);
+      }
+    }
+
+    // count display
+    ctx.fillStyle = "#778";
+    ctx.font = "11px monospace";
+    ctx.textAlign = "center";
+    ctx.fillText(`count = ${filled} / ${cap}`,
+                 bufLeft + totalW / 2, ROW_Y - slotH/2 - 14);
   }
 
   _drawDroneWorld(ctx, W, H) {
@@ -650,27 +914,42 @@ export class Runtime {
         const dist = Math.hypot(dx, dy) || 1;
         const ux = dx / dist, uy = dy / dist;
 
-        // 50 % along rest→holder gives both the fork and the arrow room to
-        // breathe. 100 % would land ON the philosopher.
-        const forkX = restX + ux * dist * 0.50;
-        const forkY = restY + uy * dist * 0.50;
+        // Fork bar at 30 % along rest→holder (close to rest) so the arrow
+        // shaft has plenty of room. Arrow head sits a fixed pixel margin
+        // OUTSIDE the philosopher's circle (radius 22) so the arrowhead is
+        // clearly visible and never inside the circle.
+        const PHILO_RADIUS = 22;
+        const ARROW_OUTSIDE_GAP = 8;       // gap between arrow tip and circle edge
+        const endPxFromHolder = PHILO_RADIUS + ARROW_OUTSIDE_GAP;  // 30
+        const forkFrac      = 0.30;        // bar near rest, leaves room for a long shaft
+        const startFrac     = forkFrac + 0.05;  // shaft starts just past the bar
+        let   endFrac       = 1 - endPxFromHolder / dist;
+        // Guarantee a visibly long shaft. On small canvases the geometry
+        // gets squeezed; we keep the shaft at least 20 % of dist long even
+        // if that means the arrowhead lands just inside the circle.
+        const MIN_SHAFT_FRAC = 0.20;
+        if (endFrac < startFrac + MIN_SHAFT_FRAC) endFrac = startFrac + MIN_SHAFT_FRAC;
+
+        const forkX = restX + ux * dist * forkFrac;
+        const forkY = restY + uy * dist * forkFrac;
         const color = PHILO_COLORS[holderId];
 
-        // Fork bar — perpendicular to the rest→holder line
+        // Fork bar — perpendicular to the rest→holder line.
+        // Bar half-length scales with dist so it stays proportional.
+        const barHalf = Math.max(6, Math.min(12, dist * 0.15));
         const px = -uy, py = ux;
         ctx.strokeStyle = color;
         ctx.lineWidth = 3;
         ctx.beginPath();
-        ctx.moveTo(forkX - px * 9, forkY - py * 9);
-        ctx.lineTo(forkX + px * 9, forkY + py * 9);
+        ctx.moveTo(forkX - px * barHalf, forkY - py * barHalf);
+        ctx.lineTo(forkX + px * barHalf, forkY + py * barHalf);
         ctx.stroke();
 
-        // Arrow shaft — from the fork position to the edge of the
-        // philosopher's circle (24 units short of the centre).
-        const shaftStartX = forkX + ux * 5;
-        const shaftStartY = forkY + uy * 5;
-        const shaftEndX   = holder.x - ux * 24;
-        const shaftEndY   = holder.y - uy * 24;
+        // Arrow shaft — from past the fork bar toward the holder.
+        const shaftStartX = restX + ux * dist * startFrac;
+        const shaftStartY = restY + uy * dist * startFrac;
+        const shaftEndX   = restX + ux * dist * endFrac;
+        const shaftEndY   = restY + uy * dist * endFrac;
         ctx.lineWidth = 2;
         ctx.beginPath();
         ctx.moveTo(shaftStartX, shaftStartY);
@@ -730,6 +1009,121 @@ export class Runtime {
       ctx.font = "9px monospace";
       ctx.fillText(STATE_NAME[state], p.x, p.y + 36);
     }
+  }
+
+  // Shared AIOS/Protocol dispatch used by both evalExpr CallExpr and
+  // _callBuiltin (CallStmt). args are pre-evaluated. Returns
+  // { handled: true, value } when matched, or { handled: false }.
+  _dispatchAiosProtocol(name, args, env) {
+    const senderName = (env && env.__currentActor) || null;
+    switch (name) {
+      case "aios_register_service":
+        this.aiosRegisterService(args[0], args[1]);
+        return { handled: true, value: null };
+      case "aios_emit":
+        this.aiosEmit(args[0]);
+        return { handled: true, value: null };
+      case "aios_services":
+        return { handled: true, value: this.aiosServicesString() };
+      case "aios_events":
+        return { handled: true, value: this.aiosEventsString() };
+      case "aios_now": {
+        const alias = String(args[0]);
+        const method = String(args[1]);
+        const rest = args.slice(2);
+        const target = this.aiosResolve(alias);
+        const slotId = this.newReplySlot();
+        this.send(target, method, rest, false, senderName, slotId);
+        const reply = this.drainUntilSlot(slotId);
+        this.protocolObserveAll(alias, method);
+        return { handled: true, value: reply };
+      }
+      case "aios_future": {
+        const alias = String(args[0]);
+        const method = String(args[1]);
+        const rest = args.slice(2);
+        const target = this.aiosResolve(alias);
+        const slotId = this.newReplySlot();
+        this.send(target, method, rest, false, senderName, slotId);
+        return { handled: true, value: { __future: true, slotId,
+                 _aios_meta: { alias, method, args: rest } } };
+      }
+      case "protocol_define":
+        this.protocolDefine(args[0], args[1]);
+        return { handled: true, value: null };
+      case "protocol_start":
+        return { handled: true, value: this.protocolStart(String(args[0])) };
+      case "protocol_state":
+        return { handled: true, value: this.protocolStateString(String(args[0])) };
+      case "protocol_end":
+        this.protocolEnd(String(args[0]));
+        return { handled: true, value: null };
+      case "protocol_events":
+        return { handled: true, value: this.protocolEventsString() };
+    }
+    return { handled: false };
+  }
+
+  // ---- AIOS coordination helpers ------------------------------------
+  aiosResolve(alias) {
+    return this._aiosServices.get(alias) || alias;
+  }
+  aiosEmit(msg) { this._aiosEvents.push("[EMIT] " + String(msg)); }
+  aiosRegisterService(alias, actorName) {
+    this._aiosServices.set(String(alias), String(actorName));
+    this._aiosEvents.push(`[REGISTER] ${alias} -> ${actorName}`);
+  }
+  aiosServicesString() {
+    return "[" + Array.from(this._aiosServices.entries())
+      .map(([a, n]) => `${a}=${n}`).join(", ") + "]";
+  }
+  aiosEventsString() { return this._aiosEvents.join("\n"); }
+
+  protocolDefine(name, spec) {
+    const steps = String(spec).split("->").map(s => s.trim()).filter(Boolean);
+    this._protoDefs.set(String(name), steps);
+    this._protoEvents.push(`[PROTO_DEF] ${name} = [${steps.join(", ")}]`);
+  }
+  protocolStart(name) {
+    if (!this._protoDefs.has(name)) throw new Error("protocol_start: unknown " + name);
+    this._protoSeq += 1;
+    const sid = `proto-${this._protoSeq}-${Date.now()}`;
+    this._protoActive.set(sid, { name, idx: 0, ended: false });
+    this._protoEvents.push(`[PROTO_START] sid=${sid} proto=${name}`);
+    return sid;
+  }
+  protocolObserveAll(actorAlias, method) {
+    const step = `${actorAlias}.${method}`;
+    for (const [, st] of this._protoActive) {
+      if (st.ended) continue;
+      const defn = this._protoDefs.get(st.name) || [];
+      if (st.idx < defn.length && defn[st.idx] === step) st.idx += 1;
+    }
+  }
+  protocolStateString(sid) {
+    const st = this._protoActive.get(sid);
+    if (!st) return `[PROTO_STATE] sid=${sid} (unknown)`;
+    const defn = this._protoDefs.get(st.name) || [];
+    const next = st.idx < defn.length ? defn[st.idx] : "(done)";
+    const status = st.ended ? "ended" : "running";
+    return `[PROTO_STATE] sid=${sid} proto=${st.name} progress=${st.idx}/${defn.length} next=${next} status=${status}`;
+  }
+  protocolEnd(sid) {
+    const st = this._protoActive.get(sid);
+    if (st) st.ended = true;
+    this._protoEvents.push(`[PROTO_END] sid=${sid}`);
+  }
+  protocolEventsString() { return this._protoEvents.join("\n"); }
+
+  // ---- AI integration -----------------------------------------------
+  // Default: a synchronous mock provider so the cooperative sample runs
+  // offline in any environment. To use a real provider, override this
+  // method on a Runtime instance (the Node runner in run_cooperative.mjs
+  // does this with execSync + curl).
+  _aiCall(prompt, system = null) {
+    const sysTag = system ? ` sys=(${String(system).slice(0, 12)}...)` : "";
+    const head = String(prompt ?? "").slice(0, 60);
+    return `[mock] reply${sysTag} for: ${head}`;
   }
 
   evalTarget(target, env) {
@@ -817,9 +1211,48 @@ export class Runtime {
           case "floor": return Math.floor(args[0]);
           case "rand":  return Math.floor(Math.random() * (Number(args[0]) || 1));
           case "randf": return Math.random() * (Number(args[0]) || 1);
-          default:
+          case "ai_call":             return this._aiCall(args[0]);
+          case "ai_call_with_system": return this._aiCall(args[1], args[0]);
+          case "prod_speed":          return this._prodSpeed;
+          case "cons_speed":          return this._consSpeed;
+          default: {
+            // AIOS / protocol builtins (shared with CallStmt)
+            const ap = this._dispatchAiosProtocol(expr.name, args, env);
+            if (ap.handled) return ap.value;
             throw new Error("Unknown function: " + expr.name);
+          }
         }
+      }
+
+      case "Now": {
+        const senderName = env.__currentActor || null;
+        const target = this.evalTarget(expr.target, env);
+        const args = expr.args.map(a => this.evalExpr(a, env));
+        const slotId = this.newReplySlot();
+        this.send(target, expr.method, args, false, senderName, slotId);
+        return this.drainUntilSlot(slotId);
+      }
+
+      case "Future": {
+        const senderName = env.__currentActor || null;
+        const target = this.evalTarget(expr.target, env);
+        const args = expr.args.map(a => this.evalExpr(a, env));
+        const slotId = this.newReplySlot();
+        this.send(target, expr.method, args, false, senderName, slotId);
+        return { __future: true, slotId };
+      }
+
+      case "Await": {
+        const fut = this.evalExpr(expr.expr, env);
+        if (fut && typeof fut === "object" && fut.__future) {
+          const value = this.drainUntilSlot(fut.slotId);
+          if (fut._aios_meta) {
+            this.protocolObserveAll(fut._aios_meta.alias, fut._aios_meta.method);
+          }
+          return value;
+        }
+        // await on a plain value is a no-op (parity with Python)
+        return fut;
       }
 
       case "NewExpr": {

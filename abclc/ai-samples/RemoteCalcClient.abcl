@@ -1,0 +1,7 @@
+// Remote-target now / future / await against another REPL on localhost:9091.
+var now_result = now remote("localhost:9091", "calc").add(7, 35);
+print("remote now result = " + now_result);
+
+var future_result = future remote("localhost:9091", "calc").add(100, 23);
+var awaited_result = await future_result;
+print("remote future result = " + awaited_result);

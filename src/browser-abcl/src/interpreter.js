@@ -14,8 +14,12 @@ export class Interpreter {
     for (const cls of ast.classes) {
       this.runtime.registerClass(cls);
     }
+    // Share a single top-level env across statements so global vars created
+    // by one stmt (e.g. `var plan = now planner.plan(q);`) are visible to
+    // later stmts (e.g. `print("[plan] " + plan);`).
+    const topEnv = {};
     for (const st of ast.statements) {
-      this.runtime.evalStmt(st, {});
+      this.runtime.evalStmt(st, topEnv);
     }
     // Start all actor threads (setTimeout-based)
     this.runtime.scheduleAllActors();

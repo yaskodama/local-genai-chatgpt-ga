@@ -1,0 +1,53 @@
+// 3-role AI cooperation expressed with now / future / await.
+// Mirrors the OCaml/Python CooperativeNowFuture sample.
+class Planner {
+  method plan(q) {
+    var sketch = ai_call_with_system(
+      "You are a planner. Output a 1-line plan, no preamble.",
+      q);
+    reply(sketch);
+  }
+}
+
+class Solver {
+  method solve(plan) {
+    var ans = ai_call_with_system(
+      "You are a solver. Apply the given plan and answer concisely.",
+      plan);
+    reply(ans);
+  }
+}
+
+class Reviewer {
+  method review(ans) {
+    var verdict = ai_call_with_system(
+      "You are a reviewer. Reply with 'OK: <reason>' or 'NG: <reason>' only.",
+      ans);
+    reply(verdict);
+  }
+  method brief() {
+    var b = ai_call("In one short sentence: what does a code reviewer look for?");
+    reply(b);
+  }
+}
+
+var planner  = new Planner();
+var solver   = new Solver();
+var reviewer = new Reviewer();
+
+var question = "What is 12 * 11? Show only the number.";
+
+var plan = now planner.plan(question);
+print("[plan] " + plan);
+
+var fut_ans   = future solver.solve(plan);
+var fut_brief = future reviewer.brief();
+
+var answer = await fut_ans;
+print("[answer] " + answer);
+
+var brief = await fut_brief;
+print("[reviewer brief] " + brief);
+
+var verdict = now reviewer.review(answer);
+print("[verdict] " + verdict);

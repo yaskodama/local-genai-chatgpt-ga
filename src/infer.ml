@@ -154,6 +154,15 @@ let rec infer_expr (env:env) (e:expr) : ty =
         List.iter (fun e -> unify ~loc:e.loc (infer_expr env e) t1) rest;
         TArray t1
     end
+  | Now (_target, _meth, args)
+  | Future (_target, _meth, args) ->
+      (* now/future はメソッド呼び出しだが、reply の値型は静的に追えないため
+         permissive に TAny で扱う (引数だけは型推論を回す) *)
+      List.iter (fun e -> ignore (infer_expr env e)) args;
+      TAny
+  | Await fe ->
+      ignore (infer_expr env fe);
+      TAny
     
 let set (e:env) (name:string) (sch:scheme) =
   Hashtbl.replace e name [sch]

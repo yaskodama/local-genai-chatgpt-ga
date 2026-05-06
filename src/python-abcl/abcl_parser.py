@@ -49,6 +49,10 @@ class _Builder(Transformer):
     def future_call(self, target, method, args):
         return FutureCall(str(target), str(method), list(args.children))
 
+    def await_expr(self, e):
+        # `await x` desugars to the existing `await(x)` builtin call.
+        return CallExpr("await", [e])
+
     @v_args(inline=False)
     def args(self, items):
         return _ArgList(items)

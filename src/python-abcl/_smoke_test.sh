@@ -15,7 +15,7 @@ cd "$(dirname "$0")"
 WITH_AI=0
 if [ "${1:-}" = "--with-ai" ]; then WITH_AI=1; fi
 
-PY=${PYTHON:-/usr/bin/python3}
+PY=${PYTHON:-/opt/homebrew/bin/python3.13}
 TIMEOUT=${TIMEOUT:-5}
 AI_TIMEOUT=${AI_TIMEOUT:-90}
 LOGDIR=_smoke_logs

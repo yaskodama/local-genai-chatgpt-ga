@@ -1,0 +1,758 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <title>ABCL/c+ — 協調問題解決ワークスペース</title>
+  <style>
+    :root {
+      --bg: #0d0d1a;
+      --panel: #16162a;
+      --border: #2a2a45;
+      --text: #ddd;
+      --muted: #888;
+      --user-bg: #2a2a3d;
+      --user-fg: #ddd;
+      --planner-bg: #1e3a5f;
+      --planner-fg: #aed7ff;
+      --solver-bg: #1e4d35;
+      --solver-fg: #a8e9c4;
+      --reviewer-bg: #5c3a16;
+      --reviewer-fg: #ffd8a8;
+      --verdict-bg: #5c2030;
+      --verdict-fg: #ffb3c0;
+    }
+    html, body { height: 100%; }
+    body {
+      margin: 0; background: var(--bg); color: var(--text);
+      font-family: -apple-system, "Helvetica Neue", "Hiragino Sans", system-ui, monospace;
+      display: flex; flex-direction: column;
+    }
+    header {
+      padding: 10px 14px; background: var(--panel); border-bottom: 1px solid var(--border);
+      display: flex; flex-direction: column; gap: 8px; flex-shrink: 0;
+    }
+    header h1 { margin: 0; font-size: 1.0rem; color: #faa; }
+    header .sub { font-size: 0.78rem; color: var(--muted); }
+    .controls { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+    .controls input[type="text"] {
+      flex: 1; min-width: 280px; padding: 7px 10px; border-radius: 5px;
+      background: #0a0a14; color: var(--text); border: 1px solid var(--border);
+      font-family: inherit; font-size: 0.9rem;
+    }
+    .controls button {
+      padding: 7px 14px; background: #2a2a45; color: #aef;
+      border: 1px solid #446; border-radius: 5px; cursor: pointer; font-family: inherit;
+      font-size: 0.9rem;
+    }
+    .controls button:hover { background: #334; }
+    .controls a { color: #6af; font-size: 0.85rem; text-decoration: none; }
+    .controls a:hover { text-decoration: underline; }
+    .legend { display: flex; gap: 10px; flex-wrap: wrap; font-size: 0.72rem; color: var(--muted); }
+    .legend span { display: flex; align-items: center; gap: 4px; }
+    .legend .dot { width: 9px; height: 9px; border-radius: 50%; }
+
+    /* Main area: console (left) + chat (right) */
+    #mainArea { flex: 1; display: flex; min-height: 120px; overflow: hidden; }
+    #consoleOut {
+      flex: 1; min-width: 160px; overflow: auto; padding: 10px;
+      white-space: pre-wrap; background: #000; color: #0f0;
+      font-family: monospace; font-size: 0.85rem;
+    }
+    #vResizer { width: 6px; background: #333; cursor: col-resize; flex-shrink: 0; }
+    #chat {
+      width: 520px; min-width: 220px; flex-shrink: 0; overflow-y: auto;
+      padding: 10px; background: var(--panel);
+      display: flex; flex-direction: column; gap: 8px;
+    }
+    #chat .row { display: flex; gap: 8px; align-items: flex-start; }
+    #chat .row.right { flex-direction: row-reverse; }
+    #chat .avatar {
+      width: 32px; height: 32px; border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-weight: bold; font-size: 0.85rem; flex-shrink: 0;
+    }
+    #chat .avatar.user     { background: var(--user-bg);     color: var(--user-fg); }
+    #chat .avatar.planner  { background: var(--planner-bg);  color: var(--planner-fg); }
+    #chat .avatar.solver   { background: var(--solver-bg);   color: var(--solver-fg); }
+    #chat .avatar.reviewer { background: var(--reviewer-bg); color: var(--reviewer-fg); }
+    #chat .avatar.verdict  { background: var(--verdict-bg);  color: var(--verdict-fg); }
+    #chat .stack { display: flex; flex-direction: column; min-width: 0; flex: 1; }
+    #chat .meta {
+      font-size: 0.68rem; color: var(--muted); margin-bottom: 3px;
+      display: flex; gap: 5px; align-items: center;
+    }
+    #chat .meta .stage {
+      background: #2a2a45; color: #888; padding: 1px 5px;
+      border-radius: 3px; font-size: 0.65rem;
+    }
+    #chat .bubble {
+      max-width: 85%; padding: 8px 11px; border-radius: 11px;
+      font-size: 0.85rem; line-height: 1.4; word-break: break-word; white-space: pre-wrap;
+      animation: bub-fade 0.3s ease-out;
+    }
+    #chat .bubble.user     { background: var(--user-bg);     color: var(--user-fg); border-top-right-radius: 3px; }
+    #chat .bubble.planner  { background: var(--planner-bg);  color: var(--planner-fg); border-top-left-radius: 3px; }
+    #chat .bubble.solver   { background: var(--solver-bg);   color: var(--solver-fg); border-top-left-radius: 3px; }
+    #chat .bubble.reviewer { background: var(--reviewer-bg); color: var(--reviewer-fg); border-top-left-radius: 3px; }
+    #chat .bubble.verdict  { background: var(--verdict-bg);  color: var(--verdict-fg); border-top-left-radius: 3px; }
+    #chat .placeholder { color: #666; font-size: 0.8rem; text-align: center; padding: 14px; }
+    @keyframes bub-fade { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
+
+    #hResizer { height: 6px; background: #333; cursor: row-resize; flex-shrink: 0; }
+    #src {
+      width: 100%; height: 220px; background: #111; color: #fff;
+      font-family: monospace; padding: 8px; box-sizing: border-box;
+      border: 0; flex-shrink: 0; font-size: 0.82rem;
+    }
+
+    footer {
+      padding: 4px 12px; background: var(--panel); color: var(--muted);
+      font-size: 0.75rem; flex-shrink: 0; border-top: 1px solid var(--border);
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>ABCL/c+ — 協調問題解決ワークスペース <small style="color:var(--muted);font-weight:normal">(Planner → Solver → Reviewer)</small></h1>
+    <div class="sub">
+      質問を入力して「▶ 実行」を押すと、Planner が方針を立て、Solver と Reviewer が並列に動き、最後に Reviewer が判定します。下のテキストエリアでソースコードを直接編集することもできます。
+    </div>
+    <div class="controls">
+      <select id="sampleSelect" style="padding:7px 10px;background:#0a0a14;color:#ddd;border:1px solid #2a2a45;border-radius:5px;font-family:inherit;">
+        <option value="cooperative">標準 (now/future/await + AI mock)</option>
+        <option value="threeActor">3 アクター協調型 (aios_* + protocol_*)</option>
+        <option value="sequential">逐次分業型 (Coordinator + 3 worker, 日本語)</option>
+        <option value="nowSend">now メッセージ送信型 (Coordinator + 3 worker, 日本語)</option>
+        <option value="futureJoin">future 並列合流型 (planner→[solver‖brief]→review, 日本語)</option>
+      </select>
+      <input id="question" type="text" value="What is 12 * 11? Show only the number." placeholder="問題を入力 (例: フィボナッチを 5 個…)">
+      <button id="btnRun">▶ 実行</button>
+      <button id="btnStop">■ 停止</button>
+      <button id="btnClear">クリア</button>
+      <button id="btnReset">サンプル再読込</button>
+      <a href="/browser_console.html" title="Console に戻る">← Console</a>
+    </div>
+    <div class="legend">
+      <span><span class="dot" style="background:var(--user-bg);"></span>あなたの質問</span>
+      <span><span class="dot" style="background:var(--planner-bg);"></span>Planner</span>
+      <span><span class="dot" style="background:var(--solver-bg);"></span>Solver</span>
+      <span><span class="dot" style="background:var(--reviewer-bg);"></span>Reviewer (観点)</span>
+      <span><span class="dot" style="background:var(--verdict-bg);"></span>Reviewer (判定)</span>
+    </div>
+  </header>
+
+  <div id="mainArea">
+    <div id="consoleOut"></div>
+    <div id="vResizer" title="ドラッグで左右の幅を変更"></div>
+    <div id="chat"></div>
+  </div>
+  <div id="hResizer" title="ドラッグで上下の高さを変更"></div>
+  <textarea id="src" spellcheck="false"></textarea>
+  <footer><span id="status">Ready.</span></footer>
+
+  <script src="/src/parser/parser.js"></script>
+  <script type="module">
+    import * as AST from "/src/ast.js";
+    import { Interpreter } from "/src/interpreter.js";
+
+    const ROLES = {
+      "[plan]":           { kind: "planner",  who: "Planner",  emoji: "🧠", stage: "now planner.plan" },
+      "[answer]":         { kind: "solver",   who: "Solver",   emoji: "⚙️", stage: "future + await solver.solve" },
+      "[reviewer brief]": { kind: "reviewer", who: "Reviewer", emoji: "📋", stage: "future + await reviewer.brief" },
+      "[verdict]":        { kind: "verdict",  who: "Reviewer", emoji: "✅", stage: "now reviewer.review" },
+    };
+
+    function escapeForAbclString(s) {
+      return s.replace(/\\/g, "\\\\").replace(/"/g, '\\"');
+    }
+
+    // Default question per sample — chosen so each demo runs sensibly out
+    // of the box without the user having to think about input wording.
+    const DEFAULT_QUESTIONS = {
+      cooperative: "What is 12 * 11? Show only the number.",
+      threeActor:  "What is 12 * 11? Show only the number.",
+      sequential:  "3つの開発チームがあります。各チームは4個のモジュールを担当します。各モジュールには2個のテストが必要です。すでに5個のテストが完了しています。最後に配備チェックが3項目あります。残っている作業は合計何件ですか。",
+      nowSend:     "3つの開発チームがあります。各チームは4個のモジュールを担当します。各モジュールには2個のテストが必要です。すでに5個のテストが完了しています。最後に配備チェックが3項目あります。残っている作業は合計何件ですか。",
+      futureJoin:  "3つの開発チームがあります。各チームは4個のモジュールを担当します。各モジュールには2個のテストが必要です。すでに5個のテストが完了しています。最後に配備チェックが3項目あります。残っている作業は合計何件ですか。",
+    };
+
+    function buildSource(question) {
+      const sample = document.getElementById("sampleSelect").value;
+      if (sample === "threeActor") return buildThreeActorSource(question);
+      if (sample === "sequential") return buildSequentialSource(question);
+      if (sample === "nowSend")    return buildNowSendSource(question);
+      if (sample === "futureJoin") return buildFutureJoinSource(question);
+      return buildCooperativeSource(question);
+    }
+
+    function buildCooperativeSource(question) {
+      const q = escapeForAbclString(question);
+      return `\
+class Planner {
+  method plan(q) {
+    var sketch = ai_call_with_system(
+      "You are a planner. Output a 1-line plan, no preamble.",
+      q);
+    reply(sketch);
+  }
+}
+
+class Solver {
+  method solve(plan) {
+    var ans = ai_call_with_system(
+      "You are a solver. Apply the given plan and answer concisely.",
+      plan);
+    reply(ans);
+  }
+}
+
+class Reviewer {
+  method review(ans) {
+    var verdict = ai_call_with_system(
+      "You are a reviewer. Reply with 'OK: <reason>' or 'NG: <reason>' only.",
+      ans);
+    reply(verdict);
+  }
+  method brief() {
+    var b = ai_call("In one short sentence: what does a code reviewer look for?");
+    reply(b);
+  }
+}
+
+var planner  = new Planner();
+var solver   = new Solver();
+var reviewer = new Reviewer();
+
+var question = "${q}";
+
+var plan = now planner.plan(question);
+print("[plan] " + plan);
+
+var fut_ans   = future solver.solve(plan);
+var fut_brief = future reviewer.brief();
+
+var answer = await fut_ans;
+print("[answer] " + answer);
+
+var brief = await fut_brief;
+print("[reviewer brief] " + brief);
+
+var verdict = now reviewer.review(answer);
+print("[verdict] " + verdict);
+`;
+    }
+
+    function buildFutureJoinSource(question) {
+      const q = escapeForAbclString(question);
+      return `\
+class PlannerActorJa {
+  method plan(problem) {
+    aios_emit("planner.start:" + problem);
+    wait(500.);
+    var plan = "計画: モジュール数、テスト数、完了済み数、配備チェック数を順に計算する";
+    aios_emit("planner.done:" + plan);
+    reply(plan);
+  }
+}
+
+class SolverActorJa {
+  method solve(problem, plan) {
+    aios_emit("solver.start:" + plan);
+    wait(2000.);
+    var answer = "答え: 3チーム x 4モジュール = 12モジュール。12 x 2 = 24テスト。24 - 5 = 19。19 + 3 = 22件。";
+    aios_emit("solver.done:" + answer);
+    reply(answer);
+  }
+}
+
+class ReviewerActorJa {
+  method brief(problem, plan) {
+    aios_emit("reviewer.brief.start:" + plan);
+    wait(2000.);
+    var brief = "要点: 12モジュール、24テスト、完了済み5、配備チェック3";
+    aios_emit("reviewer.brief.done:" + brief);
+    reply(brief);
+  }
+
+  method review(problem, answer, brief) {
+    aios_emit("reviewer.review.start:" + brief);
+    wait(500.);
+    var verdict = "判定: 正しい。残作業は22件です。";
+    aios_emit("reviewer.review.done:" + verdict);
+    reply(verdict);
+  }
+}
+
+class MainThreadActorJa {
+  method run(problem) {
+    aios_emit("main.start:" + problem);
+
+    var plan = aios_now("planner", "plan", problem);
+    aios_emit("main.after_now_plan:" + plan);
+
+    var answer_future = aios_future("solver", "solve", problem, plan);
+    var brief_future = aios_future("reviewer", "brief", problem, plan);
+    aios_emit("main.future_sent:solver+reviewer.brief");
+
+    var answer = await answer_future;
+    aios_emit("main.await_answer:" + answer);
+
+    var brief = await brief_future;
+    aios_emit("main.await_brief:" + brief);
+
+    var verdict = aios_now("reviewer", "review", problem, answer, brief);
+    aios_emit("main.after_now_review:" + verdict);
+
+    reply("最終結果: " + answer + " | " + brief + " | " + verdict);
+  }
+}
+
+var planner = new PlannerActorJa();
+var solver = new SolverActorJa();
+var reviewer = new ReviewerActorJa();
+var main_thread = new MainThreadActorJa();
+
+aios_register_service("planner", "planner");
+aios_register_service("solver", "solver");
+aios_register_service("reviewer", "reviewer");
+aios_register_service("main", "main_thread");
+
+print("== future型メッセージ送信タイムライン ==");
+print(aios_services());
+
+protocol_define("FutureTimelineJa", "main_thread.run -> planner.plan -> solver.solve -> reviewer.brief -> reviewer.review");
+var sid = protocol_start("FutureTimelineJa");
+print(protocol_state(sid));
+
+var problem = "${q}";
+var result = aios_now("main", "run", problem);
+
+print("[answer] " + result);
+print(protocol_state(sid));
+protocol_end(sid);
+print(protocol_state(sid));
+print("== セッション型イベント ==");
+print(protocol_events());
+print("== タイムラインイベント ==");
+print(aios_events());
+`;
+    }
+
+    function buildNowSendSource(question) {
+      const q = escapeForAbclString(question);
+      return `\
+class PlannerActorJa {
+  method plan(problem) {
+    aios_emit("planner.problem:" + problem);
+    var plan = "計画: 1) モジュール総数を出す 2) 必要テスト総数を出す 3) 完了済みテストを引く 4) 配備チェック項目を足す";
+    aios_emit("planner.plan:" + plan);
+    reply(plan);
+  }
+}
+
+class SolverActorJa {
+  method solve(problem, plan) {
+    aios_emit("solver.plan:" + plan);
+    var answer = "計算: 3チーム x 4モジュール = 12モジュール。12モジュール x 2テスト = 24テスト。完了済み5テストを引くと残り19テスト。配備チェック3項目を足すと、残作業は合計22件です。";
+    aios_emit("solver.answer:" + answer);
+    reply(answer);
+  }
+}
+
+class ReviewerActorJa {
+  method review(problem, plan, answer) {
+    aios_emit("reviewer.problem:" + problem);
+    aios_emit("reviewer.plan:" + plan);
+    aios_emit("reviewer.answer:" + answer);
+    var review = "レビュー: 計算は正しいです。12モジュール、24テスト、残り19テスト、配備チェック3件なので、合計22件です。";
+    aios_emit("reviewer.review:" + review);
+    reply(review);
+  }
+}
+
+class CoordinatorActorJa {
+  method solve(problem) {
+    aios_emit("coordinator.problem:" + problem);
+
+    var plan = aios_now("planner", "plan", problem);
+    aios_emit("coordinator.plan:" + plan);
+
+    var answer = aios_now("solver", "solve", problem, plan);
+    aios_emit("coordinator.answer:" + answer);
+
+    var review = aios_now("reviewer", "review", problem, plan, answer);
+    aios_emit("coordinator.review:" + review);
+
+    reply("最終回答: " + answer + " | " + review);
+  }
+}
+
+var planner = new PlannerActorJa();
+var solver = new SolverActorJa();
+var reviewer = new ReviewerActorJa();
+var coordinator = new CoordinatorActorJa();
+
+aios_register_service("planner", "planner");
+aios_register_service("solver", "solver");
+aios_register_service("reviewer", "reviewer");
+aios_register_service("coordinator", "coordinator");
+
+print("== 大きめの問題をnow型メッセージ送信で解く ==");
+print(aios_services());
+
+protocol_define("LargerProblemNowJa", "coordinator.solve -> planner.plan -> solver.solve -> reviewer.review");
+var sid = protocol_start("LargerProblemNowJa");
+print(protocol_state(sid));
+
+var problem = "${q}";
+var result = aios_now("coordinator", "solve", problem);
+
+print("[answer] " + result);
+print(protocol_state(sid));
+protocol_end(sid);
+print(protocol_state(sid));
+print("== セッション型イベント ==");
+print(protocol_events());
+print("== 協調イベント ==");
+print(aios_events());
+`;
+    }
+
+    function buildSequentialSource(question) {
+      const q = escapeForAbclString(question);
+      return `\
+class PlannerActorJa {
+  method plan(problem) {
+    aios_emit("planner.problem:" + problem);
+    var plan = "計画: 1) モジュール総数を出す 2) 必要テスト総数を出す 3) 完了済みテストを引く 4) 配備チェック項目を足す";
+    aios_emit("planner.plan:" + plan);
+    reply(plan);
+  }
+}
+
+class SolverActorJa {
+  method solve(problem, plan) {
+    aios_emit("solver.plan:" + plan);
+    var answer = "計算: 3チーム x 4モジュール = 12モジュール。12モジュール x 2テスト = 24テスト。完了済み5テストを引くと残り19テスト。配備チェック3項目を足すと、残作業は合計22件です。";
+    aios_emit("solver.answer:" + answer);
+    reply(answer);
+  }
+}
+
+class ReviewerActorJa {
+  method review(problem, plan, answer) {
+    aios_emit("reviewer.problem:" + problem);
+    aios_emit("reviewer.plan:" + plan);
+    aios_emit("reviewer.answer:" + answer);
+    var review = "レビュー: 計算は正しいです。12モジュール、24テスト、残り19テスト、配備チェック3件なので、合計22件です。";
+    aios_emit("reviewer.review:" + review);
+    reply(review);
+  }
+}
+
+class CoordinatorActorJa {
+  method solve(problem) {
+    aios_emit("coordinator.problem:" + problem);
+
+    var plan_future = aios_future("planner", "plan", problem);
+    var plan = await plan_future;
+    aios_emit("coordinator.plan:" + plan);
+
+    var answer_future = aios_future("solver", "solve", problem, plan);
+    var answer = await answer_future;
+    aios_emit("coordinator.answer:" + answer);
+
+    var review_future = aios_future("reviewer", "review", problem, plan, answer);
+    var review = await review_future;
+    aios_emit("coordinator.review:" + review);
+
+    reply("最終回答: " + answer + " | " + review);
+  }
+}
+
+var planner = new PlannerActorJa();
+var solver = new SolverActorJa();
+var reviewer = new ReviewerActorJa();
+var coordinator = new CoordinatorActorJa();
+
+aios_register_service("planner", "planner");
+aios_register_service("solver", "solver");
+aios_register_service("reviewer", "reviewer");
+aios_register_service("coordinator", "coordinator");
+
+print("== 大きめの問題を3アクターで協調して解く ==");
+print(aios_services());
+
+protocol_define("LargerProblemFutureJa", "coordinator.solve -> planner.plan -> solver.solve -> reviewer.review");
+var sid = protocol_start("LargerProblemFutureJa");
+print(protocol_state(sid));
+
+var problem = "${q}";
+var result = aios_now("coordinator", "solve", problem);
+
+print("[answer] " + result);
+print(protocol_state(sid));
+protocol_end(sid);
+print(protocol_state(sid));
+print("== セッション型イベント ==");
+print(protocol_events());
+print("== 協調イベント ==");
+print(aios_events());
+`;
+    }
+
+    function buildThreeActorSource(question) {
+      const q = escapeForAbclString(question);
+      return `\
+class SolverActor {
+  method solve(problem) {
+    aios_emit("solver.problem:" + problem);
+    var answer = "12 because 3 boxes times 4 apples is 12";
+    aios_emit("solver.answer:" + answer);
+    reply(answer);
+  }
+}
+
+class ReviewerActor {
+  method review(problem, answer) {
+    aios_emit("reviewer.problem:" + problem);
+    aios_emit("reviewer.answer:" + answer);
+    var review = "accepted: the answer is correct";
+    aios_emit("reviewer.review:" + review);
+    reply(review);
+  }
+}
+
+class PlannerActor {
+  method solve(problem) {
+    aios_emit("planner.problem:" + problem);
+
+    var answer_future = aios_future("solver", "solve", problem);
+    var answer = await answer_future;
+    aios_emit("planner.answer:" + answer);
+
+    var review_future = aios_future("reviewer", "review", problem, answer);
+    var review = await review_future;
+    aios_emit("planner.review:" + review);
+
+    reply("answer: " + answer + " | review: " + review);
+  }
+}
+
+var solver = new SolverActor();
+var reviewer = new ReviewerActor();
+var planner = new PlannerActor();
+
+aios_register_service("solver", "solver");
+aios_register_service("reviewer", "reviewer");
+aios_register_service("planner", "planner");
+
+print("== Three actor cooperative solve ==");
+print(aios_services());
+
+protocol_define("ThreeActorSolve", "planner.solve -> solver.solve -> reviewer.review");
+var sid = protocol_start("ThreeActorSolve");
+print(protocol_state(sid));
+
+var question = "${q}";
+var result = aios_now("planner", "solve", question);
+
+print("[answer] " + result);
+print(protocol_state(sid));
+protocol_end(sid);
+print(protocol_state(sid));
+print("== protocol events ==");
+print(protocol_events());
+print("== coordination events ==");
+print(aios_events());
+`;
+    }
+
+    const consoleOut = document.getElementById("consoleOut");
+    const chat       = document.getElementById("chat");
+    const src        = document.getElementById("src");
+    const qInput     = document.getElementById("question");
+    const statusEl   = document.getElementById("status");
+
+    function chatPlaceholder() {
+      chat.innerHTML = `<div class="placeholder">▶ 実行 を押すと協調が始まり、各役の発話がここに吹き出しで現れます。</div>`;
+    }
+    function clearChat()    { chat.innerHTML = ""; }
+    function clearConsole() { consoleOut.textContent = ""; }
+    function setStatus(s)   { statusEl.textContent = s; }
+
+    function addBubble({ kind, who, emoji, stage, text, side = "left" }) {
+      if (chat.querySelector(".placeholder")) clearChat();
+      const row = document.createElement("div");
+      row.className = "row" + (side === "right" ? " right" : "");
+      const avatar = document.createElement("div");
+      avatar.className = "avatar " + kind;
+      avatar.textContent = emoji;
+      row.appendChild(avatar);
+      const stack = document.createElement("div");
+      stack.className = "stack";
+      const meta = document.createElement("div");
+      meta.className = "meta";
+      meta.innerHTML = `<strong>${who}</strong>` + (stage ? `<span class="stage">${stage}</span>` : "");
+      stack.appendChild(meta);
+      const bubble = document.createElement("div");
+      bubble.className = "bubble " + kind;
+      bubble.textContent = text;
+      stack.appendChild(bubble);
+      row.appendChild(stack);
+      chat.appendChild(row);
+      chat.scrollTop = chat.scrollHeight;
+    }
+
+    function appendConsole(line) {
+      if (line === undefined || line === null) return;
+      const s = String(line);
+      // Route the 4 cooperative-pattern labels to chat bubbles…
+      for (const [label, role] of Object.entries(ROLES)) {
+        if (s.startsWith(label)) {
+          addBubble({ ...role, text: s.slice(label.length).trimStart() });
+          return;
+        }
+      }
+      // …everything else (parse log, [send], [REPLY], [actor created],
+      // [ERROR], …) goes to the green console — same as browser_console.html.
+      consoleOut.textContent += s + (s.endsWith("\n") ? "" : "\n");
+      consoleOut.scrollTop = consoleOut.scrollHeight;
+    }
+
+    let activeTimers = [], running = false;
+    const _origSetTimeout = window.setTimeout.bind(window);
+    window.setTimeout = function(fn, ms, ...rest) {
+      const id = _origSetTimeout(fn, ms, ...rest);
+      if (running) activeTimers.push(id);
+      return id;
+    };
+    function stopAll() {
+      running = false;
+      activeTimers.forEach(id => clearTimeout(id));
+      activeTimers = [];
+    }
+
+    function syncSourceFromQuestion() {
+      src.value = buildSource(qInput.value || "");
+    }
+
+    function run() {
+      stopAll();
+      clearChat();
+      clearConsole();
+      setStatus("running…");
+
+      // Show user bubble first
+      const m = src.value.match(/var\s+question\s*=\s*"((?:[^"\\]|\\.)*)"\s*;/);
+      const userQ = m ? m[1].replace(/\\"/g,'"').replace(/\\\\/g,"\\") : qInput.value;
+      addBubble({ kind: "user", who: "You", emoji: "👤", stage: "input", text: userQ, side: "right" });
+
+      // Match browser_console.html's tracing: surface >>> run / [parse ok] /
+      // [actor created] / [send] / [REPLY] in the left console panel.
+      appendConsole(">>> run");
+      const parser = window.parser;
+      if (!parser) { setStatus("ERROR: parser not loaded"); return; }
+      parser.yy = AST;
+      running = true;
+      try {
+        const ast = parser.parse(src.value);
+        appendConsole("[parse ok]");
+        const interp = new Interpreter(appendConsole);
+        interp.runProgram(ast);
+        setStatus("done.");
+      } catch (e) {
+        running = false;
+        appendConsole("[ERROR] " + e);
+        setStatus("error: " + e.message);
+      }
+    }
+
+    // ---- resizers ----
+    function attachVResizer(handle, panel, container) {
+      let dragging = false, startX = 0, startW = 0;
+      handle.addEventListener("mousedown", (e) => {
+        dragging = true;
+        startX = e.clientX;
+        startW = panel.getBoundingClientRect().width;
+        document.body.style.cursor = "col-resize";
+        document.body.style.userSelect = "none";
+        e.preventDefault();
+      });
+      document.addEventListener("mousemove", (e) => {
+        if (!dragging) return;
+        const dx = e.clientX - startX;
+        const cw = container.getBoundingClientRect().width;
+        const newW = Math.max(220, Math.min(cw - 200, startW - dx));
+        panel.style.width = newW + "px";
+      });
+      document.addEventListener("mouseup", () => {
+        if (dragging) { dragging = false; document.body.style.cursor = ""; document.body.style.userSelect = ""; }
+      });
+    }
+    function attachHResizer(handle, lowerEl) {
+      let dragging = false, startY = 0, startH = 0;
+      handle.addEventListener("mousedown", (e) => {
+        dragging = true;
+        startY = e.clientY;
+        startH = lowerEl.getBoundingClientRect().height;
+        document.body.style.cursor = "row-resize";
+        document.body.style.userSelect = "none";
+        e.preventDefault();
+      });
+      document.addEventListener("mousemove", (e) => {
+        if (!dragging) return;
+        const dy = e.clientY - startY;
+        const newH = Math.max(60, Math.min(window.innerHeight - 240, startH - dy));
+        lowerEl.style.height = newH + "px";
+      });
+      document.addEventListener("mouseup", () => {
+        if (dragging) { dragging = false; document.body.style.cursor = ""; document.body.style.userSelect = ""; }
+      });
+    }
+    attachVResizer(document.getElementById("vResizer"),
+                   document.getElementById("chat"),
+                   document.getElementById("mainArea"));
+    attachHResizer(document.getElementById("hResizer"), src);
+
+    // ---- buttons ----
+    document.getElementById("btnRun").addEventListener("click", () => {
+      // If the question input was edited, regenerate the source first
+      const m = src.value.match(/var\s+question\s*=\s*"((?:[^"\\]|\\.)*)"\s*;/);
+      const inSrc = m ? m[1].replace(/\\"/g,'"').replace(/\\\\/g,"\\") : null;
+      if (inSrc !== qInput.value) syncSourceFromQuestion();
+      run();
+    });
+    document.getElementById("btnStop").addEventListener("click", () => { stopAll(); setStatus("stopped."); });
+    document.getElementById("btnClear").addEventListener("click", () => {
+      stopAll(); clearChat(); clearConsole(); chatPlaceholder(); setStatus("cleared.");
+    });
+    document.getElementById("btnReset").addEventListener("click", () => {
+      const sel = document.getElementById("sampleSelect").value;
+      qInput.value = DEFAULT_QUESTIONS[sel] || DEFAULT_QUESTIONS.cooperative;
+      syncSourceFromQuestion();
+      setStatus("sample reset.");
+    });
+    qInput.addEventListener("input", syncSourceFromQuestion);
+    qInput.addEventListener("keydown", (e) => {
+      if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); document.getElementById("btnRun").click(); }
+    });
+    document.getElementById("sampleSelect").addEventListener("change", (e) => {
+      stopAll();
+      clearChat();
+      clearConsole();
+      chatPlaceholder();
+      // Reset the question to the sample's default so the demo runs sensibly.
+      const def = DEFAULT_QUESTIONS[e.target.value];
+      if (def) qInput.value = def;
+      syncSourceFromQuestion();
+      setStatus("sample switched.");
+    });
+
+    // initial source + placeholder + auto-run
+    syncSourceFromQuestion();
+    chatPlaceholder();
+    window.addEventListener("load", run);
+  </script>
+</body>
+</html>

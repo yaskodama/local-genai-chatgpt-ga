@@ -1,4 +1,8 @@
 (* ast.ml *)
+type send_target =
+  | LocalTarget of string
+  | RemoteTarget of string * string
+
 type expr = {
   loc : Location.t;
   desc : expr_desc;
@@ -12,10 +16,9 @@ type expr = {
   | Var of string
   | New of string * expr list    (* new Line(10,20) *)
   | Array of expr list * Types.ty option
-
-type send_target =
-  | LocalTarget of string
-  | RemoteTarget of string * string
+  | Now of send_target * string * expr list      (* now obj.method(args) — block, return reply *)
+  | Future of send_target * string * expr list   (* future obj.method(args) — return future handle *)
+  | Await of expr                                (* await future_expr — block, return value *)
 
 type stmt_desc =
   | Assign of string * expr
@@ -88,6 +91,14 @@ let rec string_of_expr (e:expr) : string =
   | Array (es, _tyopt) ->
     let xs = es |> List.map string_of_expr |> String.concat ", " in
     Printf.sprintf "Array[%s]" xs
+  | Now (tgt, m, args) ->
+    let xs = args |> List.map string_of_expr |> String.concat ", " in
+    Printf.sprintf "Now(%s.%s, [%s])" (match tgt with LocalTarget t -> t | RemoteTarget (h,a) -> "remote("^h^","^a^")") m xs
+  | Future (tgt, m, args) ->
+    let xs = args |> List.map string_of_expr |> String.concat ", " in
+    Printf.sprintf "Future(%s.%s, [%s])" (match tgt with LocalTarget t -> t | RemoteTarget (h,a) -> "remote("^h^","^a^")") m xs
+  | Await e ->
+    Printf.sprintf "Await(%s)" (string_of_expr e)
 
 let string_of_send_target = function
   | LocalTarget t -> t
@@ -146,6 +157,11 @@ let label_of_expr (e:expr) : string =
   | Var x          -> "Var " ^ x
   | New (cls, _)   -> "New " ^ cls                 (* ★ 追加 *)
   | Array (_,_)    -> "Array"
+  | Now (LocalTarget t, m, _) -> "Now " ^ t ^ "." ^ m
+  | Now (RemoteTarget (h,a), m, _) -> "Now remote(" ^ h ^ "," ^ a ^ ")." ^ m
+  | Future (LocalTarget t, m, _) -> "Future " ^ t ^ "." ^ m
+  | Future (RemoteTarget (h,a), m, _) -> "Future remote(" ^ h ^ "," ^ a ^ ")." ^ m
+  | Await _        -> "Await"
 ;;
 
 let children_of_expr (e:expr) : ('a list) =
@@ -154,6 +170,9 @@ let children_of_expr (e:expr) : ('a list) =
   | Call (_,arg)  -> arg
   | Expr e        -> [e]
   | New (_, args)              -> args                 (* ★ 追加 *)
+  | Now (_, _, args)           -> args
+  | Future (_, _, args)        -> args
+  | Await fe                   -> [fe]
   | _             -> []
 
 let rec dump_expr ?(prefix="") ?(is_last=true) (e : expr) =
@@ -302,6 +321,14 @@ let rec pprint_expr ?(lvl=0) (e:expr) : string =
         (String.concat ", " (List.map (pprint_expr ~lvl) args))
   | Array (es, _) ->
     "[" ^ String.concat ", " (List.map (pprint_expr ~lvl) es) ^ "]"
+  | Now (tgt, m, args) ->
+    Printf.sprintf "now %s.%s(%s)" (string_of_send_target tgt) m
+      (String.concat ", " (List.map (pprint_expr ~lvl) args))
+  | Future (tgt, m, args) ->
+    Printf.sprintf "future %s.%s(%s)" (string_of_send_target tgt) m
+      (String.concat ", " (List.map (pprint_expr ~lvl) args))
+  | Await fe ->
+    Printf.sprintf "await %s" (pprint_expr ~lvl fe)
 
 let rec pprint_stmt ?(lvl=0) (s:stmt) : string =
   let indent = String.make (lvl*2) ' ' in

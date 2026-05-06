@@ -473,7 +473,15 @@ def _b_await(args, frame, interp):
         return None
     f = args[0]
     if isinstance(f, Future):
-        return f.get()
+        v = f.get()
+        # If this future was created via aios_future, record the call into
+        # any active protocol / session now that we know the reply value.
+        meta = getattr(f, "_aios_meta", None)
+        if meta is not None:
+            from abcl_aios import record_observation
+            alias, method, call_args = meta
+            record_observation(alias, method, call_args, v)
+        return v
     # Allow await on a plain value as a no-op for ergonomic chaining
     return f
 
@@ -747,6 +755,170 @@ def _b_remote_future(args, frame, interp):
             fut.set(None)
     threading.Thread(target=_runner, daemon=True).start()
     return fut
+
+
+# =====================================================================
+# AIOS coordination + protocol traces + typed session protocols.
+# Implemented in abcl_aios.py; we just expose the entry points as
+# language-level builtins.
+# =====================================================================
+
+def _b_aios_register_service(args, frame, interp):
+    from abcl_aios import aios_register_service
+    if len(args) != 2:
+        raise ValueError("aios_register_service(alias, actor)")
+    aios_register_service(_to_str(args[0]), _to_str(args[1]))
+    return None
+
+
+def _b_aios_emit(args, frame, interp):
+    from abcl_aios import aios_emit
+    if len(args) != 1:
+        raise ValueError("aios_emit(msg)")
+    aios_emit(_to_str(args[0]))
+    return None
+
+
+def _b_aios_services(args, frame, interp):
+    from abcl_aios import aios_services_list
+    items = aios_services_list()
+    return "[" + ", ".join(f"{a}={n}" for (a, n) in items) + "]"
+
+
+def _b_aios_events(args, frame, interp):
+    from abcl_aios import aios_events_list
+    return "\n".join(aios_events_list())
+
+
+def _aios_dispatch(alias_or_actor, method, args, frame, interp):
+    """Resolve alias -> actor, send the method synchronously, return Future."""
+    from abcl_aios import aios_resolve
+    name = aios_resolve(_to_str(alias_or_actor))
+    tgt = interp._resolve_actor(name, frame)
+    if tgt is None:
+        raise RuntimeError(f"aios: actor not found for alias {alias_or_actor!r}")
+    fut = Future()
+    tgt.send_method(method, args, sender=frame.actor, reply_future=fut)
+    return fut
+
+
+def _b_aios_now(args, frame, interp):
+    """aios_now(alias, method, ...args) — sync: send to actor by alias,
+    wait for reply, then auto-observe against all active protocols and
+    sessions. Returns the reply value."""
+    from abcl_aios import record_observation
+    if len(args) < 2:
+        raise ValueError("aios_now(alias, method, ...args)")
+    alias = _to_str(args[0])
+    method = _to_str(args[1])
+    rest = list(args[2:])
+    fut = _aios_dispatch(alias, method, rest, frame, interp)
+    reply = fut.get()
+    record_observation(alias, method, rest, reply)
+    return reply
+
+
+def _b_aios_future(args, frame, interp):
+    """aios_future(alias, method, ...args) — async: send to actor by alias,
+    return a Future immediately. The await() builtin will auto-observe the
+    call against active protocols/sessions when the reply arrives."""
+    if len(args) < 2:
+        raise ValueError("aios_future(alias, method, ...args)")
+    alias = _to_str(args[0])
+    method = _to_str(args[1])
+    rest = list(args[2:])
+    fut = _aios_dispatch(alias, method, rest, frame, interp)
+    # Tag the future so the await() builtin can run record_observation
+    # at completion time.
+    setattr(fut, "_aios_meta", (alias, method, rest))
+    return fut
+
+
+# ---- protocol_* (order-only traces) ----
+
+def _b_protocol_define(args, frame, interp):
+    from abcl_aios import protocol_define
+    if len(args) != 2:
+        raise ValueError("protocol_define(name, spec)")
+    protocol_define(_to_str(args[0]), _to_str(args[1]))
+    return None
+
+
+def _b_protocol_start(args, frame, interp):
+    from abcl_aios import protocol_start
+    if len(args) != 1:
+        raise ValueError("protocol_start(name)")
+    return protocol_start(_to_str(args[0]))
+
+
+def _b_protocol_state(args, frame, interp):
+    from abcl_aios import protocol_state
+    if len(args) != 1:
+        raise ValueError("protocol_state(sid)")
+    return protocol_state(_to_str(args[0]))
+
+
+def _b_protocol_end(args, frame, interp):
+    from abcl_aios import protocol_end
+    if len(args) != 1:
+        raise ValueError("protocol_end(sid)")
+    protocol_end(_to_str(args[0]))
+    return None
+
+
+def _b_protocol_events(args, frame, interp):
+    from abcl_aios import protocol_events_list
+    return "\n".join(protocol_events_list())
+
+
+# ---- session_* (typed sessions, separate from regular type inference) ----
+
+def _b_session_define(args, frame, interp):
+    from abcl_aios import session_define
+    if len(args) != 2:
+        raise ValueError("session_define(name, spec)")
+    session_define(_to_str(args[0]), _to_str(args[1]))
+    return None
+
+
+def _b_session_start(args, frame, interp):
+    from abcl_aios import session_start
+    if len(args) != 1:
+        raise ValueError("session_start(name)")
+    return session_start(_to_str(args[0]))
+
+
+def _b_session_state(args, frame, interp):
+    from abcl_aios import session_state
+    if len(args) != 1:
+        raise ValueError("session_state(sid)")
+    return session_state(_to_str(args[0]))
+
+
+def _b_session_end(args, frame, interp):
+    from abcl_aios import session_end
+    if len(args) != 1:
+        raise ValueError("session_end(sid)")
+    session_end(_to_str(args[0]))
+    return None
+
+
+def _b_session_events(args, frame, interp):
+    from abcl_aios import session_events_list
+    return "\n".join(session_events_list())
+
+
+def _b_session_check(args, frame, interp):
+    """Manual hook for tests / user code that wants to assert a call."""
+    from abcl_aios import session_check
+    if len(args) < 4:
+        raise ValueError("session_check(sid, actor, method, args_array, reply)")
+    sid = _to_str(args[0])
+    actor = _to_str(args[1])
+    method = _to_str(args[2])
+    arg_list = args[3] if isinstance(args[3], list) else [args[3]]
+    reply = args[4] if len(args) >= 5 else None
+    return session_check(sid, actor, method, arg_list, reply)
 
 
 def _b_serve_forever(args, frame, interp):
@@ -1247,4 +1419,24 @@ _BUILTINS = {
     "array_push":                    _b_array_push,
     "array_concat":                  _b_array_concat,
     "array_join":                    _b_array_join,
+    # ---- AIOS coordination ----
+    "aios_register_service":         _b_aios_register_service,
+    "aios_emit":                     _b_aios_emit,
+    "aios_services":                 _b_aios_services,
+    "aios_events":                   _b_aios_events,
+    "aios_now":                      _b_aios_now,
+    "aios_future":                   _b_aios_future,
+    # ---- Protocol traces (order-only) ----
+    "protocol_define":               _b_protocol_define,
+    "protocol_start":                _b_protocol_start,
+    "protocol_state":                _b_protocol_state,
+    "protocol_end":                  _b_protocol_end,
+    "protocol_events":               _b_protocol_events,
+    # ---- Typed session protocols (separate from regular type inference) ----
+    "session_define":                _b_session_define,
+    "session_start":                 _b_session_start,
+    "session_state":                 _b_session_state,
+    "session_end":                   _b_session_end,
+    "session_events":                _b_session_events,
+    "session_check":                 _b_session_check,
 }

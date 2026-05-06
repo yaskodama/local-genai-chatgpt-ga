@@ -1,0 +1,30 @@
+// レビュアー専用ノード (review + brief 両対応)。
+// OCaml ABCL/c+ ランタイムから `now remote("host:9100","reviewer").review(...)` で
+// 呼び出されることを想定。
+//
+// Docker で起動する例:
+//   docker run -d --name abcl-reviewer-jp -p 9100:9100 \
+//     -e GEMINI_API_KEY=$GEMINI_API_KEY \
+//     abcl python3 abcl_main.py samples-remote/reviewer_node_full_jp.abcl
+
+class Reviewer {
+  var persona_review = "あなたはレビュー担当です。受け取った答えを評価し、'OK: 〜' または 'NG: 〜' の形で 1 行返してください。";
+
+  method review(ans) {
+    print("[reviewer] review 開始");
+    var v = ai_call_with_system(persona_review, ans);
+    print("[reviewer] review 完了");
+    reply(v);
+  }
+
+  method brief() {
+    print("[reviewer] brief 開始");
+    var b = ai_call("コードレビュアが見るポイントを 1 文で日本語で答えてください。");
+    print("[reviewer] brief 完了");
+    reply(b);
+  }
+}
+
+var reviewer = new Reviewer();
+web_listen(9100);
+print("[node] reviewer-full (日本語版) が http://localhost:9100 で待機中");

@@ -33,6 +33,9 @@ rule token = parse
 | "call"       { CALL }
 | "send!"      { UNSAFESEND }
 | "send"       { SEND }
+| "now"        { NOW }
+| "future"     { FUTURE }
+| "await"      { AWAIT }
 | "if"         { IF }
 | "self"       { SELF }
 | "sender"     { SENDER }

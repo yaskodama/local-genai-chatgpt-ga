@@ -1,0 +1,114 @@
+{
+  "name": "TrafficLightZEvolution",
+  "runtime": "ocaml_abcl_cplus",
+  "input": "aice-z-evolution/examples/TrafficLightZEvolution.aice",
+  "abcl": "aice-z-evolution/out/TrafficLightZEvolution.abcl",
+  "report": "aice-z-evolution/out/TrafficLightZEvolution.report.md",
+  "target_language": "ABCL",
+  "checks": [
+    {
+      "name": "z_schema_review",
+      "ok": true,
+      "score": 0.82,
+      "findings": [
+        "Z schema is structurally complete"
+      ],
+      "artifact": "[TrafficLight, LightState, Red, Yellow, Green, Tick, VALUE]\n\nSystemState\n  current_light_state_is_one_of_Red_Yellow_Green : VALUE\n  initial_light_state_is_Red : VALUE\n  tick_count_is_a_non_negative_integer : VALUE\nwhere\n    The_light_state_must_always_be_Red_or_Yellow_or_\n    The_transition_from_Red_must_produce_Yellow\n    The_transition_from_Yellow_must_produce_Green\n    The_transition_from_Green_must_produce_Red\n    A_tick_must_increase_tick_count_by_one\n    The_program_must_not_create_an_unknown_light_sta\n\ninitialize_traffic_light_to_Red\n  Delta SystemState\n  input? : VALUE\n  output! : VALUE\n  pre initialize_traffic_light_to_Red_pre\n  post initialize_traffic_light_to_Red_post\n\nperform_one_tick_transition\n  Delta SystemState\n  input? : VALUE\n  output! : VALUE\n  pre perform_one_tick_transition_pre\n  post perform_one_tick_transition_post\n\nprint_current_light_state\n  Delta SystemState\n  input? : VALUE\n  output! : VALUE\n  pre print_current_light_state_pre\n  post print_current_light_state_post\n\ndemonstrate_Red_to_Yellow_to_Green_to_Red_cycle\n  Delta SystemState\n  input? : VALUE\n  output! : VALUE\n  pre demonstrate_Red_to_Yellow_to_Green_to_Red_cycle_pre\n  post demonstrate_Red_to_Yellow_to_Green_to_Red_cycle_post"
+    },
+    {
+      "name": "predicate_normal_form",
+      "ok": true,
+      "score": 0.9,
+      "findings": [
+        "no direct predicate contradiction found"
+      ],
+      "artifact": "P1: light state red or yellow or green\nP2: transition from red produce yellow\nP3: transition from yellow produce green\nP4: transition from green produce red\nP5: tick increase tick count by one\nP6: not program create unknown light state\nP7: initialize traffic light red\nP8: perform one tick transition\nP9: print current light state\nP10: demonstrate red yellow green red cycle\nP11: final program valid ocaml abcl c\nP12: final program defines trafficlight class or actor\nP13: final program demonstrates at least four printed states\nP14: final program includes final formal verification step against z specification"
+    },
+    {
+      "name": "state_transition_model",
+      "ok": true,
+      "score": 0.71,
+      "findings": [
+        "operation may not mention tracked state: demonstrate Red to Yellow to Green to Red cycle"
+      ],
+      "artifact": "S1: current light state is one of Red, Yellow, Green\nS2: initial light state is Red\nS3: tick count is a non-negative integer\nT1: initialize traffic light to Red\nT2: perform one tick transition\nT3: print current light state\nT4: demonstrate Red to Yellow to Green to Red cycle\nI1: preserved(The light state must always be Red or Yellow or Green)\nI2: preserved(The transition from Red must produce Yellow)\nI3: preserved(The transition from Yellow must produce Green)\nI4: preserved(The transition from Green must produce Red)\nI5: preserved(A tick must increase tick count by one)\nI6: preserved(The program must not create an unknown light state)"
+    }
+  ],
+  "winners": [
+    {
+      "generation": 1,
+      "variant": "defensive",
+      "genome": {
+        "target_language": "ABCL",
+        "formal_basis": "Z + predicate_normal_form + state_transition_model",
+        "verification": "three_reviewers_then_best",
+        "repair": "logical_consensus",
+        "style": "defensive",
+        "generation": "1",
+        "mutation": "M1_Target_OCaml_ABCL: set target_language to ABCL. Use the OCaml ABCL/c+ runtime as the executable target."
+      },
+      "score": 0.865,
+      "findings": []
+    },
+    {
+      "generation": 2,
+      "variant": "auditable",
+      "genome": {
+        "target_language": "ABCL",
+        "formal_basis": "Z + predicate_normal_form + state_transition_model",
+        "verification": "three_reviewers_then_best",
+        "repair": "logical_consensus",
+        "style": "auditable",
+        "generation": "2",
+        "mutation": "M2_Integer_to_Symbolic_State: set state_representation to symbolic_state_names. Replace raw numeric states with Red, Yellow, and Green names."
+      },
+      "score": 0.925,
+      "findings": []
+    },
+    {
+      "generation": 3,
+      "variant": "defensive",
+      "genome": {
+        "target_language": "ABCL",
+        "formal_basis": "Z + predicate_normal_form + state_transition_model",
+        "verification": "three_reviewers_then_best",
+        "repair": "logical_consensus",
+        "style": "defensive",
+        "generation": "3",
+        "mutation": "M3_Wrap_to_Explicit_Cases: set transition_style to explicit_transition_cases. Make Red->Yellow, Yellow->Green, and Green->Red explicit."
+      },
+      "score": 0.9849999999999999,
+      "findings": []
+    },
+    {
+      "generation": 4,
+      "variant": "defensive",
+      "genome": {
+        "target_language": "ABCL",
+        "formal_basis": "Z + predicate_normal_form + state_transition_model",
+        "verification": "three_reviewers_then_best",
+        "repair": "logical_consensus",
+        "style": "defensive",
+        "generation": "4",
+        "mutation": "M4_Add_Actor_Encapsulation: set encapsulation to TrafficLight_class. Keep current state and tick behavior inside a TrafficLight class/actor."
+      },
+      "score": 1.0,
+      "findings": []
+    },
+    {
+      "generation": 5,
+      "variant": "auditable",
+      "genome": {
+        "target_language": "ABCL",
+        "formal_basis": "Z + predicate_normal_form + state_transition_model",
+        "verification": "three_reviewers_then_best",
+        "repair": "logical_consensus",
+        "style": "auditable",
+        "generation": "5",
+        "mutation": "M5_Final_Z_Check: set final_formal_review to checked_against_z_specification. Accept the final program only after three formal reviews against the Z specification."
+      },
+      "score": 1.0,
+      "findings": []
+    }
+  ]
+}
