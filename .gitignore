@@ -45,3 +45,6 @@ src/python-abcl/_smoke_logs/
 # Python bytecode
 __pycache__/
 *.pyc
+
+# Claude Code local session state
+.claude/
