@@ -29,7 +29,7 @@ from candidates.transformer_real import train_and_eval
 def main():
     import argparse
     p = argparse.ArgumentParser()
-    p.add_argument("--corpus", default="1MB", choices=["10KB", "100KB", "1MB"])
+    p.add_argument("--corpus", default="1MB", choices=["10KB", "100KB", "1MB", "10MB"])
     p.add_argument("--device", default="mps", choices=["cpu", "mps"])
     p.add_argument("--d-model", type=int, default=192)
     p.add_argument("--n-heads", type=int, default=6)
