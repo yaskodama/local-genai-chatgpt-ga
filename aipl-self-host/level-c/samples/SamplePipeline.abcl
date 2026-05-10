@@ -1,0 +1,34 @@
+// Sample 2 — full pipeline: source string → tokens → AST → eval.
+//
+// Source under test:
+//   var x = 3;
+//   var y = x * x + 4;        // 9 + 4 = 13
+//   print(y);                 // 13
+//   if (y > 10) { print(1); } // 1
+//   else { print(0); }
+//
+// Demonstrates that AIPL can run AIPL.
+
+class Driver {
+  method run() {
+    print("=== Level C — SamplePipeline ===");
+    var src: string =
+      "var x = 3;" +
+      "var y = x * x + 4;" +
+      "print(y);" +
+      "if (y > 10) { print(1); } else { print(0); }";
+
+    var tokens = tokenize(src);
+    print("[lex] " + array_len(tokens) + " tokens");
+
+    var prog = parse_program(tokens);
+    print("[parse] main has " + array_len(prog.main) + " stmts");
+
+    print("[eval] running:");
+    run_program(prog);
+    print("[eval] expected: 13, then 1");
+  }
+}
+
+var d = new Driver();
+send d.run();

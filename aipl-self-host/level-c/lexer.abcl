@@ -1,0 +1,185 @@
+// Level C — AIPL lexer (in AIPL).
+// Tokenises a small subset of AIPL source into an array of records:
+//   {kind: "INT"|"STR"|"IDENT"|"KW"|"OP"|"PUNCT"|"EOF",
+//    val: string-or-int, pos: int}
+
+// ---------- character predicates ----------
+
+function ch_is_digit(c: string) {
+  if (c == "0") { return 1; } if (c == "1") { return 1; }
+  if (c == "2") { return 1; } if (c == "3") { return 1; }
+  if (c == "4") { return 1; } if (c == "5") { return 1; }
+  if (c == "6") { return 1; } if (c == "7") { return 1; }
+  if (c == "8") { return 1; } if (c == "9") { return 1; }
+  return 0;
+}
+
+function ch_is_alpha(c: string) {
+  if (c == "_") { return 1; }
+  var alpha: string = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
+  if (str_index(alpha, c) >= 0) { return 1; }
+  return 0;
+}
+
+function ch_is_alnum(c: string) {
+  if (ch_is_alpha(c) == 1) { return 1; }
+  if (ch_is_digit(c) == 1) { return 1; }
+  return 0;
+}
+
+function ch_is_ws(c: string) {
+  if (c == " ")  { return 1; }
+  if (c == "\t") { return 1; }
+  if (c == "\n") { return 1; }
+  if (c == "\r") { return 1; }
+  return 0;
+}
+
+function is_keyword(s: string) {
+  if (s == "function") { return 1; }
+  if (s == "var")      { return 1; }
+  if (s == "return")   { return 1; }
+  if (s == "if")       { return 1; }
+  if (s == "else")     { return 1; }
+  if (s == "while")    { return 1; }
+  if (s == "do")       { return 1; }
+  if (s == "print")    { return 1; }
+  return 0;
+}
+
+function digit_value(c: string) {
+  if (c == "0") { return 0; } if (c == "1") { return 1; }
+  if (c == "2") { return 2; } if (c == "3") { return 3; }
+  if (c == "4") { return 4; } if (c == "5") { return 5; }
+  if (c == "6") { return 6; } if (c == "7") { return 7; }
+  if (c == "8") { return 8; } if (c == "9") { return 9; }
+  return 0;
+}
+
+function parse_int_str(s: string) {
+  var n: int = str_len(s);
+  var i: int = 0;
+  var v: int = 0;
+  while (i < n) do {
+    v = v * 10 + digit_value(str_sub(s, i, i + 1));
+    i = i + 1;
+  }
+  return v;
+}
+
+// ---------- helpers that scan one token kind ----------
+
+function skip_line_comment(src: string, n: int, i: int) {
+  var j: int = i;
+  var done: int = 0;
+  while (done == 0) do {
+    if (j >= n) { done = 1; }
+    else { if (str_sub(src, j, j + 1) == "\n") { j = j + 1; done = 1; } else { j = j + 1; } }
+  }
+  return j;
+}
+
+function scan_int_end(src: string, n: int, start: int) {
+  var i: int = start;
+  var done: int = 0;
+  while (done == 0) do {
+    if (i >= n) { done = 1; }
+    else { if (ch_is_digit(str_sub(src, i, i + 1)) == 1) { i = i + 1; } else { done = 1; } }
+  }
+  return i;
+}
+
+function scan_ident_end(src: string, n: int, start: int) {
+  var i: int = start;
+  var done: int = 0;
+  while (done == 0) do {
+    if (i >= n) { done = 1; }
+    else { if (ch_is_alnum(str_sub(src, i, i + 1)) == 1) { i = i + 1; } else { done = 1; } }
+  }
+  return i;
+}
+
+function scan_string_end(src: string, n: int, start: int) {
+  // start is the opening quote; return index AFTER the closing quote
+  var i: int = start + 1;
+  var done: int = 0;
+  while (done == 0) do {
+    if (i >= n) { done = 1; }
+    else { if (str_sub(src, i, i + 1) == "\"") { done = 1; } else { i = i + 1; } }
+  }
+  return i;
+}
+
+// ---------- per-iteration dispatch ----------
+//
+// One call consumes one token (or skips ws/comment) and returns the
+// position past it.  `tokens` is mutated in place.
+
+function lex_one(src: string, n: int, i: int, tokens) {
+  var c = str_sub(src, i, i + 1);
+
+  if (ch_is_ws(c) == 1) { return i + 1; }
+
+  // 2-char lookahead
+  var two: string = "";
+  if (i + 1 < n) { two = str_sub(src, i, i + 2); }
+
+  if (two == "//") { return skip_line_comment(src, n, i + 2); }
+  if (two == "==") { array_push(tokens, {kind: "OP", val: "==", pos: i}); return i + 2; }
+  if (two == "!=") { array_push(tokens, {kind: "OP", val: "!=", pos: i}); return i + 2; }
+  if (two == "<=") { array_push(tokens, {kind: "OP", val: "<=", pos: i}); return i + 2; }
+  if (two == ">=") { array_push(tokens, {kind: "OP", val: ">=", pos: i}); return i + 2; }
+
+  if (c == "+") { array_push(tokens, {kind: "OP", val: "+", pos: i}); return i + 1; }
+  if (c == "-") { array_push(tokens, {kind: "OP", val: "-", pos: i}); return i + 1; }
+  if (c == "*") { array_push(tokens, {kind: "OP", val: "*", pos: i}); return i + 1; }
+  if (c == "/") { array_push(tokens, {kind: "OP", val: "/", pos: i}); return i + 1; }
+  if (c == "<") { array_push(tokens, {kind: "OP", val: "<", pos: i}); return i + 1; }
+  if (c == ">") { array_push(tokens, {kind: "OP", val: ">", pos: i}); return i + 1; }
+  if (c == "=") { array_push(tokens, {kind: "OP", val: "=", pos: i}); return i + 1; }
+
+  if (c == "(") { array_push(tokens, {kind: "PUNCT", val: "(", pos: i}); return i + 1; }
+  if (c == ")") { array_push(tokens, {kind: "PUNCT", val: ")", pos: i}); return i + 1; }
+  if (c == "{") { array_push(tokens, {kind: "PUNCT", val: "{", pos: i}); return i + 1; }
+  if (c == "}") { array_push(tokens, {kind: "PUNCT", val: "}", pos: i}); return i + 1; }
+  if (c == ",") { array_push(tokens, {kind: "PUNCT", val: ",", pos: i}); return i + 1; }
+  if (c == ";") { array_push(tokens, {kind: "PUNCT", val: ";", pos: i}); return i + 1; }
+  if (c == ":") { array_push(tokens, {kind: "PUNCT", val: ":", pos: i}); return i + 1; }
+
+  if (c == "\"") {
+    var send_pos: int = scan_string_end(src, n, i);
+    array_push(tokens, {kind: "STR", val: str_sub(src, i + 1, send_pos), pos: i});
+    return send_pos + 1;
+  }
+
+  if (ch_is_digit(c) == 1) {
+    var iend: int = scan_int_end(src, n, i);
+    array_push(tokens, {kind: "INT", val: parse_int_str(str_sub(src, i, iend)), pos: i});
+    return iend;
+  }
+
+  if (ch_is_alpha(c) == 1) {
+    var aend: int = scan_ident_end(src, n, i);
+    var word: string = str_sub(src, i, aend);
+    if (is_keyword(word) == 1) {
+      array_push(tokens, {kind: "KW", val: word, pos: i});
+    } else {
+      array_push(tokens, {kind: "IDENT", val: word, pos: i});
+    }
+    return aend;
+  }
+
+  print("[lex] unknown char at pos " + i + ": " + c);
+  return i + 1;
+}
+
+function tokenize(src: string) {
+  var tokens = [];
+  var n: int = str_len(src);
+  var i: int = 0;
+  while (i < n) do {
+    i = lex_one(src, n, i, tokens);
+  }
+  array_push(tokens, {kind: "EOF", val: "", pos: n});
+  return tokens;
+}

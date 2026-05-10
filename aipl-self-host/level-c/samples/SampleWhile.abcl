@@ -1,0 +1,29 @@
+// Sample 3 — pipeline with while + accumulation.
+//
+// Source under test:
+//   var i = 0;
+//   var sum = 0;
+//   while (i < 5) do { sum = sum + i; i = i + 1; }
+//   print(sum);              // expected 10  (0+1+2+3+4)
+
+class Driver {
+  method run() {
+    print("=== Level C — SampleWhile ===");
+    var src: string =
+      "var i = 0;" +
+      "var sum = 0;" +
+      "while (i < 5) do { sum = sum + i; i = i + 1; }" +
+      "print(sum);";
+
+    var tokens = tokenize(src);
+    print("[lex] " + array_len(tokens) + " tokens");
+    var prog = parse_program(tokens);
+    print("[parse] main has " + array_len(prog.main) + " stmts");
+    print("[eval] running:");
+    run_program(prog);
+    print("[eval] expected: 10");
+  }
+}
+
+var d = new Driver();
+send d.run();

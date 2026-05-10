@@ -1,0 +1,318 @@
+// Level C — AIPL parser (in AIPL).
+//
+// Recursive-descent parser over the token stream from lexer.abcl.
+// Produces AST records compatible with Level A's evaluator
+// (plus a few extras Level B-1 used: VarDecl annotation field
+// `type` defaulted to "any", FunctionDecl with params/body).
+//
+// Each parser fn takes (tokens, pos) and returns (new_pos, ast).
+//
+// Grammar (a small AIPL subset):
+//   program  := stmt*
+//   stmt     := var_decl | assign | print | if | while | block | call_stmt
+//   var_decl := "var" IDENT "=" expr ";"
+//   assign   := IDENT "=" expr ";"
+//   print    := "print" "(" expr ")" ";"
+//   if       := "if" "(" expr ")" stmt ("else" stmt)?
+//   while    := "while" "(" expr ")" "do" stmt
+//   block    := "{" stmt* "}"
+//   call_stmt:= IDENT "(" args? ")" ";"
+//   expr     := add_expr (rel_op add_expr)?
+//   add_expr := mul_expr (add_op mul_expr)*
+//   mul_expr := unary    (mul_op unary)*
+//   unary    := "-" unary | primary
+//   primary  := INT | STR | IDENT ("(" args? ")")? | "(" expr ")"
+
+// ---------- token helpers ----------
+
+function tk(tokens, pos) { return array_get(tokens, pos); }
+function tk_kind(tokens, pos) { var t = tk(tokens, pos); return t.kind; }
+function tk_val(tokens, pos)  { var t = tk(tokens, pos); return t.val; }
+
+function expect_punct(tokens, pos, val: string) {
+  var t = tk(tokens, pos);
+  if (t.kind == "PUNCT") {
+    if (t.val == val) { return pos + 1; }
+  }
+  print("[parse] expected '" + val + "' but got " + t.kind + "='" + t.val + "'");
+  return pos + 1;
+}
+
+function expect_kw(tokens, pos, val: string) {
+  var t = tk(tokens, pos);
+  if (t.kind == "KW") {
+    if (t.val == val) { return pos + 1; }
+  }
+  print("[parse] expected keyword '" + val + "' but got " + t.kind + "='" + t.val + "'");
+  return pos + 1;
+}
+
+// ---------- expression parser (precedence climb) ----------
+
+function parse_primary(tokens, pos) {
+  var t = tk(tokens, pos);
+  if (t.kind == "INT") {
+    return (pos + 1, {tag: "Int", val: t.val});
+  }
+  if (t.kind == "STR") {
+    return (pos + 1, {tag: "Str", val: t.val});
+  }
+  if (t.kind == "IDENT") {
+    // peek for `(` -> call
+    var nxt = tk(tokens, pos + 1);
+    if (nxt.kind == "PUNCT") {
+      if (nxt.val == "(") {
+        var p2: int = pos + 2;
+        var args = [];
+        // possibly empty arg list
+        var cur = tk(tokens, p2);
+        if (cur.kind == "PUNCT") {
+          if (cur.val == ")") { p2 = p2 + 1; }
+          else { p2 = parse_args(tokens, p2, args); }
+        } else { p2 = parse_args(tokens, p2, args); }
+        return (p2, {tag: "Call", name: t.val, args: args});
+      }
+    }
+    return (pos + 1, {tag: "Var", name: t.val});
+  }
+  if (t.kind == "PUNCT") {
+    if (t.val == "(") {
+      var inner = parse_expr(tokens, pos + 1);
+      var after = expect_punct(tokens, inner[0], ")");
+      return (after, inner[1]);
+    }
+  }
+  print("[parse] primary: unexpected " + t.kind + "='" + t.val + "'");
+  return (pos + 1, {tag: "Int", val: 0});
+}
+
+// args list: parse expr (, expr)*
+// caller has consumed `(`; we consume up to and including `)`.
+function parse_args(tokens, pos, args) {
+  var p: int = pos;
+  var done: int = 0;
+  while (done == 0) do {
+    var pair = parse_expr(tokens, p);
+    array_push(args, pair[1]);
+    p = pair[0];
+    var t = tk(tokens, p);
+    if (t.kind == "PUNCT") {
+      if (t.val == ",") { p = p + 1; }
+      else { if (t.val == ")") { p = p + 1; done = 1; } else { done = 1; } }
+    } else { done = 1; }
+  }
+  return p;
+}
+
+function parse_unary(tokens, pos) {
+  var t = tk(tokens, pos);
+  if (t.kind == "OP") {
+    if (t.val == "-") {
+      var inner = parse_unary(tokens, pos + 1);
+      // represent -x as (0 - x)
+      return (inner[0],
+              {tag: "Binop", op: "-",
+               lhs: {tag: "Int", val: 0},
+               rhs: inner[1]});
+    }
+  }
+  return parse_primary(tokens, pos);
+}
+
+function parse_mul(tokens, pos) {
+  var pair = parse_unary(tokens, pos);
+  var p: int = pair[0];
+  var lhs = pair[1];
+  var done: int = 0;
+  while (done == 0) do {
+    var t = tk(tokens, p);
+    if (t.kind == "OP") {
+      if (t.val == "*") {
+        var rhs_pair = parse_unary(tokens, p + 1);
+        lhs = {tag: "Binop", op: "*", lhs: lhs, rhs: rhs_pair[1]};
+        p = rhs_pair[0];
+      } else { if (t.val == "/") {
+        var rhs_pair2 = parse_unary(tokens, p + 1);
+        lhs = {tag: "Binop", op: "/", lhs: lhs, rhs: rhs_pair2[1]};
+        p = rhs_pair2[0];
+      } else { done = 1; }}
+    } else { done = 1; }
+  }
+  return (p, lhs);
+}
+
+function parse_add(tokens, pos) {
+  var pair = parse_mul(tokens, pos);
+  var p: int = pair[0];
+  var lhs = pair[1];
+  var done: int = 0;
+  while (done == 0) do {
+    var t = tk(tokens, p);
+    if (t.kind == "OP") {
+      if (t.val == "+") {
+        var rhs_pair = parse_mul(tokens, p + 1);
+        lhs = {tag: "Binop", op: "+", lhs: lhs, rhs: rhs_pair[1]};
+        p = rhs_pair[0];
+      } else { if (t.val == "-") {
+        var rhs_pair2 = parse_mul(tokens, p + 1);
+        lhs = {tag: "Binop", op: "-", lhs: lhs, rhs: rhs_pair2[1]};
+        p = rhs_pair2[0];
+      } else { done = 1; }}
+    } else { done = 1; }
+  }
+  return (p, lhs);
+}
+
+function parse_rel(tokens, pos) {
+  var pair = parse_add(tokens, pos);
+  var p: int = pair[0];
+  var lhs = pair[1];
+  var t = tk(tokens, p);
+  if (t.kind == "OP") {
+    if (t.val == "==") { var rp = parse_add(tokens, p + 1);
+      return (rp[0], {tag: "Binop", op: "==", lhs: lhs, rhs: rp[1]}); }
+    if (t.val == "!=") { var rp = parse_add(tokens, p + 1);
+      return (rp[0], {tag: "Binop", op: "!=", lhs: lhs, rhs: rp[1]}); }
+    if (t.val == "<")  { var rp = parse_add(tokens, p + 1);
+      return (rp[0], {tag: "Binop", op: "<",  lhs: lhs, rhs: rp[1]}); }
+    if (t.val == ">")  { var rp = parse_add(tokens, p + 1);
+      return (rp[0], {tag: "Binop", op: ">",  lhs: lhs, rhs: rp[1]}); }
+    if (t.val == "<=") { var rp = parse_add(tokens, p + 1);
+      return (rp[0], {tag: "Binop", op: "<=", lhs: lhs, rhs: rp[1]}); }
+    if (t.val == ">=") { var rp = parse_add(tokens, p + 1);
+      return (rp[0], {tag: "Binop", op: ">=", lhs: lhs, rhs: rp[1]}); }
+  }
+  return (p, lhs);
+}
+
+function parse_expr(tokens, pos) { return parse_rel(tokens, pos); }
+
+// ---------- statement parser ----------
+
+function parse_stmt(tokens, pos) {
+  var t = tk(tokens, pos);
+
+  if (t.kind == "KW") {
+    if (t.val == "var") {
+      // var IDENT = expr ;   (= is an OP token, not PUNCT)
+      var name_tok = tk(tokens, pos + 1);
+      var name = name_tok.val;
+      var p1: int = pos + 3;  // skip past `var IDENT =`
+      var pair = parse_expr(tokens, p1);
+      var p2 = expect_punct(tokens, pair[0], ";");
+      return (p2, {tag: "VarDecl", name: name, type: "any", expr: pair[1]});
+    }
+    if (t.val == "print") {
+      // print ( expr ) ;
+      var p1 = expect_punct(tokens, pos + 1, "(");
+      var pair = parse_expr(tokens, p1);
+      var p2 = expect_punct(tokens, pair[0], ")");
+      var p3 = expect_punct(tokens, p2, ";");
+      return (p3, {tag: "Print", expr: pair[1]});
+    }
+    if (t.val == "if") {
+      var p1 = expect_punct(tokens, pos + 1, "(");
+      var cond_pair = parse_expr(tokens, p1);
+      var p2 = expect_punct(tokens, cond_pair[0], ")");
+      var then_pair = parse_stmt(tokens, p2);
+      // optional else
+      var p3: int = then_pair[0];
+      var else_body = [];
+      var et = tk(tokens, p3);
+      if (et.kind == "KW") {
+        if (et.val == "else") {
+          var else_pair = parse_stmt(tokens, p3 + 1);
+          array_push(else_body, else_pair[1]);
+          p3 = else_pair[0];
+        }
+      }
+      var then_body = [];
+      array_push(then_body, then_pair[1]);
+      return (p3, {tag: "If", cond: cond_pair[1],
+                   then_body: then_body, else_body: else_body});
+    }
+    if (t.val == "while") {
+      var p1 = expect_punct(tokens, pos + 1, "(");
+      var cond_pair = parse_expr(tokens, p1);
+      var p2 = expect_punct(tokens, cond_pair[0], ")");
+      var p3 = expect_kw(tokens, p2, "do");
+      var body_pair = parse_stmt(tokens, p3);
+      var body = [];
+      array_push(body, body_pair[1]);
+      return (body_pair[0],
+              {tag: "While", cond: cond_pair[1], body: body});
+    }
+    if (t.val == "return") {
+      var pair = parse_expr(tokens, pos + 1);
+      var p2 = expect_punct(tokens, pair[0], ";");
+      return (p2, {tag: "Return", expr: pair[1]});
+    }
+  }
+
+  if (t.kind == "PUNCT") {
+    if (t.val == "{") {
+      // block: collect stmts until `}`
+      var p: int = pos + 1;
+      var stmts = [];
+      var done: int = 0;
+      while (done == 0) do {
+        var bt = tk(tokens, p);
+        if (bt.kind == "PUNCT") {
+          if (bt.val == "}") { p = p + 1; done = 1; }
+          else { var sp = parse_stmt(tokens, p); array_push(stmts, sp[1]); p = sp[0]; }
+        } else {
+          if (bt.kind == "EOF") { done = 1; }
+          else { var sp2 = parse_stmt(tokens, p); array_push(stmts, sp2[1]); p = sp2[0]; }
+        }
+      }
+      // We don't have a Block AST tag in Level A's eval; flatten by
+      // returning a fake "If(true)" wrapper, OR by emitting a Print
+      // sentinel.  Simpler: wrap in If(1, stmts, []).
+      return (p, {tag: "If",
+                  cond: {tag: "Int", val: 1},
+                  then_body: stmts,
+                  else_body: []});
+    }
+  }
+
+  // assignment OR call-stmt: IDENT = expr ;  OR  IDENT(args);
+  if (t.kind == "IDENT") {
+    var nxt = tk(tokens, pos + 1);
+    if (nxt.kind == "OP") {
+      if (nxt.val == "=") {
+        var pair = parse_expr(tokens, pos + 2);
+        var p2 = expect_punct(tokens, pair[0], ";");
+        return (p2, {tag: "Assign", name: t.val, expr: pair[1]});
+      }
+    }
+    if (nxt.kind == "PUNCT") {
+      if (nxt.val == "(") {
+        // treat as call_stmt; reuse parse_primary then expect ;
+        var pp = parse_primary(tokens, pos);
+        var p2 = expect_punct(tokens, pp[0], ";");
+        return (p2, pp[1]);
+      }
+    }
+  }
+
+  print("[parse] unexpected stmt token at pos " + pos + ": " + t.kind + "='" + t.val + "'");
+  return (pos + 1, {tag: "Int", val: 0});
+}
+
+// ---------- top-level program parser ----------
+
+function parse_program(tokens) {
+  var p: int = 0;
+  var main_stmts = [];
+  var done: int = 0;
+  while (done == 0) do {
+    var t = tk(tokens, p);
+    if (t.kind == "EOF") { done = 1; }
+    else {
+      var pair = parse_stmt(tokens, p);
+      array_push(main_stmts, pair[1]);
+      p = pair[0];
+    }
+  }
+  return {funcs: [], main: main_stmts};
+}
