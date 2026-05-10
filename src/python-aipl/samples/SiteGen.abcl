@@ -9,12 +9,17 @@
 // Demonstrates: file read/write, binary write, image_load/save/create/
 // set_pixel, list_dir, mkdir, path_join, json_parse/stringify, and
 // typeof on the new value kinds.
+//
+// Phase 11+ idiom: typed surfaces (string params/returns); the file
+// and image side-effects (`!{fs}`) propagate from the builtins through
+// `generate` — the static checker tracks them automatically when the
+// caller's annotations are present.
 
 class SiteGen {
-  var out_dir = "out_site";
+  var out_dir: string = "out_site";
 
   // Render a tiny HTML page from title + body string.
-  function html_page(title, body) {
+  function html_page(title: string, body: string) -> string {
     return "<!doctype html>\n" +
            "<html><head>\n" +
            "  <meta charset=\"utf-8\">\n" +
@@ -28,7 +33,7 @@ class SiteGen {
            "</body></html>\n";
   }
 
-  function css_theme(primary) {
+  function css_theme(primary: string) -> string {
     return "body { font-family: system-ui, sans-serif; max-width: 640px; margin: 2em auto; }\n" +
            "header { display: flex; align-items: center; gap: 1em; }\n" +
            "h1 { color: " + primary + "; }\n" +
@@ -39,12 +44,12 @@ class SiteGen {
   // Build a 64x64 RGBA logo: gradient from dark blue to teal with
   // a centered diamond highlight.
   function build_logo() {
-    var W = 64;
-    var H = 64;
+    var W: int = 64;
+    var H: int = 64;
     var img = image_create(W, H, 0, 0, 0, 0);
-    var y = 0;
+    var y: int = 0;
     while (y < H) do {
-      var x = 0;
+      var x: int = 0;
       while (x < W) do {
         // Gradient: red increases with x, green with y, blue stays mid.
         var r = (x * 4);
@@ -68,7 +73,7 @@ class SiteGen {
     return img;
   }
 
-  method generate(config) {
+  method generate(config) -> string {
     print("=== AIPL site generator ===");
     mkdir(out_dir);
     mkdir(path_join(out_dir, "posts"));

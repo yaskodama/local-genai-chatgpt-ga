@@ -10,28 +10,28 @@
 //     --timeout 180  samples-ai/CooperativeSolve.abcl
 
 class Planner {
-  var persona = "You are a senior planner.  Given a problem, produce a NUMBERED plan of at most 3 short steps for solving it.  Reply with only the numbered steps, no preamble, no commentary.";
+  var persona: string = "You are a senior planner.  Given a problem, produce a NUMBERED plan of at most 3 short steps for solving it.  Reply with only the numbered steps, no preamble, no commentary.";
 
-  method plan(problem) {
-    var p = ai_call_with_system(persona, problem);
+  method plan(problem: string) -> string !{ai, net} {
+    var p: string = ai_call_with_system(persona, problem);
     reply(p);
   }
 }
 
 class Solver {
-  var persona = "You are a careful solver.  You receive a problem and a plan.  Execute the plan and produce the concrete solution / corrected code / final answer.  Be explicit and specific.  No preamble.";
+  var persona: string = "You are a careful solver.  You receive a problem and a plan.  Execute the plan and produce the concrete solution / corrected code / final answer.  Be explicit and specific.  No preamble.";
 
-  method solve(problem_and_plan) {
-    var s = ai_call_with_system(persona, problem_and_plan);
+  method solve(problem_and_plan: string) -> string !{ai, net} {
+    var s: string = ai_call_with_system(persona, problem_and_plan);
     reply(s);
   }
 }
 
 class Reviewer {
-  var persona = "You are a strict reviewer.  Given a problem and a draft solution, judge in 2-3 sentences: (1) is the solution correct? (2) what is the single most important improvement?  No preamble.  Plain text only.";
+  var persona: string = "You are a strict reviewer.  Given a problem and a draft solution, judge in 2-3 sentences: (1) is the solution correct? (2) what is the single most important improvement?  No preamble.  Plain text only.";
 
-  method review(problem_and_solution) {
-    var r = ai_call_with_system(persona, problem_and_solution);
+  method review(problem_and_solution: string) -> string !{ai, net} {
+    var r: string = ai_call_with_system(persona, problem_and_solution);
     reply(r);
   }
 }
@@ -47,7 +47,7 @@ class Coordinator {
     reviewer = new Reviewer();
   }
 
-  method tackle(problem) {
+  method tackle(problem: string) {
     print("================== PROBLEM ==================");
     print(problem);
     print("");

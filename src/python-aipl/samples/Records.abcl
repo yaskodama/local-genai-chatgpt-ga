@@ -2,9 +2,12 @@
 //
 //   var r = { name: "Alice", age: 30, score: 95.5 };
 //   r.field                — read
-//   r.field = v;           — write
+//   r.field = v;           — write (allowed on records, not on actor fields)
 //   r.outer.inner          — chain (dict-of-dicts)
 //   typeof(r)              — "record{name:string, age:int, score:float}"
+//
+// Phase 11+ idiom: typed method params; records are anonymous data
+// (Phase 15 symbol_owned does NOT apply to them, mutation is OK).
 
 class Profile {
   // Fields can hold record values just like ints/strings/arrays.
@@ -20,11 +23,11 @@ class Profile {
     stats.misses = stats.misses + 1;
   }
 
-  method rename(new_label) {
+  method rename(new_label: string) {
     owner.label = new_label;
   }
 
-  method peek_leaf() {
+  method peek_leaf() -> int {
     reply(nested.outer.inner.leaf);
   }
 
@@ -75,7 +78,7 @@ class Demo {
     send p.touch_hit();
     send p.touch_miss();
     send p.rename("admin");
-    var leaf = now p.peek_leaf();
+    var leaf: int = now p.peek_leaf();
     print("peek leaf = " + leaf);
     send p.dump();
   }

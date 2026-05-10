@@ -5,12 +5,12 @@
 // Requires ANTHROPIC_API_KEY in the environment.  Each run is one
 // conversation = three Claude messages, so it costs API tokens.
 class Agent {
-  var role = "?";
-  var system_prompt = "";
+  pub var role: string = "?";
+  var system_prompt: string = "";
   var next = 0;
-  var has_next = 0;
+  var has_next: int = 0;
 
-  method init(my_role, sys) {
+  method init(my_role: string, sys: string) {
     role = my_role;
     system_prompt = sys;
     has_next = 0;
@@ -21,9 +21,9 @@ class Agent {
     has_next = 1;
   }
 
-  method handle(payload) {
+  method handle(payload: string) !{ai, net} {
     print("[" + role + "] <- " + payload);
-    var reply = ai_call_with_system(system_prompt, payload);
+    var reply: string = ai_call_with_system(system_prompt, payload);
     print("[" + role + "] -> " + reply);
     if (has_next == 1) {
       send next.handle(reply);

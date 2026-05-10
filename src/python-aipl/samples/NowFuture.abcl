@@ -1,4 +1,4 @@
-// Demo of all three message-passing types in ABCL/c+:
+// Demo of all three message-passing types in AIPL:
 //   past:   send target.method(args);                    // fire-and-forget
 //   now:    var x = now target.method(args);             // blocks until reply
 //   future: var f = future target.method(args);          // returns Future
@@ -7,18 +7,20 @@
 // The callee uses reply(value) to deliver the result back to the
 // caller's future.  In a past-type send there is no future, so reply()
 // just logs [REPLY] for visibility.
+//
+// Phase 11+ idiom: typed method signatures (params + returns).
 class Calculator {
-  method add(a, b) {
+  method add(a: int, b: int) -> int {
     reply(a + b);
   }
-  method slow_double(x) {
+  method slow_double(x: int) -> int {
     call wait(80);          // pretend this is expensive work
     reply(x * 2);
   }
 }
 
 class Driver {
-  var calc = 0;
+  var calc = 0;             // bound to actor(Calculator) at construction
 
   method init(c) {
     calc = c;
@@ -29,15 +31,15 @@ class Driver {
     send calc.add(1, 2);
 
     // now — synchronous, returns the value
-    var s = now calc.add(3, 4);
+    var s: int = now calc.add(3, 4);
     print("[now] 3 + 4 = " + s);
 
     // future — fire two parallel jobs, then await both
     var f1 = future calc.slow_double(10);
     var f2 = future calc.slow_double(20);
     print("[future] both jobs running in parallel");
-    var v1 = await(f1);
-    var v2 = await(f2);
+    var v1: int = await(f1);
+    var v2: int = await(f2);
     print("[future] results: " + v1 + ", " + v2);
   }
 }

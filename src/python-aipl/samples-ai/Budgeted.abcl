@@ -10,15 +10,15 @@
 // "[actor X.method] error: ..." and keeps the rest of the system
 // running.
 class Worker {
-  var id = 0;
+  pub var id: int = 0;
 
-  method init(my_id) {
+  method init(my_id: int) {
     id = my_id;
   }
 
-  method ask(topic) {
+  method ask(topic: string) !{ai, net} {
     print("[w" + id + "] start: " + topic);
-    var resp = ai_call_with_system(
+    var resp: string = ai_call_with_system(
       "Reply in ONE short sentence, no preamble.",
       topic
     );

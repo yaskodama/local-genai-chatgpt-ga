@@ -1,8 +1,12 @@
 // 3-philosophers dining problem.  Forks are actors that hand out
 // permission via `granted` / `refused` messages; philosophers eat a
 // bounded number of times and then stop, so the program terminates.
+//
+// Phase 11+ idiom: typed fields + method-param types; `pub` exposes
+// `meals` so an external watchdog could read remaining meals without
+// needing a method (Phase 15 read access).
 class Fork {
-  var held = 0;
+  var held: int = 0;
 
   method request() {
     if (held == 0) {
@@ -18,13 +22,13 @@ class Fork {
 }
 
 class Philosopher {
-  var id = 0;
-  var left = 0;
-  var right = 0;
-  var meals = 2;
-  var got_left = 0;
+  var id: int = 0;
+  var left = 0;          // bound to actor(Fork) in init()
+  var right = 0;         // bound to actor(Fork) in init()
+  pub var meals: int = 2;
+  var got_left: int = 0;
 
-  method init(my_id, l, r, n) {
+  method init(my_id: int, l, r, n: int) {
     id = my_id;
     left = l;
     right = r;

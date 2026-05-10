@@ -8,11 +8,11 @@
 //   remote_now("localhost:9100", "reviewer", "review", ...)
 
 class Reviewer {
-  var persona = "You are a strict reviewer.  Given a problem and a draft solution, judge in 2-3 sentences: (1) is the solution correct? (2) what is the single most important improvement?  No preamble.  Plain text only.";
+  var persona: string = "You are a strict reviewer.  Given a problem and a draft solution, judge in 2-3 sentences: (1) is the solution correct? (2) what is the single most important improvement?  No preamble.  Plain text only.";
 
-  method review(problem_and_solution) {
+  method review(problem_and_solution: string) -> string !{ai, net} {
     print("[reviewer] reviewing (" + str_len(problem_and_solution) + " chars)");
-    var r = ai_call_with_system(persona, problem_and_solution);
+    var r: string = ai_call_with_system(persona, problem_and_solution);
     print("[reviewer] verdict ready");
     reply(r);
   }

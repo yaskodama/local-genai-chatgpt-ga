@@ -8,8 +8,8 @@
 //     --timeout 180 samples-ai/CooperativeNowFuture.abcl
 
 class Planner {
-  method plan(q) {
-    var sketch = ai_call_with_system(
+  method plan(q: string) -> string !{ai, net} {
+    var sketch: string = ai_call_with_system(
       "You are a planner. Output a 1-line plan, no preamble.",
       q);
     reply(sketch);
@@ -17,8 +17,8 @@ class Planner {
 }
 
 class Solver {
-  method solve(plan) {
-    var ans = ai_call_with_system(
+  method solve(plan: string) -> string !{ai, net} {
+    var ans: string = ai_call_with_system(
       "You are a solver. Apply the given plan and answer concisely.",
       plan);
     reply(ans);
@@ -26,14 +26,14 @@ class Solver {
 }
 
 class Reviewer {
-  method review(ans) {
-    var verdict = ai_call_with_system(
+  method review(ans: string) -> string !{ai, net} {
+    var verdict: string = ai_call_with_system(
       "You are a reviewer. Reply with 'OK: <reason>' or 'NG: <reason>' only.",
       ans);
     reply(verdict);
   }
-  method brief() {
-    var b = ai_call("In one short sentence: what does a code reviewer look for?");
+  method brief() -> string !{ai, net} {
+    var b: string = ai_call("In one short sentence: what does a code reviewer look for?");
     reply(b);
   }
 }
@@ -49,7 +49,7 @@ class Coordinator {
     reviewer = new Reviewer();
   }
 
-  method tackle(q) {
+  method tackle(q: string) {
     // 1) planner runs synchronously — solver depends on its output
     var plan = now planner.plan(q);
     print("[plan] " + plan);

@@ -14,17 +14,17 @@
 // priority-9 workers (w4, w5) wait until the head of the queue
 // drains.
 class Worker {
-  var id   = 0;
-  var prio = 5;
+  pub var id: int   = 0;
+  pub var prio: int = 5;
 
-  method init(my_id, my_prio) {
+  method init(my_id: int, my_prio: int) {
     id   = my_id;
     prio = my_prio;
   }
 
-  method ask(topic) {
+  method ask(topic: string) !{ai, net} {
     print("[w" + id + " p=" + prio + "] start: " + topic);
-    var resp = ai_call_priority_with_system(
+    var resp: string = ai_call_priority_with_system(
       prio,
       "Reply in ONE short sentence, no preamble.",
       topic

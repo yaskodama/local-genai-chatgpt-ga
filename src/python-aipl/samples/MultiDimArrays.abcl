@@ -10,17 +10,19 @@
 //
 // Sizes in [...] can be any expression — variables, fields, params,
 // arithmetic. They're evaluated at the point of declaration.
+//
+// Phase 11+ idiom: typed fields and method params.
 
 class Matrix {
   // 2-D field with dynamic size carried by other fields.
-  var rows = 4;
-  var cols = 5;
+  var rows: int = 4;
+  var cols: int = 5;
   var cells[rows][cols];          // 4×5 grid, all 0
 
   method fill_with_sum() {
-    var i = 0;
+    var i: int = 0;
     while (i < rows) do {
-      var j = 0;
+      var j: int = 0;
       while (j < cols) do {
         cells[i][j] = i + j;       // index-assign on 2D
         j = j + 1;
@@ -31,10 +33,10 @@ class Matrix {
 
   method print_grid() {
     print("Matrix " + rows + "x" + cols + ":");
-    var i = 0;
+    var i: int = 0;
     while (i < rows) do {
-      var line = "  ";
-      var j = 0;
+      var line: string = "  ";
+      var j: int = 0;
       while (j < cols) do {
         line = line + cells[i][j] + " ";  // index-read on 2D
         j = j + 1;
@@ -44,11 +46,11 @@ class Matrix {
     }
   }
 
-  method trace() {
+  method trace() -> int {
     // sum of diagonal — works for square or rectangular.
-    var i = 0;
-    var t = 0;
-    var lim = rows;
+    var i: int = 0;
+    var t: int = 0;
+    var lim: int = rows;
     if (cols < rows) { lim = cols; }
     while (i < lim) do {
       t = t + cells[i][i];
@@ -62,22 +64,22 @@ class Cube {
   // 3-D field.
   var values[2][3][4] = -1;
 
-  method poke(i, j, k, v) {
+  method poke(i: int, j: int, k: int, v: int) {
     values[i][j][k] = v;
   }
 
-  method peek(i, j, k) {
+  method peek(i: int, j: int, k: int) -> int {
     reply(values[i][j][k]);
   }
 
   method dump() {
     print("Cube 2x3x4:");
-    var i = 0;
+    var i: int = 0;
     while (i < 2) do {
-      var j = 0;
+      var j: int = 0;
       while (j < 3) do {
-        var line = "  layer " + i + " row " + j + ":";
-        var k = 0;
+        var line: string = "  layer " + i + " row " + j + ":";
+        var k: int = 0;
         while (k < 4) do {
           line = line + " " + values[i][j][k];
           k = k + 1;
@@ -95,19 +97,19 @@ class Demo {
     print("=== AIPL multi-dim + dynamic-size arrays ===");
 
     // 1) Local 2-D matrix with dynamic sizes from variables.
-    var R = 3;
-    var C = 6;
+    var R: int = 3;
+    var C: int = 6;
     var pad[R][C] = 7;
     print("Pad " + R + "x" + C + " (default 7), then set diagonal to row*10:");
-    var d = 0;
+    var d: int = 0;
     while (d < 3) do {
       pad[d][d] = d * 10;
       d = d + 1;
     }
-    var i = 0;
+    var i: int = 0;
     while (i < R) do {
-      var line = "  ";
-      var j = 0;
+      var line: string = "  ";
+      var j: int = 0;
       while (j < C) do {
         line = line + pad[i][j] + " ";
         j = j + 1;
@@ -117,12 +119,12 @@ class Demo {
     }
 
     // 2) Dynamic single-dim using an expression for the size.
-    var n = 4 + 1;             // 5
+    var n: int = 4 + 1;             // 5
     var sieve[n] = 1;
     sieve[0] = 0;
     sieve[1] = 0;
     print("Sieve of length " + n + ":");
-    var p = 0;
+    var p: int = 0;
     while (p < n) do {
       print("  sieve[" + p + "] = " + sieve[p]);
       p = p + 1;
@@ -132,7 +134,7 @@ class Demo {
     var m = new Matrix();
     send m.fill_with_sum();
     send m.print_grid();
-    var t = now m.trace();
+    var t: int = now m.trace();
     print("trace = " + t);
 
     // 4) Field-level 3D cube on Cube actor.
@@ -140,7 +142,7 @@ class Demo {
     send c.poke(0, 0, 0, 100);
     send c.poke(1, 2, 3, 999);
     send c.poke(0, 2, 1, 42);
-    var v = now c.peek(1, 2, 3);
+    var v: int = now c.peek(1, 2, 3);
     print("cube[1][2][3] = " + v);
     send c.dump();
   }

@@ -10,13 +10,16 @@
 // Tuples are distinct from arrays:
 //   - arrays:   homogeneous, mutable, dynamic length
 //   - tuples:   positional, immutable, length is part of the type
+//
+// Phase 11+ idiom: typed surface; the translate method returns a typed
+// tuple (the static checker preserves slot types through the literal).
 
 class PointActor {
   // Field-level tuple — coordinates as (x, y).
   var origin = (0, 0);
   var meta = ("city", 100, 35.6);   // (label, population_k, latitude)
 
-  method translate(p, dx, dy) {
+  method translate(p, dx: int, dy: int) -> tuple(int, int) {
     // Tuples are immutable; build a new one.
     reply((p[0] + dx, p[1] + dy));
   }

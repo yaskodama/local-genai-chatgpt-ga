@@ -10,10 +10,11 @@
 
 class Driver {
   method run() {
-    print("[client] sending 3 messages to mailbox@localhost:8080");
-    remote_call("localhost:8080", "mailbox", "ping");
-    remote_call("localhost:8080", "mailbox", "deliver", "alice", "hello from python");
-    remote_call("localhost:8080", "mailbox", "deliver", "bob",   "another message");
+    var addr: string = "localhost:8080";
+    print("[client] sending 3 messages to mailbox@" + addr);
+    remote_call(addr, "mailbox", "ping");
+    remote_call(addr, "mailbox", "deliver", "alice", "hello from python");
+    remote_call(addr, "mailbox", "deliver", "bob",   "another message");
     print("[client] done");
   }
 }

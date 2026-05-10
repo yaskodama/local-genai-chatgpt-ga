@@ -1,3 +1,6 @@
+// OCaml AIPL sample.  The Phase 11+ typed equivalent lives at
+// src/python-aipl/samples/Counter.abcl, which annotates the field
+// and method bodies (`var count: int = 0;`).  Output is identical.
 class Counter {
   var count = 0.;
   method inc() {

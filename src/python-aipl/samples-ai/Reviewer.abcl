@@ -8,10 +8,10 @@
 // Try also using `now` to drive the calls synchronously and collect
 // returned values, or `future` to dispatch in parallel.
 class CodeReviewer {
-  var persona = "You are a senior code reviewer.  For each code snippet, reply with a single bullet point identifying the most important issue.  Be concise.  No preamble.";
+  var persona: string = "You are a senior code reviewer.  For each code snippet, reply with a single bullet point identifying the most important issue.  Be concise.  No preamble.";
 
-  method review(snippet) {
-    var feedback = ai_call_with_system(persona, snippet);
+  method review(snippet: string) !{ai, net} {
+    var feedback: string = ai_call_with_system(persona, snippet);
     print("[review] " + snippet);
     print("         " + feedback);
   }

@@ -7,9 +7,13 @@
 // spec via message, compiles it, spawns an instance, and replies with
 // the new actor reference. The caller then sends regular messages to
 // the dynamically-created actor.
+//
+// Phase 11+ idiom: typed method params for the static surface.  The
+// compiled-at-runtime classes inside source strings carry their own
+// (fresh) annotations.
 
 class CodeFactory {
-  method create(name, source) {
+  method create(name: string, source: string) {
     var n = compile(source);
     print("[factory] compiled " + n + " class(es) for '" + name + "'");
     var fresh_actor = spawn(name);
@@ -28,9 +32,9 @@ class Main {
     print("=== AIPL dynamic compile + spawn demo ===");
 
     // 1) Synthesize a Greeter class at runtime.
-    var greeter_src = "class Greeter {\n" +
-                      "  var count = 0;\n" +
-                      "  method hello(who) {\n" +
+    var greeter_src: string = "class Greeter {\n" +
+                      "  var count: int = 0;\n" +
+                      "  method hello(who: string) {\n" +
                       "    count = count + 1;\n" +
                       "    print(\"  [Greeter#\" + count + \"] hello, \" + who);\n" +
                       "  }\n" +
@@ -41,8 +45,8 @@ class Main {
     send greeter.hello("Carol");
 
     // 2) Synthesize a Counter class at runtime — completely different.
-    var counter_src = "class Counter {\n" +
-                      "  var n = 0;\n" +
+    var counter_src: string = "class Counter {\n" +
+                      "  var n: int = 0;\n" +
                       "  method tick() {\n" +
                       "    n = n + 1;\n" +
                       "    print(\"  [Counter] tick -> n=\" + n);\n" +

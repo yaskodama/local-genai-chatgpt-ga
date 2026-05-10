@@ -12,9 +12,9 @@
 //     -H 'Content-Type: application/json' \
 //     -d '{"to":"mailbox","method":"deliver","args":["hello","world"],"from":"curl"}'
 class Mailbox {
-  var seen = 0;
+  pub var seen: int = 0;       // public counter so a watchdog can read it
 
-  method deliver(who, msg) {
+  method deliver(who: string, msg: string) {
     seen = seen + 1;
     print("[mailbox #" + seen + "] from=" + who + " msg=" + msg);
   }

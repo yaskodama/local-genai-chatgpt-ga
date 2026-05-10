@@ -8,10 +8,10 @@
 // Run:
 //   ANTHROPIC_API_KEY=... /usr/bin/python3 abcl_main.py samples-remote/verifier.abcl
 class Verifier {
-  method check(q, a) {
+  method check(q: string, a: string) -> string !{ai, net} {
     print("[verifier] checking answer for: " + q);
-    var prompt = "Question: " + q + "\n\nDraft answer: " + a + "\n\nCritique in one sentence: is this answer correct and clear?  If not, what's the single most important fix?";
-    var v = ai_call_with_system(
+    var prompt: string = "Question: " + q + "\n\nDraft answer: " + a + "\n\nCritique in one sentence: is this answer correct and clear?  If not, what's the single most important fix?";
+    var v: string = ai_call_with_system(
       "You are a strict reviewer.  Reply in one sentence.  No preamble.",
       prompt
     );

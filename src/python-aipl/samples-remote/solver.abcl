@@ -8,9 +8,9 @@
 // Run:
 //   GEMINI_API_KEY=... /usr/bin/python3 abcl_main.py samples-remote/solver.abcl
 class Solver {
-  method answer(q) {
+  method answer(q: string) -> string !{ai, net} {
     print("[solver] q=" + q);
-    var a = ai_call_with_system(
+    var a: string = ai_call_with_system(
       "Answer in two short sentences.  No preamble.",
       q
     );

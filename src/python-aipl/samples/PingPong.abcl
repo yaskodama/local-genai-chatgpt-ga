@@ -1,11 +1,14 @@
 // Two actors bouncing a bounded number of messages.  We use a counter
 // rather than infinite recursion so the smoke test can complete on its
 // own without relying on the wall-clock timeout.
+//
+// Phase 11+ idiom: typed fields and `init` / `bind` params.  `partner`
+// is bound to an `actor(Ponger)` reference at runtime via `bind`.
 class Pinger {
-  var left = 5;
-  var partner = 0;
+  var left: int = 5;
+  var partner = 0;        // bound to actor(Ponger) via bind()
 
-  method init(n) {
+  method init(n: int) {
     left = n;
   }
 

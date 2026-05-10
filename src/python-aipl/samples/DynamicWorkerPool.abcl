@@ -3,20 +3,25 @@
 // Manager receives a job batch, compiles Worker on first use, spawns
 // N worker actors, dispatches jobs round-robin, and waits for results
 // using future + await.
+//
+// Phase 11+ idiom: typed fields + method params; `pub workers` so an
+// external observer can iterate the pool (Phase 15 read access).
+// Effects: ensure_workers and dispatch both observe `mut` (mutate own
+// fields); compile is non-checked dynamic reflection (any).
 
 class Manager {
-  var workers = [];
-  var n_workers = 0;
-  var compiled = 0;
+  pub var workers = [];           // array of actor refs to Worker instances
+  var n_workers: int = 0;
+  var compiled: int = 0;
 
-  method ensure_workers(n) {
+  method ensure_workers(n: int) {
     if (compiled == 0) {
-      var worker_src =
+      var worker_src: string =
         "class Worker {\n" +
-        "  var id = 0;\n" +
-        "  method init(my_id) { id = my_id; }\n" +
-        "  method square(x) {\n" +
-        "    var r = x * x;\n" +
+        "  var id: int = 0;\n" +
+        "  method init(my_id: int) { id = my_id; }\n" +
+        "  method square(x: int) -> int {\n" +
+        "    var r: int = x * x;\n" +
         "    print(\"  [worker \" + id + \"] square(\" + x + \") = \" + r);\n" +
         "    reply(r);\n" +
         "  }\n" +
@@ -24,7 +29,7 @@ class Manager {
       compile(worker_src);
       compiled = 1;
     }
-    var i = 0;
+    var i: int = 0;
     while (i < n) do {
       array_push(workers, spawn("Worker", i));
       i = i + 1;
@@ -32,12 +37,12 @@ class Manager {
     n_workers = n;
   }
 
-  method dispatch(jobs) {
+  method dispatch(jobs) -> int {
     // jobs is an array of integers — distribute round-robin and collect via future.
     var futures = [];
-    var njobs = array_len(jobs);
-    var i = 0;
-    var j = 0;
+    var njobs: int = array_len(jobs);
+    var i: int = 0;
+    var j: int = 0;
     while (i < njobs) do {
       var x = array_get(jobs, i);
       var w = array_get(workers, j);
@@ -48,13 +53,13 @@ class Manager {
       if (j >= n_workers) { j = 0; }
     }
     // Collect.
-    var sum = 0;
-    var i = 0;
-    var n = array_len(futures);
-    while (i < n) do {
-      var v = await(array_get(futures, i));
+    var sum: int = 0;
+    var k: int = 0;
+    var n: int = array_len(futures);
+    while (k < n) do {
+      var v: int = await(array_get(futures, k));
       sum = sum + v;
-      i = i + 1;
+      k = k + 1;
     }
     print("[manager] sum of squares = " + sum);
     reply(sum);
@@ -63,5 +68,5 @@ class Manager {
 
 var mgr = new Manager();
 send mgr.ensure_workers(3);
-var total = now mgr.dispatch([2, 3, 5, 7, 11]);
+var total: int = now mgr.dispatch([2, 3, 5, 7, 11]);
 print("=== final result: " + total + " ===");

@@ -1,6 +1,7 @@
 // Counter that self-sends to demonstrate `send self.method(...)`.
+// Phase 11+: typed field + transient-cast clean.
 class Counter {
-  var count = 0;
+  var count: int = 0;
 
   method inc() {
     count = count + 1;

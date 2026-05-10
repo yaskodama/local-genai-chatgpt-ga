@@ -1,3 +1,13 @@
+// OCaml AIPL sample.  The OCaml runtime predates the Phase 11-16
+// surface (typed annotations, effects, pub, linear, transient cast)
+// so the *syntax* below is intentionally untyped; for the typed
+// equivalent see src/python-aipl/samples/Hello.abcl, which carries
+// the modern contract:
+//
+//   class Hello {
+//     var count: int = 0;
+//     method init(n: int) { ... }
+//   }
 class Hello {
   float count = 0.;
 

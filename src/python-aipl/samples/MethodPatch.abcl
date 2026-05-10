@@ -14,15 +14,19 @@
 // We use `now` (synchronous send) so each greet call completes BEFORE the
 // next add/remove. With plain `send` everything queues up and processes
 // after the patches, hiding the time-sequenced behaviour we want to show.
+//
+// Phase 11+ idiom: typed surface fields/params; the dynamically-injected
+// method bodies are opaque to the static checker (they live inside source
+// strings that compile lazily) and operate at the gradual `any` boundary.
 
 class Greeter {
-  var label = "default";
+  pub var label: string = "default";
 
-  method init(l) {
+  method init(l: string) {
     label = l;
   }
 
-  method greet(name) {
+  method greet(name: string) {
     print("[" + label + "] hello, " + name);
   }
 }

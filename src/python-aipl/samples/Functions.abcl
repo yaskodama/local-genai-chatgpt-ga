@@ -6,22 +6,26 @@
 // (visible to that class's methods unqualified). Synchronous,
 // recursive, returns a value via `return`. typeof on a function
 // reference shows the trace-inferred signature.
+//
+// Phase 11+ idiom: typed function signatures, generics where the
+// argument is variadic in element type, `describe` left as untyped
+// to demonstrate `any -> string` mixing.
 
 // ---------- Top-level functions ----------
 
-function add(a, b) {
+function add(a: int, b: int) -> int {
   return a + b;
 }
 
-function fib(n) {
+function fib(n: int) -> int {
   if (n < 2) {
     return n;
   }
   return fib(n - 1) + fib(n - 2);
 }
 
-function describe(x) {
-  // Heterogeneous: takes anything, always returns a string.
+function describe(x) -> string {
+  // Heterogeneous: takes anything (no annotation), always returns a string.
   return typeof(x) + " : " + x;
 }
 
@@ -31,17 +35,17 @@ class StatActor {
   var samples = [];
 
   // In-class helper — visible only to StatActor methods (unqualified).
-  function clamp(x, lo, hi) {
+  function clamp(x: int, lo: int, hi: int) -> int {
     if (x < lo) { return lo; }
     if (x > hi) { return hi; }
     return x;
   }
 
-  function avg(xs) {
-    var n = array_len(xs);
+  function avg(xs) -> int {
+    var n: int = array_len(xs);
     if (n == 0) { return 0; }
-    var s = 0;
-    var i = 0;
+    var s: int = 0;
+    var i: int = 0;
     while (i < n) do {
       s = s + array_get(xs, i);
       i = i + 1;
@@ -50,12 +54,12 @@ class StatActor {
     return clamp(s / n, 0, 100);
   }
 
-  method add(x) {
+  method add(x: int) {
     array_push(samples, x);
   }
 
-  method summary() {
-    var m = avg(samples);          // in-class helper called unqualified
+  method summary() -> int {
+    var m: int = avg(samples);     // in-class helper called unqualified
     print("[StatActor] count=" + array_len(samples) + " avg=" + m);
     reply(m);
   }
@@ -80,8 +84,8 @@ class Demo {
     print("typeof(describe) = " + typeof(describe));
 
     // 3) Heterogeneous call grows the union — typeof reflects all signatures.
-    var s1 = describe("hello");
-    var s2 = describe(3.14);
+    var s1: string = describe("hello");
+    var s2: string = describe(3.14);
     print("describe(\"hello\") = " + s1);
     print("describe(3.14)    = " + s2);
     print("typeof(describe) (after mixed args) = " + typeof(describe));
@@ -95,7 +99,7 @@ class Demo {
     send stat.add(42);
     send stat.add(99);
     send stat.add(7);
-    var avg_v = now stat.summary();
+    var avg_v: int = now stat.summary();
     print("avg from actor = " + avg_v);
   }
 }

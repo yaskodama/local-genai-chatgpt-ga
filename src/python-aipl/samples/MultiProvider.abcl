@@ -16,9 +16,11 @@
 
 class Bench {
   // Generate a tiny "test pattern" image to feed the model.
+  // Effects: !{ai} is added when the caller invokes ai_call_image; this
+  // helper itself is image-pure, so it carries no effects.
   function make_pattern() {
     var img = image_create(16, 16, 0, 0, 0, 255);
-    var i = 0;
+    var i: int = 0;
     while (i < 16) do {
       image_set_pixel(img, i, i, 255, 200, 60, 255);
       image_set_pixel(img, 15 - i, i, 60, 200, 255, 255);
@@ -29,7 +31,7 @@ class Bench {
 
   method run_text() {
     print("--- (1) text-only, provider override ---");
-    var prompt = "Say hello in one word.";
+    var prompt: string = "Say hello in one word.";
     print("default (auto): " + ai_call(prompt));
     print("Gemini    [1]:  " + ai_call(1, prompt));
     print("Anthropic [2]:  " + ai_call(2, prompt));
@@ -38,7 +40,7 @@ class Bench {
     print("");
 
     print("--- (2) with system, provider override ---");
-    var sys = "Be very brief.";
+    var sys: string = "Be very brief.";
     print("Claude:  " + ai_call_with_system(2, sys, prompt));
     print("ChatGPT: " + ai_call_with_system(3, sys, prompt));
   }
@@ -49,7 +51,7 @@ class Bench {
     var img = make_pattern();
     print("image typeof:  " + typeof(img));
 
-    var p = "Describe the test pattern in this image.";
+    var p: string = "Describe the test pattern in this image.";
     print("auto:    " + ai_call_image(p, img));
     print("Claude:  " + ai_call_image(2, p, img));
     print("ChatGPT: " + ai_call_image(3, p, img));

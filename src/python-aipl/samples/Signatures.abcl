@@ -8,12 +8,14 @@
 //   - any value
 //       → returns the structural type (record, tuple, array, image, ...)
 
-function fib(n) {
+function fib(n: int) -> int {
   if (n < 2) { return n; }
   return fib(n - 1) + fib(n - 2);
 }
 
-function describe(x) {
+function describe(x) -> string {
+  // x is intentionally unannotated — describe accepts any value and
+  // returns a structural typeof prefix.
   return typeof(x) + " : " + x;
 }
 

@@ -1,3 +1,5 @@
+// (Phase 11+ typed equivalent: src/python-aipl/samples/BoundedBuffer.abcl,
+//  which adds `var cap: int`, `pub var size: int`, and typed init params.)
 // Bounded-Buffer (producer / consumer) — capacity = 4.
 //
 // One Producer actor and one Consumer actor share a Buffer actor.

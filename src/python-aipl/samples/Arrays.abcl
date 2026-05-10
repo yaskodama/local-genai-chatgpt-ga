@@ -6,31 +6,35 @@
 //   x[i] = v;              — write
 //
 // All four forms work in fields (class-level) and locals (method-level).
+//
+// Phase 11+ idiom: typed method params + length-tagged array hints in
+// comments.  Field arrays here are value-typed (int / string), and the
+// callable surface is annotated for static-checker integrity.
 
 class Histogram {
   // Field-level array: 10 buckets, all 0 initially.
   var counts[10];
-  var label_a = "first";
+  var label_a: string = "first";
   // Field-level array with explicit init.
   var labels[5] = "blank";
 
-  method bump(bucket) {
+  method bump(bucket: int) {
     counts[bucket] = counts[bucket] + 1;
   }
 
-  method set_label(idx, name) {
+  method set_label(idx: int, name: string) {
     labels[idx] = name;
   }
 
   method dump() {
     print("Counts:");
-    var i = 0;
+    var i: int = 0;
     while (i < 10) do {
       print("  bucket[" + i + "] = " + counts[i]);
       i = i + 1;
     }
     print("Labels:");
-    var j = 0;
+    var j: int = 0;
     while (j < 5) do {
       print("  label[" + j + "] = " + labels[j]);
       j = j + 1;
@@ -48,7 +52,7 @@ class Demo {
     workers[1] = "bob";
     workers[2] = "carol";
     print("Workers:");
-    var i = 0;
+    var i: int = 0;
     while (i < 3) do {
       print("  workers[" + i + "] = " + workers[i]);
       i = i + 1;
@@ -59,15 +63,15 @@ class Demo {
     temperatures[0] = 20;
     temperatures[3] = 35;
     print("Temperatures (slot 1,2 keep default -1):");
-    var j = 0;
+    var j: int = 0;
     while (j < 4) do {
       print("  t[" + j + "] = " + temperatures[j]);
       j = j + 1;
     }
 
     // Compute sum via index access.
-    var sum = 0;
-    var k = 0;
+    var sum: int = 0;
+    var k: int = 0;
     while (k < 4) do {
       sum = sum + temperatures[k];
       k = k + 1;

@@ -1,8 +1,9 @@
 // Smallest meaningful actor: counts greetings.
+// Phase 11+ idiom: typed field, typed init/method params.
 class Hello {
-  float count = 0.;
+  var count: int = 0;
 
-  method init(n) {
+  method init(n: int) {
     count = n;
     print("Hello object initialized with " + n);
   }
@@ -12,7 +13,7 @@ class Hello {
   }
 
   method inc() {
-    count = count + 1.;
+    count = count + 1;
     print("count incremented to " + count);
   }
 }

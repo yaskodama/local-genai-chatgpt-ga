@@ -13,16 +13,16 @@
 // printed at the end.
 
 class Specialist {
-  var role = "?";
-  var persona = "";
+  pub var role: string = "?";
+  var persona: string = "";
 
-  method init(r) {
+  method init(r: string) {
     role = r;
     persona = "You are a " + r + ".  Reply in two short sentences with your perspective on the topic.  No preamble.";
   }
 
-  method analyze(topic) {
-    var resp = ai_call_with_system(persona, topic);
+  method analyze(topic: string) -> string !{ai, net} {
+    var resp: string = ai_call_with_system(persona, topic);
     reply(resp);
   }
 }
@@ -39,7 +39,7 @@ class Coordinator {
   }
 
   // Parallel: three futures dispatched at once, awaited in any order.
-  method run_parallel(topic) {
+  method run_parallel(topic: string) {
     var t0 = now_ms();
     print("[parallel] dispatching 3 specialists in parallel");
     var f_o = future optimist.analyze(topic);
@@ -59,7 +59,7 @@ class Coordinator {
   }
 
   // Sequential: same calls but waiting for each before issuing the next.
-  method run_sequential(topic) {
+  method run_sequential(topic: string) {
     var t0 = now_ms();
     print("[sequential] calling 3 specialists one at a time");
     var ans_o = now optimist.analyze(topic);

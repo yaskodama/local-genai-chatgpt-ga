@@ -1,9 +1,12 @@
 // Single producer / single consumer over a small bounded buffer.  The
 // producer keeps trying until the buffer accepts; the consumer keeps
 // trying until the buffer has data.  Both stop after `total` items.
+//
+// Phase 11+ idiom: typed fields + init params.  `pub size` lets a
+// monitor read current occupancy without going through a method.
 class Buffer {
-  var cap = 3;
-  var size = 0;
+  var cap: int = 3;
+  pub var size: int = 0;
 
   method put() {
     if (size < cap) {
@@ -27,10 +30,10 @@ class Buffer {
 }
 
 class Producer {
-  var left = 5;
+  var left: int = 5;
   var buf = 0;
 
-  method init(n, b) {
+  method init(n: int, b) {
     left = n;
     buf = b;
     send buf.put();
@@ -47,10 +50,10 @@ class Producer {
 }
 
 class Consumer {
-  var left = 5;
+  var left: int = 5;
   var buf = 0;
 
-  method init(n, b) {
+  method init(n: int, b) {
     left = n;
     buf = b;
     send buf.take();

@@ -1,3 +1,6 @@
+// (Phase 11+ typed equivalent: src/python-aipl/samples/Philosophers.abcl,
+//  which annotates `var meals: int` (pub for read-out), `var id: int`
+//  and `init(my_id: int, l, r, n: int)`.)
 // 5 Dining Philosophers — OCaml/SDL coloured wireframe with moving forks.
 //
 // Visual language:
