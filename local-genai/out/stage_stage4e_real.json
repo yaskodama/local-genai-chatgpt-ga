@@ -1,0 +1,24 @@
+{
+  "name": "Stage4_FullCtx_Transformer",
+  "corpus": "1MB",
+  "config": {
+    "d_model": 96,
+    "n_heads": 4,
+    "ctx": 256,
+    "ffn_mult": 4,
+    "depth": 3,
+    "dropout": 0.1,
+    "bptt": 256,
+    "batch": 24,
+    "lr": 0.002,
+    "steps": 10000,
+    "warmup": 800,
+    "weight_decay": 0.05,
+    "label_smoothing": 0.05
+  },
+  "params": 383040,
+  "holdout_ppl": 5.301802245011798,
+  "best_step": 10000,
+  "train_time_sec": 439.39,
+  "source": "Stage 4 \u2014 full-context transformer on 1MB corpus"
+}

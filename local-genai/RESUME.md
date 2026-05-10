@@ -22,37 +22,50 @@ origin/main と同期済み (push 済み)。
 
 ## チャンピオン (現状最強モデル)
 
-**Stage-4d-orth Transformer (1MB 学習, label smoothing + 高 weight decay)** —
-共通 1MB tail holdout 上で ppl **5.304**
+**Stage-4e Transformer (1MB 学習, 4c サイズ + 4d-orth 正則化)** —
+共通 1MB tail holdout 上で ppl **5.302** (Stage-4d-orth と統計的同点、 params 半減)
 
 ```
-local-genai/out/transformer_stage4d_orth.pt
-  TinyTransformer depth=4, d_model=128, n_heads=4, ctx=256, bptt=256
+local-genai/out/transformer_stage4e.pt
+  TinyTransformer depth=3, d_model=96, n_heads=4, ctx=256, bptt=256
   ffn_mult=4, RMSNorm, learned positional
   dropout 0.1, label_smoothing 0.05, weight_decay 0.05
-  TinyShakespeare-1MB 学習, 855,680 params
-  best ppl 5.304 @ step 6500 (10000 step 走破)
-  訓練時間 693s (M2 MPS, ≈ 11.5 分)
+  TinyShakespeare-1MB 学習, 383,040 params
+  best ppl 5.302 @ step 10000 (= 走破直前; さらに延長で伸びる可能性)
+  訓練時間 439s (M2 MPS, ≈ 7.3 分)
 ```
 
 歴代 (1MB tail で評価):
 - Stage-4 (1.87M, dropout 0.1): ppl 5.929 — overfit peak step 3500
 - Stage-4b (855K, dropout 0.2): ppl 5.731 — capacity↓ + reg↑ で勝利
 - Stage-4c (383K, depth=3, dropout 0.2): ppl 5.521 — さらなる縮小で更に勝利
-- **Stage-4d-orth (855K, dropout 0.1 + ls 0.05 + wd 0.05): ppl 5.304** —
-  4b と同サイズで直交正則化に変更、 -0.43 ppl の劇的改善
+- Stage-4d-orth (855K, dropout 0.1 + ls 0.05 + wd 0.05): ppl 5.304 — 直交正則化で大勝利
+- **Stage-4e (383K, depth=3 + 直交正則化): ppl 5.302** — 4c のサイズと
+  4d-orth の正則化を統合、 4d-orth と統計的同点を **半分の params** で達成。
+  step 10000 でまだ下降中なので延長で更に伸びる可能性。
 - 1MB 再学習 GRU `charrnn_1MB.pt` (131K): ppl 6.17
 - 旧 winner `charrnn_winner.pt` (100KB 学習, 131K): 1MB tail 上で ppl 14.53 (OOD)
 
-**正則化の組み合わせが重要**:
-- dropout 単独 (4b): 5.73 @ peak step 6500
-- 容量縮小 単独 (4c): 5.52 @ peak step 10000 (まだ下降中)
-- 直交正則化 (label smoothing + 高 wd, dropout 半減) ↓ (4d-orth): **5.30 @ peak step 6500**
+**Pareto 経路** (1MB tail ppl × params, 図示):
+```
+ppl
+6.5 |  R1_100KB(OOD)
+6.0 | * R1_1MB(LSTM)                                * Stage4(初期)
+5.7 |                       * Stage4b
+5.5 |          * Stage4c
+5.3 |     ★ Stage4e        * Stage4d-orth
+    +-------------------------------------------------- params (log)
+       100K   200K  400K   800K   1.6M
+```
+383K (Stage-4e) が現状の Pareto 左下。 LSTM 131K は params/ppl 効率のみ
+未踏 (transformer 130K で 5.3 を維持できれば LSTM を完全制圧)。
 
-dropout を 0.1 に戻し、 ls=0.05 + wd=0.05 に置き換えると、 4b の同サイズで
-0.43 ppl 改善。 dropout は noise-based、 ls は target-distribution-based、
-wd は magnitude-based の 3 種を 1 つずつ薄く効かせるのが byte-level char
-モデルの 1MB スケールでは強い。
+**3 種の正則化 (noise / target-dist / magnitude) を薄く重ねる戦略**は、
+1MB scale で堅牢:
+- dropout 単独 (4b, 855K): 5.73
+- dropout 単独 縮小 (4c, 383K): 5.52
+- 直交 3 種 (4d-orth, 855K): 5.30
+- 直交 3 種 + 縮小 (4e, 383K): **5.30** ← 同じ ppl を半分の容量で
 
 ## 起動手順
 
@@ -155,7 +168,8 @@ cd aice-evolution-v2 && /opt/homebrew/bin/python3.13 -m src.cli \
 | 4 (1MB) | Tx d=192 d4 ctx=256 dropout 0.1 | 1MB | 1.87M | 5.93 | 5.93 |
 | 4b (1MB) | Tx d=128 d4 ctx=256 dropout 0.2 | 1MB | 855K | 5.73 | 5.73 |
 | 4c (1MB) | Tx d=96 d3 ctx=256 dropout 0.2 | 1MB | 383K | 5.52 | 5.52 |
-| **4d-orth (1MB)** | **Tx d=128 d4 ctx=256 dropout 0.1 + ls 0.05 + wd 0.05** | **1MB** | **855K** | **5.30** | **5.30 (champion)** |
+| 4d-orth (1MB) | Tx d=128 d4 + dropout 0.1 + ls 0.05 + wd 0.05 | 1MB | 855K | 5.30 | 5.30 |
+| **4e (1MB)** | **Tx d=96 d3 + dropout 0.1 + ls 0.05 + wd 0.05** | **1MB** | **383K** | **5.30** | **5.30 (champion)** |
 
 教訓:
 - Stage-3 の transformer 敗北は ctx だけの問題ではなかった: BPTT < ctx
@@ -183,22 +197,34 @@ cd aice-evolution-v2 && /opt/homebrew/bin/python3.13 -m src.cli \
 
 ## 続行候補
 
-1. **Stage-4e: 縮小 + 直交正則化を統合** (4c × 4d-orth)
-   - d_model=96 depth=3 + dropout 0.1 + ls 0.05 + wd 0.05 → ~380K params
-   - 4c (5.52) と 4d-orth (5.30) の利点を組み合わせ、 5.2 切りを狙う
-2. **Stage-4f: 4d-orth を更に長く回す**
-   - 4d-orth は step 6500 で peak を打ち横ばい → 完了済みだが、
-     warmup を伸ばす (1500 step) + cosine 終端 LR を下げると伸びる可能性
-3. **Stage-4g: 4c-extended** (4c は step 10000 でまだ下降中だった)
-   - 同設定で steps=15000 にして真の収束 ppl を確認
+1. **Stage-4f-mini: 容量を更に縮小** (LSTM 131K と直接対決)
+   - d_model=64, depth=3, n_heads=4 + 直交正則化 → ≈170K params
+   - LSTM (131K, ppl 6.17) を ppl で完全圧倒できるか
+2. **Stage-4g-long: 4e/4c を延長** (どちらも step 10000 で未収束)
+   - 同設定で steps=20000 + warmup=1500 + cosine 終端 LR=1e-5 で 5.0 切り狙い
+3. **Stage-5-RoPE: 位置埋め込みを刷新**
+   - 4e サイズ + RoPE で learned pos を排除 → 汎化向上を期待
 4. **Stage-2c': LSTM を 1MB で深く回す**
    - hidden=192, 2-layer LSTM, steps=4000 で 6.17 を切れるか
-5. **コーパス 10MB 化**: 1.87M params を活かす空間を作る (現状 1MB では
-   3 epoch 程度しか回せず data 不足)。
+5. **Stage-5-10MB: コーパスを 10MB に拡大**
+   - 1.87M params を活かす空間を作る (現状 1MB は data-starved)。
 6. **SemiAutoEvolve**: Ollama (gemma2:2b) で次世代 mutation を
    3 案起草 (`LocalGenAIScaledEvolutionJP.aice` の Stage 7 仕様あり)。
 
-## Stage-4d-orth (現 champion) を回す手順
+## Stage-4e (現 champion) を回す手順
+
+```sh
+local-genai/.venv/bin/python local-genai/train_stage4.py \
+  --steps 10000 --eval-every 500 --warmup 800 \
+  --batch 24 --bptt 256 --ctx 256 \
+  --depth 3 --d-model 96 --n-heads 4 \
+  --lr 2e-3 --dropout 0.1 \
+  --label-smoothing 0.05 --weight-decay 0.05 \
+  --out-name transformer_stage4e.pt
+# 約 7 分 (M2 MPS), best ppl 5.302 @ step 10000 (収束未達)
+```
+
+## Stage-4d-orth (歴史的: 直交正則化 855K)
 
 ```sh
 local-genai/.venv/bin/python local-genai/train_stage4.py \
