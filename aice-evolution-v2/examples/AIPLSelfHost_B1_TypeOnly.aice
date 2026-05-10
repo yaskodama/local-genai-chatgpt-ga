@@ -1,0 +1,57 @@
+// Level B-1 — Phase 11 Type Checker only.
+//
+// Narrowed slice of AIPLSelfHost_B_PhaseChase.aice that scores
+// candidates ONLY against the Phase 11 task (typed function /
+// var-decl / arity / union / promotion / return-type rules).
+// Used as the GA companion to aipl-self-host/level-b/typeck.abcl
+// so the lineage shows when the search reaches Level B-1's design
+// frontier.
+
+aice AIPLSelfHost_B1_TypeOnly {
+  dialect = "aice_evolution_v2";
+
+  task = "AIPL で Phase 11 型検査器を実装する最小設計を MAP-Elites で探索する. 自己整合性 (検査器自身が自分の検査をパス) も評価対象に含める.";
+
+  gene_schema = "schemas/programming_paradigm.schema.json";
+
+  evaluation_tasks {
+    task Phase11_TypeCheck { spec = "AIPL で _compatible / infer / generic 単一化 / 注釈付き param/var/return 検査を実装する."; }
+    task SelfConsistency   { spec = "Phase 11 検査器自身が自分の検査をパスする (型整合)."; }
+  }
+
+  search {
+    algorithm   = "map_elites";
+    cell_axes   = "paradigm, type_safety";
+    generations = 25;
+    seed_count  = 8;
+    open_axes   = true;
+    rng_seed    = 1101;
+  }
+
+  meta_fitness {
+    trend_alignment       = 0.20;
+    frontier_coverage     = 0.15;
+    novelty               = 0.10;
+    evolvability          = 0.20;
+    cross_task_generality = 0.20;
+    implementability      = 0.15;
+  }
+
+  ranking {
+    strategy  = "pareto_then_pairwise";
+    scenarios = ["conservative", "innovative", "general_purpose"];
+    top_k     = 3;
+  }
+
+  reviewers {
+    reviewer Feasibility {
+      persona = "あなたは Phase 11 型検査器の実装可能性レビュアーです。AIPL の record + function + recursion でこの候補は書けるか, 'OK: <根拠>' / 'NG: <欠けている機能>' で 1 行返答してください。";
+    }
+    reviewer SelfConsistency {
+      persona = "あなたは自己整合性レビュアーです。各候補の Phase 11 検査器が, 自分自身の関数群を検査してエラー 0 になるかを 1 文で評価してください。";
+    }
+    reviewer Reuse {
+      persona = "あなたは再利用性レビュアーです。Level A の eval(ast, env) 抽象 (env: array of (name, value) tuples; tail-first lookup) が候補で再利用されているかを評価してください。";
+    }
+  }
+}

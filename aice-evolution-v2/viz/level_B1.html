@@ -1,0 +1,131 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<title>AIPLSelfHost_B1_TypeOnly — MAP-Elites generations</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<style>
+  body { font-family: -apple-system, BlinkMacSystemFont, "Helvetica Neue",
+                       "Hiragino Sans", "Hiragino Kaku Gothic ProN", Meiryo, sans-serif;
+          margin: 24px; color: #222; max-width: 1080px; }
+  h1 { font-size: 22px; }
+  h2 { font-size: 17px; margin-top: 28px; border-bottom: 1px solid #ddd; padding-bottom: 4px; }
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 22px; }
+  .grid > div { background: #fafafa; border: 1px solid #e0e0e0; border-radius: 6px; padding: 10px; }
+  table { border-collapse: collapse; font-size: 13px; width: 100%; margin-top: 12px; }
+  th, td { border: 1px solid #ddd; padding: 5px 8px; text-align: left; vertical-align: top; }
+  th { background: #eef2f7; }
+  td.num { font-variant-numeric: tabular-nums; text-align: right; }
+  .meta { font-size: 13px; color: #555; margin-top: 4px; }
+  .badge { display: inline-block; padding: 1px 6px; border-radius: 3px;
+            background: #eee; margin-right: 4px; font-size: 11px; }
+  canvas { max-height: 280px; }
+</style>
+</head>
+<body>
+
+<h1>AIPLSelfHost_B1_TypeOnly — MAP-Elites 世代進行</h1>
+<div class="meta">
+  <span class="badge">individuals: 33</span>
+  <span class="badge">max generation: 25</span>
+  <span class="badge">cells filled: 15</span>
+  <span class="badge">operators: crossover:axis_uniform_crossover, crossover:schema_partition_crossover, mutation:axis_resample, mutation:coherent_paradigm_shift, mutation:llm_proposal, seed</span>
+</div>
+
+<div class="grid">
+  <div>
+    <h2>composite fitness 推移</h2>
+    <canvas id="fitChart"></canvas>
+  </div>
+  <div>
+    <h2>累積セル数</h2>
+    <canvas id="cellsChart"></canvas>
+  </div>
+  <div>
+    <h2>世代ごとに新規発見セル</h2>
+    <canvas id="newCellsChart"></canvas>
+  </div>
+  <div>
+    <h2>operator 内訳 (世代別)</h2>
+    <canvas id="opChart"></canvas>
+  </div>
+</div>
+
+<h2>top elites</h2>
+<table>
+  <thead><tr>
+    <th>#</th><th>id</th><th>gen</th><th>composite</th><th>cell</th><th>operator</th>
+  </tr></thead>
+  <tbody>
+    <tr><td>1</td><td>I0008</td><td class="num">0</td><td class="num">0.649</td><td>paradigm=C|type_safety=high</td><td>seed</td></tr>
+    <tr><td>2</td><td>I0015</td><td class="num">7</td><td class="num">0.649</td><td>paradigm=C|type_safety=high</td><td>mutation:axis_resample</td></tr>
+    <tr><td>3</td><td>I0016</td><td class="num">8</td><td class="num">0.649</td><td>paradigm=ParallelOOP|type_safety=high</td><td>mutation:axis_resample</td></tr>
+    <tr><td>4</td><td>I0017</td><td class="num">9</td><td class="num">0.649</td><td>paradigm=ParallelOOP|type_safety=high</td><td>crossover:schema_partition_crossover</td></tr>
+    <tr><td>5</td><td>I0024</td><td class="num">16</td><td class="num">0.649</td><td>paradigm=C|type_safety=high</td><td>crossover:axis_uniform_crossover</td></tr>
+    <tr><td>6</td><td>I0006</td><td class="num">0</td><td class="num">0.647</td><td>paradigm=FunctionalOOP|type_safety=medium</td><td>seed</td></tr>
+    <tr><td>7</td><td>I0007</td><td class="num">0</td><td class="num">0.647</td><td>paradigm=ParallelOOP|type_safety=high</td><td>seed</td></tr>
+    <tr><td>8</td><td>I0023</td><td class="num">15</td><td class="num">0.639</td><td>paradigm=C|type_safety=dependent</td><td>mutation:axis_resample</td></tr>
+    <tr><td>9</td><td>I0028</td><td class="num">20</td><td class="num">0.633</td><td>paradigm=BASIC|type_safety=high</td><td>mutation:axis_resample</td></tr>
+    <tr><td>10</td><td>I0030</td><td class="num">22</td><td class="num">0.633</td><td>paradigm=C|type_safety=high</td><td>crossover:schema_partition_crossover</td></tr>
+  </tbody>
+</table>
+
+<script>
+const labels = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25];
+
+new Chart(document.getElementById('fitChart'), {
+  type: 'line',
+  data: {
+    labels: labels,
+    datasets: [
+      { label: 'best',  data: [0.649, 0.605, 0.615, 0.615, 0.615, 0.629, 0.629, 0.649, 0.649, 0.649, 0.623, 0.615, 0.623, 0.595, 0.605, 0.639, 0.649, 0.629, 0.619, 0.629, 0.633, 0.623, 0.633, 0.595, 0.619, 0.619],  borderColor: '#c0504d', tension: 0.2 },
+      { label: 'mean',  data: [0.6325000000000001, 0.605, 0.615, 0.615, 0.615, 0.629, 0.629, 0.649, 0.649, 0.649, 0.623, 0.615, 0.623, 0.595, 0.605, 0.639, 0.649, 0.629, 0.619, 0.629, 0.633, 0.623, 0.633, 0.595, 0.619, 0.619],  borderColor: '#4f81bd', tension: 0.2 },
+      { label: 'worst', data: [0.615, 0.605, 0.615, 0.615, 0.615, 0.629, 0.629, 0.649, 0.649, 0.649, 0.623, 0.615, 0.623, 0.595, 0.605, 0.639, 0.649, 0.629, 0.619, 0.629, 0.633, 0.623, 0.633, 0.595, 0.619, 0.619], borderColor: '#9bbb59', tension: 0.2 }
+    ]
+  },
+  options: { responsive: true, scales: { y: { beginAtZero: false } } }
+});
+
+new Chart(document.getElementById('cellsChart'), {
+  type: 'line',
+  data: {
+    labels: labels,
+    datasets: [
+      { label: 'cumulative cells', data: [7, 8, 9, 9, 9, 9, 9, 9, 9, 9, 9, 10, 10, 11, 12, 12, 12, 12, 13, 13, 13, 13, 13, 13, 14, 15],
+        borderColor: '#8064a2', backgroundColor: 'rgba(128,100,162,0.2)',
+        fill: true, tension: 0.1 }
+    ]
+  },
+  options: { responsive: true, scales: { y: { beginAtZero: true } } }
+});
+
+new Chart(document.getElementById('newCellsChart'), {
+  type: 'bar',
+  data: {
+    labels: labels,
+    datasets: [{ label: 'new cells', data: [7, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 1, 1, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 1], backgroundColor: '#4bacc6' }]
+  },
+  options: { responsive: true, scales: { y: { beginAtZero: true, ticks: { stepSize: 1 } } } }
+});
+
+new Chart(document.getElementById('opChart'), {
+  type: 'bar',
+  data: {
+    labels: labels,
+    datasets: [
+        { label: "crossover:axis_uniform_crossover", data: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0], backgroundColor: "#4f81bd", stack: 's' },
+        { label: "crossover:schema_partition_crossover", data: [0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0], backgroundColor: "#c0504d", stack: 's' },
+        { label: "mutation:axis_resample", data: [0, 0, 0, 0, 1, 0, 0, 1, 1, 0, 1, 0, 1, 0, 0, 1, 0, 1, 1, 0, 1, 1, 0, 0, 0, 0], backgroundColor: "#9bbb59", stack: 's' },
+        { label: "mutation:coherent_paradigm_shift", data: [0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], backgroundColor: "#8064a2", stack: 's' },
+        { label: "mutation:llm_proposal", data: [0, 0, 0, 1, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 1], backgroundColor: "#4bacc6", stack: 's' },
+        { label: "seed", data: [8, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], backgroundColor: "#f79646", stack: 's' }
+    ]
+  },
+  options: { responsive: true,
+    scales: { x: { stacked: true }, y: { stacked: true, beginAtZero: true,
+                                              ticks: { stepSize: 1 } } } }
+});
+</script>
+
+</body>
+</html>

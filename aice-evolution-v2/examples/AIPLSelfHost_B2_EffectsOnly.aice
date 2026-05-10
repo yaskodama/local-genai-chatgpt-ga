@@ -1,0 +1,55 @@
+// Level B-2 — Phase 12 Capability Effects only.
+//
+// Narrowed slice of AIPLSelfHost_B_PhaseChase.aice that scores
+// candidates ONLY against the Phase 12 task (effect-set propagation
+// + completeness check), assuming Level B-1's type checker is in
+// place.  Companion to aipl-self-host/level-b2/typeck.abcl.
+
+aice AIPLSelfHost_B2_EffectsOnly {
+  dialect = "aice_evolution_v2";
+
+  task = "AIPL で Phase 12 効果検査器を実装する最小設計を MAP-Elites で探索する. Phase 11 (型検査) は既に Level B-1 で実装済みである前提で, 効果軸の追加だけを評価する.";
+
+  gene_schema = "schemas/programming_paradigm.schema.json";
+
+  evaluation_tasks {
+    task Phase12_EffectCheck { spec = "AIPL で !{fs, ai, net, mut} 効果集合の伝播 + completeness 検査を実装する. builtin 効果テーブルを内蔵."; }
+    task SelfConsistency     { spec = "Phase 11 + Phase 12 検査器自身が自分の検査をパスする (型整合 + 効果整合)."; }
+  }
+
+  search {
+    algorithm   = "map_elites";
+    cell_axes   = "paradigm, type_safety, effect_handling";
+    generations = 30;
+    seed_count  = 10;
+    open_axes   = true;
+    rng_seed    = 1212;
+  }
+
+  meta_fitness {
+    trend_alignment       = 0.30;
+    frontier_coverage     = 0.10;
+    novelty               = 0.10;
+    evolvability          = 0.15;
+    cross_task_generality = 0.20;
+    implementability      = 0.15;
+  }
+
+  ranking {
+    strategy  = "pareto_then_pairwise";
+    scenarios = ["conservative", "innovative", "general_purpose"];
+    top_k     = 3;
+  }
+
+  reviewers {
+    reviewer Feasibility {
+      persona = "あなたは Phase 12 効果検査器の実装可能性レビュアーです。AIPL の record/array + 効果リスト (array of strings) で書けるかを 'OK: <根拠>' / 'NG: <欠けている機能>' で 1 行返答してください。";
+    }
+    reviewer Monotonicity {
+      persona = "あなたはフェーズ単調性レビュアーです。Level B-1 の tenv + tail-first lookup + per-call fresh env が破壊されずに継承されているかを評価してください。'OK: <継承点>' / 'NG: <破壊点>' で答えてください。";
+    }
+    reviewer Orthogonality {
+      persona = "あなたは直交性レビュアーです。effect_set の追加が type_env と独立に実装されているか (sibling axis として; 相互依存していないか) を 1 文で評価してください。";
+    }
+  }
+}

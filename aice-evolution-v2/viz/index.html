@@ -1,0 +1,169 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<title>AIPL Self-Host MAP-Elites — Level A / B-1 / B-2 / C</title>
+<style>
+  body { font-family: -apple-system, BlinkMacSystemFont, "Helvetica Neue",
+                      "Hiragino Sans", "Hiragino Kaku Gothic ProN", Meiryo, sans-serif;
+         margin: 24px; color: #222; max-width: 1080px; }
+  h1 { font-size: 24px; }
+  h2 { font-size: 18px; margin-top: 28px; border-bottom: 1px solid #ddd; padding-bottom: 4px; }
+  table { border-collapse: collapse; font-size: 13px; width: 100%; margin: 12px 0; }
+  th, td { border: 1px solid #ddd; padding: 6px 10px; text-align: left; }
+  th { background: #eef2f7; }
+  td.num { font-variant-numeric: tabular-nums; text-align: right; }
+  .levels a { display: inline-block; margin-right: 12px; padding: 6px 12px;
+              background: #4f81bd; color: white; text-decoration: none;
+              border-radius: 4px; font-size: 13px; }
+  .levels a:hover { background: #3a6da3; }
+  .meta { font-size: 13px; color: #555; }
+  code { background: #f5f5f5; padding: 1px 4px; border-radius: 3px; }
+</style>
+</head>
+<body>
+
+<h1>AIPL Self-Host MAP-Elites — Level A / B-1 / B-2 / C 世代進行</h1>
+
+<p class="meta">
+  各 Level に対応する <code>.aice</code> ファイルから MAP-Elites を実走した結果のうち,
+  「世代の進み方」を可視化した HTML です. 個別ページ:
+</p>
+
+<div class="levels">
+  <a href="level_A.html">Level A — グラフ</a>
+  <a href="level_A_tree.html">Level A — 系統樹</a>
+  <a href="level_B1.html">Level B-1 — グラフ</a>
+  <a href="level_B1_tree.html">Level B-1 — 系統樹</a>
+  <a href="level_B2.html">Level B-2 — グラフ</a>
+  <a href="level_B2_tree.html">Level B-2 — 系統樹</a>
+  <a href="level_C.html">Level C — グラフ</a>
+  <a href="level_C_tree.html">Level C — 系統樹</a>
+</div>
+
+<h2>進化は 1 直線か / 分岐があるか</h2>
+
+<p>
+  分岐が <strong>あります</strong>. MAP-Elites の lineage は系統樹 (DAG) であり,
+  以下が実走データから確定しています:
+</p>
+
+<table>
+  <thead>
+    <tr><th>Level</th><th>seeds</th><th>分岐ノード数</th>
+        <th>1 親が持つ最大子数</th><th>crossover (多親) 個体数</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>A</td><td class="num">6</td><td class="num">4</td><td class="num">7</td><td class="num">2</td></tr>
+    <tr><td>B-1</td><td class="num">8</td><td class="num">6</td><td class="num">5</td><td class="num">4</td></tr>
+    <tr><td>B-2</td><td class="num">10</td><td class="num">9</td><td class="num">3</td><td class="num">4</td></tr>
+    <tr><td>C</td><td class="num">16</td><td class="num">19</td><td class="num">7</td><td class="num">23</td></tr>
+  </tbody>
+</table>
+
+<h2>Level C で何が起きたか</h2>
+
+<p>
+  Level C は cell axes が全 6 軸 (paradigm × state_representation × concurrency_model
+  × type_safety × effect_handling × ownership_model) になった結果, セル空間が一気に広がり
+  <strong>discard 率が劇的に下がる (62% → 18%)</strong>:
+</p>
+
+<table>
+  <thead><tr><th>Level</th><th>個体</th><th>cells</th><th>discarded</th><th>cells / 個体</th></tr></thead>
+  <tbody>
+    <tr><td>A</td><td class="num">26</td><td class="num">10</td><td class="num">62%</td><td class="num">0.38</td></tr>
+    <tr><td>B-1</td><td class="num">33</td><td class="num">15</td><td class="num">55%</td><td class="num">0.45</td></tr>
+    <tr><td>B-2</td><td class="num">40</td><td class="num">31</td><td class="num">22%</td><td class="num">0.78</td></tr>
+    <tr><td>C</td><td class="num">76</td><td class="num">62</td><td class="num">18%</td><td class="num">0.82</td></tr>
+  </tbody>
+</table>
+
+<p>
+  ほぼ全ての子個体が新セルに着地しているため, 系統樹はもはや <em>狭い attractor への集約</em>
+  ではなく <em>広がり続ける扇</em> に近い形になります.
+  Level C の <a href="level_C_tree.html">系統樹</a> を Level A と並べて見ると差が一目瞭然です.
+</p>
+
+<p class="meta">
+  系統樹 HTML では各ノードのホバーで <code>id / gen / operator / composite / cell / parents</code>
+  が表示され, 1 親 → 複数子の分岐, crossover (多親 → 1 子) の合流が
+  視覚的に確認できます.
+</p>
+
+<h2>サマリ</h2>
+
+<table>
+  <thead>
+    <tr>
+      <th>Level</th><th>.aice</th><th>tasks</th><th>generations 上限</th>
+      <th>seeds/gen</th><th>個体総数</th><th>セル充填数</th>
+      <th>cell axes</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>A</td>
+      <td><code>AIPLSelfHost_A_Metacircular.aice</code></td>
+      <td class="num">6</td><td class="num">20</td><td class="num">6</td>
+      <td class="num">26</td><td class="num">10</td>
+      <td>paradigm × type_safety</td>
+    </tr>
+    <tr>
+      <td>B-1</td>
+      <td><code>AIPLSelfHost_B1_TypeOnly.aice</code></td>
+      <td class="num">2</td><td class="num">25</td><td class="num">8</td>
+      <td class="num">33</td><td class="num">15</td>
+      <td>paradigm × type_safety</td>
+    </tr>
+    <tr>
+      <td>B-2</td>
+      <td><code>AIPLSelfHost_B2_EffectsOnly.aice</code></td>
+      <td class="num">2</td><td class="num">30</td><td class="num">10</td>
+      <td class="num">40</td><td class="num">31</td>
+      <td>paradigm × type_safety × effect_handling</td>
+    </tr>
+    <tr>
+      <td>C</td>
+      <td><code>AIPLSelfHost_C_FullHost.aice</code></td>
+      <td class="num">15</td><td class="num">60</td><td class="num">16</td>
+      <td class="num">76</td><td class="num">62</td>
+      <td>全 6 軸 (paradigm × state_representation × concurrency_model × type_safety × effect_handling × ownership_model)</td>
+    </tr>
+  </tbody>
+</table>
+
+<h2>「世代」とは</h2>
+
+<p>
+  <code>.ga.json</code> の <code>search.generations</code> は <strong>探索 budget</strong> の上限です.
+  実際にどの世代で何が起きたかは, 各実走の <code>lineage.json</code> に <code>generation</code>
+  フィールドとして記録されています. 個別 HTML はその情報を時系列で可視化:
+</p>
+
+<ul>
+  <li><strong>composite fitness 推移</strong> — best / mean / worst の各世代値</li>
+  <li><strong>累積セル数</strong> — MAP-Elites がカバーする (paradigm, type_safety, …) セルの総数</li>
+  <li><strong>世代ごとの新規発見セル</strong> — その世代で初めて埋まったセル</li>
+  <li><strong>operator 内訳</strong> — 各世代で適用された mutation / crossover の種別</li>
+  <li><strong>top elites</strong> — 最終的な fitness 上位 10 個体 (どの世代生まれかの欄あり)</li>
+</ul>
+
+<h2>所在</h2>
+
+<table>
+  <thead><tr><th>artifact</th><th>path</th></tr></thead>
+  <tbody>
+    <tr><td>.aice spec (A)</td><td><code>aice-evolution-v2/examples/AIPLSelfHost_A_Metacircular.aice</code></td></tr>
+    <tr><td>.aice spec (B-1)</td><td><code>aice-evolution-v2/examples/AIPLSelfHost_B1_TypeOnly.aice</code></td></tr>
+    <tr><td>.aice spec (B-2)</td><td><code>aice-evolution-v2/examples/AIPLSelfHost_B2_EffectsOnly.aice</code></td></tr>
+    <tr><td>.aice spec (C)</td><td><code>aice-evolution-v2/examples/AIPLSelfHost_C_FullHost.aice</code></td></tr>
+    <tr><td>lineage / elite_map (all 4 levels)</td>
+        <td><code>aice-evolution-v2/out/sh_*</code> (rerun via <code>src/cli</code> to regenerate; <em>gitignored</em>)</td></tr>
+    <tr><td>visualization script (graphs)</td><td><code>aice-evolution-v2/src/viz_generations.py</code></td></tr>
+    <tr><td>visualization script (lineage tree)</td><td><code>aice-evolution-v2/src/viz_lineage_tree.py</code></td></tr>
+  </tbody>
+</table>
+
+</body>
+</html>

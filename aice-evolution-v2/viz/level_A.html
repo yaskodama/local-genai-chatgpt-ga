@@ -1,0 +1,131 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<title>AIPLSelfHost_A_Metacircular — MAP-Elites generations</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<style>
+  body { font-family: -apple-system, BlinkMacSystemFont, "Helvetica Neue",
+                       "Hiragino Sans", "Hiragino Kaku Gothic ProN", Meiryo, sans-serif;
+          margin: 24px; color: #222; max-width: 1080px; }
+  h1 { font-size: 22px; }
+  h2 { font-size: 17px; margin-top: 28px; border-bottom: 1px solid #ddd; padding-bottom: 4px; }
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 22px; }
+  .grid > div { background: #fafafa; border: 1px solid #e0e0e0; border-radius: 6px; padding: 10px; }
+  table { border-collapse: collapse; font-size: 13px; width: 100%; margin-top: 12px; }
+  th, td { border: 1px solid #ddd; padding: 5px 8px; text-align: left; vertical-align: top; }
+  th { background: #eef2f7; }
+  td.num { font-variant-numeric: tabular-nums; text-align: right; }
+  .meta { font-size: 13px; color: #555; margin-top: 4px; }
+  .badge { display: inline-block; padding: 1px 6px; border-radius: 3px;
+            background: #eee; margin-right: 4px; font-size: 11px; }
+  canvas { max-height: 280px; }
+</style>
+</head>
+<body>
+
+<h1>AIPLSelfHost_A_Metacircular — MAP-Elites 世代進行</h1>
+<div class="meta">
+  <span class="badge">individuals: 26</span>
+  <span class="badge">max generation: 20</span>
+  <span class="badge">cells filled: 10</span>
+  <span class="badge">operators: crossover:schema_partition_crossover, mutation:axis_resample, mutation:coherent_paradigm_shift, mutation:llm_new_axis, mutation:llm_proposal, seed</span>
+</div>
+
+<div class="grid">
+  <div>
+    <h2>composite fitness 推移</h2>
+    <canvas id="fitChart"></canvas>
+  </div>
+  <div>
+    <h2>累積セル数</h2>
+    <canvas id="cellsChart"></canvas>
+  </div>
+  <div>
+    <h2>世代ごとに新規発見セル</h2>
+    <canvas id="newCellsChart"></canvas>
+  </div>
+  <div>
+    <h2>operator 内訳 (世代別)</h2>
+    <canvas id="opChart"></canvas>
+  </div>
+</div>
+
+<h2>top elites</h2>
+<table>
+  <thead><tr>
+    <th>#</th><th>id</th><th>gen</th><th>composite</th><th>cell</th><th>operator</th>
+  </tr></thead>
+  <tbody>
+    <tr><td>1</td><td>I0004</td><td class="num">0</td><td class="num">0.657</td><td>paradigm=Java_OOP|type_safety=high</td><td>seed</td></tr>
+    <tr><td>2</td><td>I0009</td><td class="num">3</td><td class="num">0.657</td><td>paradigm=Java_OOP|type_safety=high</td><td>mutation:llm_proposal</td></tr>
+    <tr><td>3</td><td>I0011</td><td class="num">5</td><td class="num">0.657</td><td>paradigm=BASIC|type_safety=high</td><td>crossover:schema_partition_crossover</td></tr>
+    <tr><td>4</td><td>I0017</td><td class="num">11</td><td class="num">0.657</td><td>paradigm=BASIC|type_safety=high</td><td>crossover:schema_partition_crossover</td></tr>
+    <tr><td>5</td><td>I0018</td><td class="num">12</td><td class="num">0.657</td><td>paradigm=Java_OOP|type_safety=high</td><td>mutation:llm_proposal</td></tr>
+    <tr><td>6</td><td>I0026</td><td class="num">20</td><td class="num">0.657</td><td>paradigm=Java_OOP|type_safety=high</td><td>mutation:llm_proposal</td></tr>
+    <tr><td>7</td><td>I0002</td><td class="num">0</td><td class="num">0.649</td><td>paradigm=Java_OOP|type_safety=high</td><td>seed</td></tr>
+    <tr><td>8</td><td>I0016</td><td class="num">10</td><td class="num">0.649</td><td>paradigm=ParallelOOP|type_safety=high</td><td>mutation:coherent_paradigm_shift</td></tr>
+    <tr><td>9</td><td>I0025</td><td class="num">19</td><td class="num">0.649</td><td>paradigm=ParallelOOP|type_safety=high</td><td>mutation:coherent_paradigm_shift</td></tr>
+    <tr><td>10</td><td>I0006</td><td class="num">0</td><td class="num">0.647</td><td>paradigm=C|type_safety=medium</td><td>seed</td></tr>
+  </tbody>
+</table>
+
+<script>
+const labels = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20];
+
+new Chart(document.getElementById('fitChart'), {
+  type: 'line',
+  data: {
+    labels: labels,
+    datasets: [
+      { label: 'best',  data: [0.657, 0.647, 0.625, 0.657, 0.647, 0.657, 0.627, 0.633, 0.647, 0.647, 0.649, 0.657, 0.657, 0.647, 0.637, 0.627, 0.631, 0.631, 0.595, 0.649, 0.657],  borderColor: '#c0504d', tension: 0.2 },
+      { label: 'mean',  data: [0.6416666666666667, 0.647, 0.625, 0.657, 0.647, 0.657, 0.627, 0.633, 0.647, 0.647, 0.649, 0.657, 0.657, 0.647, 0.637, 0.627, 0.631, 0.631, 0.595, 0.649, 0.657],  borderColor: '#4f81bd', tension: 0.2 },
+      { label: 'worst', data: [0.625, 0.647, 0.625, 0.657, 0.647, 0.657, 0.627, 0.633, 0.647, 0.647, 0.649, 0.657, 0.657, 0.647, 0.637, 0.627, 0.631, 0.631, 0.595, 0.649, 0.657], borderColor: '#9bbb59', tension: 0.2 }
+    ]
+  },
+  options: { responsive: true, scales: { y: { beginAtZero: false } } }
+});
+
+new Chart(document.getElementById('cellsChart'), {
+  type: 'line',
+  data: {
+    labels: labels,
+    datasets: [
+      { label: 'cumulative cells', data: [4, 4, 4, 4, 4, 4, 5, 5, 5, 5, 6, 6, 6, 7, 8, 9, 9, 9, 10, 10, 10],
+        borderColor: '#8064a2', backgroundColor: 'rgba(128,100,162,0.2)',
+        fill: true, tension: 0.1 }
+    ]
+  },
+  options: { responsive: true, scales: { y: { beginAtZero: true } } }
+});
+
+new Chart(document.getElementById('newCellsChart'), {
+  type: 'bar',
+  data: {
+    labels: labels,
+    datasets: [{ label: 'new cells', data: [4, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 1, 1, 1, 0, 0, 1, 0, 0], backgroundColor: '#4bacc6' }]
+  },
+  options: { responsive: true, scales: { y: { beginAtZero: true, ticks: { stepSize: 1 } } } }
+});
+
+new Chart(document.getElementById('opChart'), {
+  type: 'bar',
+  data: {
+    labels: labels,
+    datasets: [
+        { label: "crossover:schema_partition_crossover", data: [0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0], backgroundColor: "#4f81bd", stack: 's' },
+        { label: "mutation:axis_resample", data: [0, 0, 1, 0, 0, 0, 1, 0, 1, 1, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0], backgroundColor: "#c0504d", stack: 's' },
+        { label: "mutation:coherent_paradigm_shift", data: [0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 1, 1, 0], backgroundColor: "#9bbb59", stack: 's' },
+        { label: "mutation:llm_new_axis", data: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0], backgroundColor: "#8064a2", stack: 's' },
+        { label: "mutation:llm_proposal", data: [0, 1, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1], backgroundColor: "#4bacc6", stack: 's' },
+        { label: "seed", data: [6, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], backgroundColor: "#f79646", stack: 's' }
+    ]
+  },
+  options: { responsive: true,
+    scales: { x: { stacked: true }, y: { stacked: true, beginAtZero: true,
+                                              ticks: { stepSize: 1 } } } }
+});
+</script>
+
+</body>
+</html>
