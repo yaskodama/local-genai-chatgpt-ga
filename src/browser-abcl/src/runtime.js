@@ -33,7 +33,7 @@ export class Runtime {
     this.bufState = null;                // null until `call buf_init(cap);`
 
     // ---- Slider-driven runtime variables ----------------------------
-    // Read by ABCL/c+ programs via the prod_speed() / cons_speed()
+    // Read by AIPL programs via the prod_speed() / cons_speed()
     // builtins. The console UI binds sliders to these fields so timings
     // can be tuned live without re-running the program.
     this._prodSpeed = 120;

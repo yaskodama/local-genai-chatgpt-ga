@@ -1,0 +1,167 @@
+// AIPL static site generator demo.
+//
+// Builds a tiny website under out_site/ from a JSON config:
+//   - index.html          (templated from the config)
+//   - style.css           (small theme)
+//   - logo.png            (generated pixel-by-pixel)
+//   - posts/<slug>.html   (one file per post)
+//
+// Demonstrates: file read/write, binary write, image_load/save/create/
+// set_pixel, list_dir, mkdir, path_join, json_parse/stringify, and
+// typeof on the new value kinds.
+
+class SiteGen {
+  var out_dir = "out_site";
+
+  // Render a tiny HTML page from title + body string.
+  function html_page(title, body) {
+    return "<!doctype html>\n" +
+           "<html><head>\n" +
+           "  <meta charset=\"utf-8\">\n" +
+           "  <title>" + title + "</title>\n" +
+           "  <link rel=\"stylesheet\" href=\"style.css\">\n" +
+           "  <link rel=\"icon\" type=\"image/png\" href=\"logo.png\">\n" +
+           "</head><body>\n" +
+           "<header><img src=\"logo.png\" width=\"64\" height=\"64\" alt=\"logo\">\n" +
+           "<h1>" + title + "</h1></header>\n" +
+           "<main>" + body + "</main>\n" +
+           "</body></html>\n";
+  }
+
+  function css_theme(primary) {
+    return "body { font-family: system-ui, sans-serif; max-width: 640px; margin: 2em auto; }\n" +
+           "header { display: flex; align-items: center; gap: 1em; }\n" +
+           "h1 { color: " + primary + "; }\n" +
+           "main { line-height: 1.6; }\n" +
+           "a { color: " + primary + "; }\n";
+  }
+
+  // Build a 64x64 RGBA logo: gradient from dark blue to teal with
+  // a centered diamond highlight.
+  function build_logo() {
+    var W = 64;
+    var H = 64;
+    var img = image_create(W, H, 0, 0, 0, 0);
+    var y = 0;
+    while (y < H) do {
+      var x = 0;
+      while (x < W) do {
+        // Gradient: red increases with x, green with y, blue stays mid.
+        var r = (x * 4);
+        var g = (y * 3);
+        var b = 128;
+        // Diamond highlight near the centre.
+        var dx = x - 32;
+        if (dx < 0) { dx = 0 - dx; }
+        var dy = y - 32;
+        if (dy < 0) { dy = 0 - dy; }
+        if (dx + dy < 16) {
+          r = 255;
+          g = 220;
+          b = 60;
+        }
+        image_set_pixel(img, x, y, r, g, b, 255);
+        x = x + 1;
+      }
+      y = y + 1;
+    }
+    return img;
+  }
+
+  method generate(config) {
+    print("=== AIPL site generator ===");
+    mkdir(out_dir);
+    mkdir(path_join(out_dir, "posts"));
+
+    // 1) Generate logo.png.
+    var logo = build_logo();
+    var logo_path = path_join(out_dir, "logo.png");
+    image_save(logo, logo_path);
+    print("logo: " + typeof(logo) + " -> " + logo_path);
+
+    // 2) Generate style.css from theme color.
+    var css_path = path_join(out_dir, "style.css");
+    write_file(css_path, css_theme(config.theme.primary));
+    print("css : " + css_path);
+
+    // 3) Generate index.html.
+    var posts = config.posts;
+    var n_posts = array_len(posts);
+    var index_body = "<p>" + config.tagline + "</p>\n<ul>\n";
+    var i = 0;
+    while (i < n_posts) do {
+      var p = array_get(posts, i);
+      var post_url = "posts/" + p.slug + ".html";
+      index_body = index_body + "  <li><a href=\"" + post_url + "\">" + p.title + "</a></li>\n";
+      i = i + 1;
+    }
+    index_body = index_body + "</ul>\n";
+    var idx_path = path_join(out_dir, "index.html");
+    write_file(idx_path, html_page(config.site_name, index_body));
+    print("idx : " + idx_path);
+
+    // 4) Generate one HTML file per post.
+    var j = 0;
+    while (j < n_posts) do {
+      var p2 = array_get(posts, j);
+      var body = "<article>\n" + p2.body + "\n<p><a href=\"../index.html\">&larr; back</a></p>\n</article>";
+      var post_path = path_join(out_dir, path_join("posts", p2.slug + ".html"));
+      write_file(post_path, html_page(p2.title, body));
+      print("post: " + post_path);
+      j = j + 1;
+    }
+
+    // 5) Write a manifest JSON describing what was generated.
+    var manifest = { site: config.site_name,
+                     post_count: n_posts,
+                     theme: config.theme,
+                     logo: { path: "logo.png", width: logo.width, height: logo.height } };
+    write_file(path_join(out_dir, "manifest.json"), json_stringify(manifest, 2));
+
+    // 6) Verify by reading back.
+    var listing = list_dir(out_dir);
+    print("");
+    print("Generated " + array_len(listing) + " entries in " + out_dir + ":");
+    var k = 0;
+    while (k < array_len(listing)) do {
+      print("  - " + array_get(listing, k));
+      k = k + 1;
+    }
+
+    // 7) typeof showcase on the new value kinds.
+    print("");
+    print("typeof(logo)             = " + typeof(logo));
+    print("typeof(image_size(logo)) = " + typeof(image_size(logo)));
+    print("typeof(manifest)         = " + typeof(manifest));
+    var raw = read_bytes(logo_path);
+    print("typeof(raw)              = " + typeof(raw) + "  (len=" + array_len(raw) + ")");
+    print("typeof(image_pixel(logo, 32, 32)) = " + typeof(image_pixel(logo, 32, 32)));
+    var px = image_pixel(logo, 32, 32);
+    print("center pixel (32,32) = (" + px[0] + "," + px[1] + "," + px[2] + "," + px[3] + ")");
+
+    reply(out_dir);
+  }
+}
+
+// Build a config from inline AIPL data — same shape an LLM would emit.
+var config = {
+  site_name: "AIPL Demo Blog",
+  tagline: "A 100% AIPL-generated static site (HTML + CSS + favicon).",
+  theme: { primary: "#1f6feb", surface: "#0d1117" },
+  posts: [
+    { slug: "hello",       title: "Hello, AIPL",
+      body: "<p>This page was generated by an AIPL actor.</p>" },
+    { slug: "actors",      title: "Why actors?",
+      body: "<p>Send is fire-and-forget; <code>now</code> blocks for a reply.</p>" },
+    { slug: "type-infer",  title: "Structural typeof",
+      body: "<p><code>typeof</code> walks values to surface their shape.</p>" }
+  ]
+};
+
+print("config typeof = " + typeof(config));
+print("");
+
+var gen = new SiteGen();
+var dir = now gen.generate(config);
+print("");
+print("=== done; site root = " + dir + " ===");

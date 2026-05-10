@@ -138,10 +138,10 @@ document.getElementById("btnClear").addEventListener("click", () => {
   consoleOut.textContent = "";
 });
 
-appendConsole("ABCL/c+ Browser Console");
+appendConsole("AIPL Browser Console");
 appendConsole("This is a browser-local console.");
 appendConsole("At the moment it runs JavaScript helpers locally.");
-appendConsole("Next step: embed a browser-only ABCL/c+ interpreter here.");
+appendConsole("Next step: embed a browser-only AIPL interpreter here.");
 appendConsole("");
 appendConsole('Try: BrowserABCL.help()');
 appendConsole("");

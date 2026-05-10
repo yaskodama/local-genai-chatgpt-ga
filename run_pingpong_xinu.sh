@@ -19,7 +19,7 @@ dune build src/abcl2c.exe
 cp /tmp/pp_xinu.c "$XINU/apps/abcl_pingpong.c"
 
 # 3. build Xinu (apps/Makerules には abcl_pingpong.c を追加済み、
-#    system/main.c には abcl_main の起動コードを追加済み)
+#    system/main.c には aipl_main の起動コードを追加済み)
 ( cd "$XINU/compile" && \
   make PLATFORM=arm-qemu COMPILER_ROOT=$COMPILER_ROOT >/tmp/xinu_build.log 2>&1 )
 

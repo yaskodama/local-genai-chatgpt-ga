@@ -1,6 +1,6 @@
 document.body.innerHTML = `
 <div style="padding:16px;">
-  <h2>Browser ABCL/c+</h2>
+  <h2>Browser AIPL</h2>
   <button id="openBrowserConsole">Open Browser Console</button>
 </div>
 `;

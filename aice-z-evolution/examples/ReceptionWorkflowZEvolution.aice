@@ -2,7 +2,7 @@ aice ReceptionWorkflowZEvolution {
 
   target_language = ABCL;
 
-  task = "Create a correct reception workflow program for the OCaml ABCL/c+ runtime from the specification. If target_language is any, choose the simplest language that satisfies the formal checks; otherwise use the selected target language.";
+  task = "Create a correct reception workflow program for the OCaml AIPL runtime from the specification. If target_language is any, choose the simplest language that satisfies the formal checks; otherwise use the selected target language.";
 
   specification {
     entities {
@@ -79,7 +79,7 @@ aice ReceptionWorkflowZEvolution {
         target = target_language;
         from = any;
         to = ABCL;
-        reason = "Use OCaml ABCL/c+ as the default target. The meta file may still select any or another concrete target language explicitly.";
+        reason = "Use OCaml AIPL as the default target. The meta file may still select any or another concrete target language explicitly.";
       }
 
       rule M2_ZFirst {

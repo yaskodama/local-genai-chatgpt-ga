@@ -1,4 +1,4 @@
-(* abcl2c.ml — ABCL/c+ ソースを C に変換 *)
+(* abcl2c.ml — AIPL ソースを C に変換 *)
 
 let usage () =
   prerr_endline "usage: abcl2c <input.abcl> [-o <output>] [--max-msgs N] [--xinu | --python]";

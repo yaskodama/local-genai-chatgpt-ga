@@ -131,7 +131,7 @@ aice TrafficLightParadigmEvolution {
         from = Java_OOP_and_FunctionalOOP, Java_or_ML, none, object_or_module;
         to = ParallelOOP, ABCL, actor_messages, TrafficLight_actor;
         kind = parallelization_mutation;
-        reason = "After the fork joins, express the best object and functional traits as ABCL/c+ actors that receive tick messages.";
+        reason = "After the fork joins, express the best object and functional traits as AIPL actors that receive tick messages.";
       }
 
       rule M7_Integer_to_Symbolic_State {
@@ -216,7 +216,7 @@ aice TrafficLightParadigmEvolution {
           replace target_language with ABCL;
         }
 
-        reason = "Join the two fork branches: Java OOP contributes object ownership/interface, Functional OOP contributes symbolic pure transition, and the child becomes an ABCL/c+ actor program.";
+        reason = "Join the two fork branches: Java OOP contributes object ownership/interface, Functional OOP contributes symbolic pure transition, and the child becomes an AIPL actor program.";
       }
     }
 

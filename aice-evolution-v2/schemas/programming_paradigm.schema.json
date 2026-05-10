@@ -1,0 +1,62 @@
+{
+  "name": "programming_paradigm",
+  "axes": {
+    "paradigm": [
+      "assembler",
+      "BASIC",
+      "C",
+      "Java_OOP",
+      "Functional",
+      "FunctionalOOP",
+      "ParallelOOP"
+    ],
+    "state_representation": [
+      "register_int",
+      "global_num",
+      "enum_state",
+      "ADT",
+      "symbol_owned"
+    ],
+    "concurrency_model": [
+      "none",
+      "threads_locks",
+      "actor_messages",
+      "csp_channels",
+      "structured"
+    ],
+    "type_safety": [
+      "none",
+      "low",
+      "medium",
+      "high",
+      "dependent"
+    ],
+    "effect_handling": [
+      "implicit",
+      "monadic",
+      "algebraic_effects",
+      "capability"
+    ],
+    "ownership_model": [
+      "none",
+      "gc",
+      "rc",
+      "borrow_check",
+      "linear"
+    ]
+  },
+  "ordinal_axes": {
+    "type_safety": ["none", "low", "medium", "high", "dependent"],
+    "concurrency_model": ["none", "threads_locks", "csp_channels", "actor_messages", "structured"],
+    "ownership_model": ["none", "gc", "rc", "borrow_check", "linear"]
+  },
+  "coherence": [
+    {"if": {"paradigm": "Functional"},     "then_in": {"state_representation": ["ADT", "symbol_owned"]}},
+    {"if": {"paradigm": "FunctionalOOP"},  "then_in": {"state_representation": ["ADT", "symbol_owned"]}},
+    {"if": {"paradigm": "ParallelOOP"},    "then_not": {"concurrency_model": "none"}},
+    {"if": {"paradigm": "assembler"},      "then": {"type_safety": "none", "concurrency_model": "none"}},
+    {"if": {"paradigm": "Java_OOP"},       "then_min": {"type_safety": "high"}}
+  ],
+  "open_axes": true,
+  "notes": "ordinal_axes give a partial order on values for trend-vector extraction; coherence rules constrain mutation/crossover output."
+}

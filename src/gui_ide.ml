@@ -1,4 +1,4 @@
-(* gui_ide.ml — Native SDL-based integrated environment for ABCL/c+.
+(* gui_ide.ml — Native SDL-based integrated environment for AIPL.
 
    Runs as a standalone executable with an SDL window. Processes commands
    entirely in-process (no HTTP): links directly to abcllib and drives
@@ -11,7 +11,7 @@
      │ ├─ Source ────────────────┤ │                           │ │
      │ │                         │ │                           │ │
      │ └─────────────────────────┘ └───────────────────────────┘ │
-     │  ABCL/c+> <command input>                                  │
+     │  AIPL> <command input>                                  │
      └────────────────────────────────────────────────────────────┘
 
    Keys:
@@ -730,7 +730,7 @@ let hit_button b mx my =
 
 let draw_header r =
   fill_rect r ~x:0 ~y:0 ~w:!win_w ~h:header_h c_header_bg;
-  let title = "ABCL/c+ GUI IDE" in
+  let title = "AIPL GUI IDE" in
   let title_y = (header_h - cell_h) / 2 in
   draw_string r 10 title_y title c_accent;
   (* Compact hint, shown only when there's space after the title. *)
@@ -782,7 +782,7 @@ let draw_status r =
   draw_string_clipped r 10 ty (!win_w - 20) msg c_muted
 
 let line_color_of line =
-  if String.length line >= 9 && String.sub line 0 9 = "ABCL/c+> " then c_accent
+  if String.length line >= 9 && String.sub line 0 9 = "AIPL> " then c_accent
   else if String.length line > 0 && line.[0] = '[' then begin
     let low = String.lowercase_ascii line in
     if starts_with low "[error]" || starts_with low "[failed]" || starts_with low "[abort]"
@@ -902,7 +902,7 @@ let draw_input r =
   fill_rect r ~x:p_input.px ~y:p_input.py ~w:p_input.pw ~h:p_input.ph c_header_bg;
   stroke_rect r ~x:p_input.px ~y:p_input.py ~w:p_input.pw ~h:p_input.ph c_border;
   let top_y = p_input.py + 8 in
-  draw_string r 10 top_y "ABCL/c+>" c_accent;
+  draw_string r 10 top_y "AIPL>" c_accent;
   let prompt_w = 10 * cell_w in
   let ix = prompt_w + 16 in
   let avail_w = p_input.pw - ix - 20 in
@@ -1506,7 +1506,7 @@ let () =
      event coordinates live on the same grid. *)
   let win =
     sdl_err (Sdl.create_window ~w:win_w_init ~h:win_h_init
-               "ABCL/c+ GUI IDE"
+               "AIPL GUI IDE"
                Sdl.Window.(shown + resizable))
   in
   let r =
@@ -1561,7 +1561,7 @@ let () =
     make_btn "Clear"         (fun () -> clear_output ());
   ];
 
-  glog "[gui] ABCL/c+ GUI IDE 起動。F1=help  F2=compile  F10=quit";
+  glog "[gui] AIPL GUI IDE 起動。F1=help  F2=compile  F10=quit";
   glog "[gui] 上のツールバーからデモを起動、File からファイル選択";
 
   let running = ref true in

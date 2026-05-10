@@ -41,6 +41,7 @@ abclc/_smoke_logs/
 abclc/_smoke.bat
 src/browser-abcl/_smoke_logs/
 src/python-abcl/_smoke_logs/
+src/python-aipl/_smoke_logs/
 
 # Python bytecode
 __pycache__/
@@ -48,3 +49,16 @@ __pycache__/
 
 # Claude Code local session state
 .claude/
+
+# aice-evolution-v2 generated artifacts (regenerated on demand)
+aice-evolution-v2/out/
+
+# aipl sample outputs
+src/python-aipl/out_pattern.png
+src/python-aipl/out_site/
+
+# LaTeX build intermediates
+*.aux
+*.log
+*.out
+*.toc

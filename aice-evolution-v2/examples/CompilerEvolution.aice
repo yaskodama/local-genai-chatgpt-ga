@@ -1,0 +1,45 @@
+// Phase 7 cross-domain example: compiler / type-system-heavy tasks.
+
+aice CompilerEvolution {
+  dialect = "aice_evolution_v2";
+
+  task = "型システムが効くタスク (コンパイラ、データパイプライン、口座操作) の進化軌跡。";
+
+  gene_schema = "schemas/programming_paradigm.schema.json";
+
+  evaluation_tasks {
+    task Compiler     { spec = "examples/compiler.aice"; }
+    task DataPipeline { spec = "examples/data_pipeline.aice"; }
+    task BankAccount  { spec = "examples/bank_account.aice"; }
+  }
+
+  search {
+    algorithm   = "map_elites";
+    cell_axes   = "paradigm, concurrency_model, type_safety";
+    generations = 30;
+    seed_count  = 8;
+    open_axes   = true;
+    rng_seed    = 42;
+  }
+
+  meta_fitness {
+    trend_alignment       = 0.20;
+    frontier_coverage     = 0.20;
+    novelty               = 0.15;
+    evolvability          = 0.15;
+    cross_task_generality = 0.20;
+    implementability      = 0.10;
+  }
+
+  ranking {
+    strategy  = "pareto_then_pairwise";
+    scenarios = ["conservative", "innovative", "general_purpose"];
+    top_k     = 3;
+  }
+
+  reviewers {
+    reviewer Plausibility     { persona = "あなたは型システム志向の将来予測レビュアーです。"; }
+    reviewer Coherence        { persona = "あなたは静的検査と ADT の整合性レビュアーです。"; }
+    reviewer Implementability { persona = "あなたは型主導の実装レビュアーです。"; }
+  }
+}

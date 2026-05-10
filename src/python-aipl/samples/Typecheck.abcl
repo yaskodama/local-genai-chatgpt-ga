@@ -1,0 +1,96 @@
+// Phase 11 — gradual static type checker for AIPL.
+//
+// Annotation syntax:
+//   var x: int = 0;                              // local / field
+//   var arr: array[int] = [1, 2, 3];
+//   var t: tuple(int, string) = (1, "a");
+//   var r: record{a: int, b: string} = {a:1, b:"x"};
+//   function f(p: int) -> int { return p + 1; }   // function w/ return
+//   class C { method m(a: int) -> string { ... } } // method w/ return
+//
+// Unannotated code is treated as `any` and never flagged. Errors are
+// surfaced via the `type_check()` builtin or the `--type-check` CLI flag.
+
+// --- intentionally CORRECT ---
+
+function add(a: int, b: int) -> int {
+  return a + b;
+}
+
+function greet(name: string) -> string {
+  return "hello, " + name;
+}
+
+class Counter {
+  var count: int = 0;
+  method tick() {
+    count = count + 1;
+  }
+  method get() -> int {
+    return count;
+  }
+}
+
+// --- intentionally INCORRECT (these will be flagged) ---
+
+function bad_return(a: int) -> int {
+  return "oops";          // string vs int
+}
+
+function bad_param(a: int) -> string {
+  return greet(a);        // greet expects string, got int
+}
+
+class Mismatch {
+  var label: string = 42;          // int vs string
+  method add_one(n: int) -> int {
+    return n + "x";                // result is string, declared int
+  }
+}
+
+var ok_age: int = 30;                  // OK
+var ok_msg: string = "hi";             // OK
+var bad_age: int = "thirty";           // string vs int — flagged
+var bad_msg: string = 42;              // int vs string — flagged
+
+class Demo {
+  method run() {
+    print("=== AIPL Phase 11 — gradual static type-check ===");
+
+    // 1) Show the function signatures the checker built up.
+    print("typeof(add)       = " + typeof(add));
+    print("typeof(greet)     = " + typeof(greet));
+    print("typeof(bad_return)= " + typeof(bad_return));
+    print("");
+
+    // 2) Run the checker and surface its findings.
+    var issues = type_check();
+    print("type_check() returned " + array_len(issues) + " issue(s):");
+    var i = 0;
+    while (i < array_len(issues)) do {
+      print("  " + array_get(issues, i));
+      i = i + 1;
+    }
+    print("");
+
+    // 3) Confirm the well-typed code still RUNS — gradual: errors are
+    // warnings at runtime, not hard stops (use --strict CLI flag for that).
+    var s = add(3, 4);
+    print("add(3, 4)   = " + s);
+    var g = greet("world");
+    print("greet       = " + g);
+    var c = new Counter();
+    send c.tick();
+    send c.tick();
+    var n = now c.get();
+    print("counter.get = " + n);
+
+    print("");
+    print("typeof(s) = " + typeof(s) + "   (matches `int` annotation)");
+    print("typeof(g) = " + typeof(g) + " (matches `string` annotation)");
+    print("typeof(n) = " + typeof(n) + "   (Counter.get -> int)");
+  }
+}
+
+var d = new Demo();
+send d.run();

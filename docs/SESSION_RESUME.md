@@ -7,12 +7,12 @@
 
 ## 1. プロジェクトの全体像
 
-ABCL/c+ は **3 ランタイム** を持つ actor 言語:
+AIPL は **3 ランタイム** を持つ actor 言語:
 
 | ランタイム | 場所 | 役割 |
 |---|---|---|
 | **OCaml** | `src/*.ml` (dune ビルド → `_build/default/src/repl_thread.exe`) | リファレンス実装、SDL/Web Gateway 持ち |
-| **Python** | `src/python-abcl/` (lark + asyncio) | AI 連携の実験場、distributed smoke、Docker container |
+| **Python** | `src/python-aipl/` (lark + asyncio) | AI 連携の実験場、distributed smoke、Docker container |
 | **JavaScript (browser)** | `src/browser-abcl/` (jison) | Web デモ、可視化、教育用 UI |
 
 すべて wire-compatible HTTP/JSON プロトコル (`/api/json/send` `/api/json/call`) で
@@ -25,11 +25,11 @@ ABCL/c+ は **3 ランタイム** を持つ actor 言語:
 ### 2.1 言語機能の追加
 - **`now` / `future` / `await`** を 3 ランタイムすべてに導入
   - OCaml: lexer/parser/AST/infer/eval_thread.ml に追加
-  - Python: grammar.lark + abcl_parser.py
+  - Python: grammar.lark + aipl_parser.py
   - JS: grammar.jison + ast.js + runtime.js
 - **リモート `now` / `future`**: OCaml が HTTP `/api/json/call` で同期分散呼び出し
 - **`session_define` (型付き)** + `protocol_define` (順序のみ) を Python に実装
-  → `src/python-abcl/abcl_aios.py`
+  → `src/python-aipl/aipl_aios.py`
 - **JS browser**: `aios_*` / `protocol_*` builtins を runtime.js に追加
   - `aios_now` / `aios_future` / `aios_register_service` / `aios_emit` / `aios_services` / `aios_events`
   - `protocol_define` / `protocol_start` / `protocol_state` / `protocol_end` / `protocol_events`
@@ -49,7 +49,7 @@ ABCL/c+ は **3 ランタイム** を持つ actor 言語:
 - pyexpat の symbol mismatch を `brew install expat` + `install_name_tool -change` +
   `codesign --force --sign -` で修正
 - 依存 install: `python3.13 -m pip install --user --break-system-packages -r requirements.txt`
-- Makefile / run_all_smoke_tests.sh / src/python-abcl/_smoke_test.sh を 3.13 に切替済み
+- Makefile / run_all_smoke_tests.sh / src/python-aipl/_smoke_test.sh を 3.13 に切替済み
 
 ### 2.4 ブラウザ UI
 - `browser_console.html`: 右パネルに canvas + chat 吹き出しを併設、縦/横リサイザ
@@ -89,7 +89,7 @@ bash /tmp/abcl_browser.sh
 ```
 ハードリロード必須: **Cmd+Shift+R**
 
-### 3.2 OCaml ABCL/c+
+### 3.2 OCaml AIPL
 ```bash
 cd /Users/kodamay/ocaml-app/abclcp-project
 dune build
@@ -98,11 +98,11 @@ bash /tmp/coop_jp_ocaml.sh  # AI 協調 (日本語、Gemini 実走)
 bash /tmp/coop_remote_jp.sh # reviewer を Docker 別ノードで動かす
 ```
 
-### 3.3 Python ABCL/c+
+### 3.3 Python AIPL
 ```bash
-cd /Users/kodamay/ocaml-app/abclcp-project/src/python-abcl
-/opt/homebrew/bin/python3.13 abcl_main.py samples-ai/CooperativeNowFuture.abcl
-/opt/homebrew/bin/python3.13 abcl_main.py samples-ai/SessionTyped.abcl   # session 型チェック実演
+cd /Users/kodamay/ocaml-app/abclcp-project/src/python-aipl
+/opt/homebrew/bin/python3.13 aipl_main.py samples-ai/CooperativeNowFuture.abcl
+/opt/homebrew/bin/python3.13 aipl_main.py samples-ai/SessionTyped.abcl   # session 型チェック実演
 ```
 
 ### 3.4 全 smoke (3 ランタイム + Dist)
@@ -164,14 +164,14 @@ node /tmp/abcl_pptr_test/_check_*.mjs
   `find_substring` / `strip_http_headers` / `extract_reply_value`
 
 ### Python
-- `src/python-abcl/grammar.lark` — `await` キーワード追加
-- `src/python-abcl/abcl_parser.py` — `await_expr` → `CallExpr("await", [e])`
-- `src/python-abcl/abcl_interp.py` — aios_*/protocol_*/session_* builtins、
+- `src/python-aipl/grammar.lark` — `await` キーワード追加
+- `src/python-aipl/aipl_parser.py` — `await_expr` → `CallExpr("await", [e])`
+- `src/python-aipl/aipl_interp.py` — aios_*/protocol_*/session_* builtins、
   `_b_await` の auto-observe、`_aios_dispatch` ヘルパ
-- `src/python-abcl/abcl_aios.py` — **新規モジュール** (aios + protocol + session)
-- `src/python-abcl/samples-ai/CooperativeNowFuture.abcl` — 新規
-- `src/python-abcl/samples-ai/SessionTyped.abcl` — 新規 (型検査実演)
-- `src/python-abcl/samples-remote/reviewer_node_full_jp.abcl` — 新規
+- `src/python-aipl/aipl_aios.py` — **新規モジュール** (aios + protocol + session)
+- `src/python-aipl/samples-ai/CooperativeNowFuture.abcl` — 新規
+- `src/python-aipl/samples-ai/SessionTyped.abcl` — 新規 (型検査実演)
+- `src/python-aipl/samples-remote/reviewer_node_full_jp.abcl` — 新規
 
 ### JavaScript (browser)
 - `src/browser-abcl/src/parser/grammar.jison` — `now/future/await`、
@@ -199,7 +199,7 @@ node /tmp/abcl_pptr_test/_check_*.mjs
 ### ビルド/環境
 - `Makefile` — `PY ?= /opt/homebrew/bin/python3.13`
 - `run_all_smoke_tests.sh` — 同
-- `src/python-abcl/_smoke_test.sh` — 同
+- `src/python-aipl/_smoke_test.sh` — 同
 - `/tmp/abcl_browser.sh` — http.server 起動スクリプト
 - `/tmp/coop_jp_ocaml.sh` — OCaml AI 協調起動
 - `/tmp/coop_remote_jp.sh` — OCaml + Docker reviewer 起動

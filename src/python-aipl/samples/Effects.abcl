@@ -1,0 +1,82 @@
+// Phase 12 — capability-based effect system.
+//
+// Functions and methods declare their side-effect set with `!{...}`:
+//   !{fs}       — filesystem
+//   !{net}      — network (sockets / remote calls)
+//   !{ai, net}  — AI calls (which go over the wire)
+//   !{mut}      — program mutation (compile / spawn / add_method)
+//
+// Builtin effects are tabled in `aipl_typeck.BUILTIN_EFFECTS`. The
+// static checker propagates effects through user-function call chains
+// and flags any caller whose declared set is a strict subset of what
+// it actually uses.
+
+// --- correctly-annotated functions ---
+
+function read_config(path: string) -> string !{fs} {
+  return read_file(path);
+}
+
+function classify(text: string) -> string !{ai, net} {
+  return ai_call_with_system("Categorize in one word.", text);
+}
+
+// Composition: pipe inherits both fs (from read_config) and ai/net
+// (from classify). It must declare them all.
+function pipe(path: string) -> string !{fs, ai, net} {
+  var data = read_config(path);
+  return classify(data);
+}
+
+// A pure function — no effects.
+function add(a: int, b: int) -> int {
+  return a + b;
+}
+
+// --- intentionally INCORRECT (each will be flagged) ---
+
+// (1) Declares !{} but reads file — flagged.
+function bad_silent(path: string) -> string !{} {
+  return read_file(path);
+}
+
+// (2) Calls AI but only declares `fs`.
+function bad_partial(path: string) -> string !{fs} {
+  var d = read_file(path);
+  return ai_call(d);            // adds {ai, net}, declared only {fs}
+}
+
+// (3) Mutates the program (add_method) but declares !{}.
+function bad_evolve(src: string) -> int !{} {
+  return add_method("Counter", src);
+}
+
+// (4) Indirect: calls pipe() (declares !{fs, ai, net}) but bad_indirect
+// declares ∅ — propagation flags it.
+function bad_indirect(p: string) -> string !{} {
+  return pipe(p);
+}
+
+// --- run ---
+
+class Demo {
+  method run() {
+    print("=== Phase 12 — capability-based effect system ===");
+    var cfg = read_config("/etc/hostname");
+    print("config       = " + cfg);
+    var c = classify("AI changed everything");
+    print("classify     = " + c);
+
+    var issues = type_check();
+    print("");
+    print("type_check() found " + array_len(issues) + " issue(s):");
+    var i = 0;
+    while (i < array_len(issues)) do {
+      print("  " + array_get(issues, i));
+      i = i + 1;
+    }
+  }
+}
+
+var d = new Demo();
+send d.run();

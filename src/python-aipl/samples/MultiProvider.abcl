@@ -1,0 +1,84 @@
+// AIPL multi-provider + multimodal demo.
+//
+// Provider override (first arg, optional):
+//   ai_call(1, prompt)            -> Gemini   (default if omitted)
+//   ai_call(2, prompt)            -> Anthropic (Claude / ClaudeCode)
+//   ai_call(3, prompt)            -> OpenAI    (ChatGPT)
+//   ai_call("claude", prompt)     -> string aliases also work
+//
+// Multimodal (image input):
+//   ai_call_image([provider,] prompt, image_or_bytes [, ...])
+//
+// Image inputs accepted: image-load result, image_create result,
+// read_bytes (array[int]), or { path: "x.png" } record.
+//
+// Run with `AIPL_AI_PROVIDER=mock` to exercise everything offline.
+
+class Bench {
+  // Generate a tiny "test pattern" image to feed the model.
+  function make_pattern() {
+    var img = image_create(16, 16, 0, 0, 0, 255);
+    var i = 0;
+    while (i < 16) do {
+      image_set_pixel(img, i, i, 255, 200, 60, 255);
+      image_set_pixel(img, 15 - i, i, 60, 200, 255, 255);
+      i = i + 1;
+    }
+    return img;
+  }
+
+  method run_text() {
+    print("--- (1) text-only, provider override ---");
+    var prompt = "Say hello in one word.";
+    print("default (auto): " + ai_call(prompt));
+    print("Gemini    [1]:  " + ai_call(1, prompt));
+    print("Anthropic [2]:  " + ai_call(2, prompt));
+    print("OpenAI    [3]:  " + ai_call(3, prompt));
+    print("string alias:   " + ai_call("anthropic", prompt));
+    print("");
+
+    print("--- (2) with system, provider override ---");
+    var sys = "Be very brief.";
+    print("Claude:  " + ai_call_with_system(2, sys, prompt));
+    print("ChatGPT: " + ai_call_with_system(3, sys, prompt));
+  }
+
+  method run_image() {
+    print("");
+    print("--- (3) multimodal: image + prompt ---");
+    var img = make_pattern();
+    print("image typeof:  " + typeof(img));
+
+    var p = "Describe the test pattern in this image.";
+    print("auto:    " + ai_call_image(p, img));
+    print("Claude:  " + ai_call_image(2, p, img));
+    print("ChatGPT: " + ai_call_image(3, p, img));
+
+    // (4) Image from disk via read_bytes — bytes path also works.
+    print("");
+    print("--- (4) image as raw bytes (array[int] from read_bytes) ---");
+    image_save(img, "out_pattern.png");
+    var raw = read_bytes("out_pattern.png");
+    print("typeof(raw) = " + typeof(raw) + "  (length=" + array_len(raw) + ")");
+    print("Gemini:  " + ai_call_image(1, "What format is this file?", raw));
+
+    // (5) Image + system prompt.
+    print("");
+    print("--- (5) image with system prompt ---");
+    print("Claude:  " + ai_call_image_with_system(2,
+      "You are a curt vision reviewer.",
+      "Pattern check:", img));
+
+    // (6) typeof showcase on the new wiring.
+    print("");
+    print("--- (6) typeof showcase ---");
+    print("typeof(ai_call(1, \"hi\"))      = " + typeof(ai_call(1, "hi")));
+    print("typeof(ai_call_image(2, p, img)) = " + typeof(ai_call_image(2, p, img)));
+    print("typeof(image_create(2,2,0,0,0,255)) = " +
+          typeof(image_create(2, 2, 0, 0, 0, 255)));
+  }
+}
+
+var b = new Bench();
+send b.run_text();
+send b.run_image();

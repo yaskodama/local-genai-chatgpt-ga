@@ -1,4 +1,4 @@
-// ABCL/c+ IDE frontend
+// AIPL IDE frontend
 // Talks to the running OCaml process via the existing web_gateway endpoints:
 //   POST /api/repl      — send a REPL command, get textual output back
 //   GET  /api/log       — stream of log lines (polled)
@@ -120,7 +120,7 @@
   async function runRepl(command, opts = {}) {
     const { silent = false } = opts;
     if (!silent) {
-      appendLine("ABCL/c+> " + command.split("\n").join("\n          "), "cmd");
+      appendLine("AIPL> " + command.split("\n").join("\n          "), "cmd");
     }
     if (busy && !silent) {
       appendLine("[busy — wait for previous command to finish]", "sys");
@@ -450,6 +450,6 @@
   connectWs();
   setAutoRefresh(true);
   refreshActors();
-  appendLine("ABCL/c+ IDE 起動。Shift+Enter でコマンド送信、Ctrl+↑/↓ で履歴。", "sys");
+  appendLine("AIPL IDE 起動。Shift+Enter でコマンド送信、Ctrl+↑/↓ で履歴。", "sys");
   els.cmdInput.focus();
 })();

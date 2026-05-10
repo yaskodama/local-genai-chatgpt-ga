@@ -1,4 +1,4 @@
-(* tui_ide.ml — Terminal UI for ABCL/c+.
+(* tui_ide.ml — Terminal UI for AIPL.
    Native OCaml alternative to the web-based IDE. Connects to a running
    repl_thread.exe via the existing HTTP gateway and draws a multi-pane
    terminal UI.
@@ -13,7 +13,7 @@
      | Source pane              |                                 |
      |                          |                                 |
      +--------------------------+---------------------------------+
-     | ABCL/c+> _ input                                            |
+     | AIPL> _ input                                            |
      +------------------------------------------------------------+
 *)
 
@@ -439,7 +439,7 @@ let draw_header () =
   rgb c_accent;
   bold ();
   let sel = match !selected_actor with Some a -> "sel=" ^ a | None -> "sel=(none)" in
-  let left  = Printf.sprintf " ABCL/c+ TUI IDE | actors=%d | %s" (List.length !actors) sel in
+  let left  = Printf.sprintf " AIPL TUI IDE | actors=%d | %s" (List.length !actors) sel in
   let right = " F1:help F2:compile F5:refresh F10:quit " in
   let pad_n = max 1 (!term_cols - String.length left - String.length right) in
   put (left ^ String.make pad_n ' ' ^ right);
@@ -507,7 +507,7 @@ let draw_output_pane ~r ~c ~h ~w =
   List.iter (fun line ->
     if !row < ir + ih then begin
       let color_line s =
-        if String.length s >= 9 && String.sub s 0 9 = "ABCL/c+> " then (rgb c_accent; bold ())
+        if String.length s >= 9 && String.sub s 0 9 = "AIPL> " then (rgb c_accent; bold ())
         else if String.length s >= 1 && s.[0] = '[' then begin
           let low = String.lowercase_ascii s in
           if String.length low >= 7 && String.sub low 0 7 = "[error]" then rgb c_err
@@ -604,7 +604,7 @@ let draw_input_pane row =
   rgb_bg c_bar_bg;
   rgb c_accent;
   bold ();
-  put " ABCL/c+> ";
+  put " AIPL> ";
   reset ();
   rgb_bg c_bar_bg;
   rgb c_fg;
@@ -716,7 +716,7 @@ let dispatch_command line =
   end
   else begin
     (* Send to REPL *)
-    add_output_text ("ABCL/c+> " ^ l);
+    add_output_text ("AIPL> " ^ l);
     let out = send_repl_command l in
     add_output_text out;
     (* opportunistic refresh *)

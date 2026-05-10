@@ -16,7 +16,7 @@ document.body.innerHTML = `
      style="height:calc(100vh - 120px);overflow:auto;padding:12px;white-space:pre-wrap;background:#000;color:#0f0;font-family:monospace;"></div>
 <div id="inputRow"
      style="display:flex;gap:8px;padding:10px;background:#181818;border-top:1px solid #333;">
-  <input id="cmd" type="text" placeholder="Enter ABCL/c+ command"
+  <input id="cmd" type="text" placeholder="Enter AIPL command"
          style="flex:1;padding:8px;background:#222;color:#fff;border:1px solid #555;">
   <button id="runBtn"
           style="padding:8px 12px;background:#333;color:#fff;border:1px solid #666;cursor:pointer;">Run</button>
@@ -174,7 +174,7 @@ document.getElementById("btnClear").addEventListener("click", () => {
   consoleOut.textContent = "";
 });
 
-appendConsole("ABCL/c+ Server Console");
+appendConsole("AIPL Server Console");
 appendConsole("sid=" + sid);
 appendConsole("This console talks to /api/repl.");
 appendConsole("");

@@ -1,0 +1,48 @@
+// Phase 9 example: open_axes = true で LLM proposer を有効化。
+// 探索中にスキーマが成長し、新しい (axis, value) ペアが発見されるか試す。
+// AI モードを使わない場合は SPECULATIVE_VALUES bank からの mock 提案で
+// 決定的に動く。
+
+aice OpenAxesEvolution {
+  dialect = "aice_evolution_v2";
+
+  task = "open_axes=true で gene schema を動的拡張し、提案された新軸/新値が次世代言語予測にどう影響するかを観察する。";
+
+  gene_schema = "schemas/programming_paradigm.schema.json";
+
+  evaluation_tasks {
+    task TrafficLight  { spec = "samples/problems.md#trafficlight"; }
+    task DataPipeline  { spec = "samples/problems.md#datapipeline"; }
+    task Compiler      { spec = "samples/problems.md#compiler"; }
+  }
+
+  search {
+    algorithm   = "map_elites";
+    cell_axes   = "paradigm, concurrency_model, type_safety";
+    generations = 40;
+    seed_count  = 8;
+    open_axes   = true;       // ← Phase 9 が動く条件
+    rng_seed    = 42;
+  }
+
+  meta_fitness {
+    trend_alignment       = 0.20;
+    frontier_coverage     = 0.20;
+    novelty               = 0.20;       // discovery を高評価する
+    evolvability          = 0.10;
+    cross_task_generality = 0.20;
+    implementability      = 0.10;
+  }
+
+  ranking {
+    strategy  = "pareto_then_pairwise";
+    scenarios = ["conservative", "innovative", "general_purpose"];
+    top_k     = 3;
+  }
+
+  reviewers {
+    reviewer Plausibility     { persona = "あなたは将来予測レビュアー (open-axes 探索)。"; }
+    reviewer Coherence        { persona = "あなたは整合性レビュアーです。"; }
+    reviewer Implementability { persona = "あなたは実装可能性レビュアーです。"; }
+  }
+}

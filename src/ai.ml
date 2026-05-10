@@ -1,4 +1,4 @@
-(* Minimal HTTP wrapper to the Gemini API for the OCaml ABCL/c+ runtime.
+(* Minimal HTTP wrapper to the Gemini API for the OCaml AIPL runtime.
    Shells out to curl (handles TLS) and jq (extracts response fields).
 
    Required env var: GEMINI_API_KEY

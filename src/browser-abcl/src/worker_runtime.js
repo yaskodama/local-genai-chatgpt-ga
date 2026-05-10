@@ -1,4 +1,4 @@
-// Web Worker-based ABCL/c+ runtime: each actor runs in its own thread.
+// Web Worker-based AIPL runtime: each actor runs in its own thread.
 //
 // Main thread holds the actor registry (name → Worker), routes inter-actor
 // sends, and services builtins that need DOM access (canvas drawing, etc).

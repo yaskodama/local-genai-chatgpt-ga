@@ -1,0 +1,67 @@
+// Worker pool with dynamically compiled Worker class.
+//
+// Manager receives a job batch, compiles Worker on first use, spawns
+// N worker actors, dispatches jobs round-robin, and waits for results
+// using future + await.
+
+class Manager {
+  var workers = [];
+  var n_workers = 0;
+  var compiled = 0;
+
+  method ensure_workers(n) {
+    if (compiled == 0) {
+      var worker_src =
+        "class Worker {\n" +
+        "  var id = 0;\n" +
+        "  method init(my_id) { id = my_id; }\n" +
+        "  method square(x) {\n" +
+        "    var r = x * x;\n" +
+        "    print(\"  [worker \" + id + \"] square(\" + x + \") = \" + r);\n" +
+        "    reply(r);\n" +
+        "  }\n" +
+        "}\n";
+      compile(worker_src);
+      compiled = 1;
+    }
+    var i = 0;
+    while (i < n) do {
+      array_push(workers, spawn("Worker", i));
+      i = i + 1;
+    }
+    n_workers = n;
+  }
+
+  method dispatch(jobs) {
+    // jobs is an array of integers — distribute round-robin and collect via future.
+    var futures = [];
+    var njobs = array_len(jobs);
+    var i = 0;
+    var j = 0;
+    while (i < njobs) do {
+      var x = array_get(jobs, i);
+      var w = array_get(workers, j);
+      var f = future w.square(x);
+      array_push(futures, f);
+      i = i + 1;
+      j = j + 1;
+      if (j >= n_workers) { j = 0; }
+    }
+    // Collect.
+    var sum = 0;
+    var i = 0;
+    var n = array_len(futures);
+    while (i < n) do {
+      var v = await(array_get(futures, i));
+      sum = sum + v;
+      i = i + 1;
+    }
+    print("[manager] sum of squares = " + sum);
+    reply(sum);
+  }
+}
+
+var mgr = new Manager();
+send mgr.ensure_workers(3);
+var total = now mgr.dispatch([2, 3, 5, 7, 11]);
+print("=== final result: " + total + " ===");

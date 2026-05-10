@@ -509,7 +509,7 @@ let apply_binop op v1 v2 =
     failwith ("unsupported binop/operands: " ^ op)
 
 (* Convert a JSON atomic literal (number/string/bool/null) into an OCaml
-   ABCL/c+ value. Used to deserialize replies from /api/json/call. *)
+   AIPL value. Used to deserialize replies from /api/json/call. *)
 let value_of_json_atom (s:string) : value =
   let s = String.trim s in
   if s = "" || s = "null" then VUnit
@@ -897,13 +897,13 @@ let prim_table : (string, value list -> value) Hashtbl.t =
     ("sdl_init",
       (function
         | [VInt w; VInt h] ->
-            Sdl_helper.sdl_init ~w ~h ~title:"ABCL/c+"; VUnit
+            Sdl_helper.sdl_init ~w ~h ~title:"AIPL"; VUnit
         | [VFloat wf; VFloat hf] ->
-            Sdl_helper.sdl_init ~w:(int_of_float wf) ~h:(int_of_float hf) ~title:"ABCL/c+"; VUnit
+            Sdl_helper.sdl_init ~w:(int_of_float wf) ~h:(int_of_float hf) ~title:"AIPL"; VUnit
         | [VInt w; VFloat hf] ->
-            Sdl_helper.sdl_init ~w ~h:(int_of_float hf) ~title:"ABCL/c+"; VUnit
+            Sdl_helper.sdl_init ~w ~h:(int_of_float hf) ~title:"AIPL"; VUnit
         | [VFloat wf; VInt h] ->
-            Sdl_helper.sdl_init ~w:(int_of_float wf) ~h ~title:"ABCL/c+"; VUnit
+            Sdl_helper.sdl_init ~w:(int_of_float wf) ~h ~title:"AIPL"; VUnit
         | _ -> failwith "sdl_init(width:int|float, height:int|float): arity 2 expected"));
     ("sdl_clear",
       (function
@@ -1224,7 +1224,7 @@ and eval_stmt (actor:actor) (s : Ast.stmt) =
   | CallStmt ("sdl_init", [w; h]) ->
       let w = int_of_float (as_float (eval_expr actor w))
       and h = int_of_float (as_float (eval_expr actor h)) in
-      Sdl_helper.sdl_init ~w ~h ~title:"ABCL/c+"
+      Sdl_helper.sdl_init ~w ~h ~title:"AIPL"
   | CallStmt ("sdl_clear", []) ->
       Sdl_helper.sdl_clear ()
   | CallStmt ("sdl_line", [x1; y1; x2; y2]) ->

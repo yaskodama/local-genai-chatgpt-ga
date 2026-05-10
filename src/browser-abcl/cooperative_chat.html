@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
   <meta charset="utf-8">
-  <title>ABCL/c+ — AI Cooperative Chat (now/future/await)</title>
+  <title>AIPL — AI Cooperative Chat (now/future/await)</title>
   <style>
     :root {
       --bg: #0d0d1a;
@@ -106,10 +106,10 @@
 </head>
 <body>
   <header>
-    <h1>ABCL/c+ — AI Cooperative Chat <small style="color:var(--muted);font-weight:normal">(now/future/await + actor 越しの 3 役協調)</small></h1>
+    <h1>AIPL — AI Cooperative Chat <small style="color:var(--muted);font-weight:normal">(now/future/await + actor 越しの 3 役協調)</small></h1>
     <div class="sub">
       Planner → Solver → Reviewer の 3 actor が <code>now</code> / <code>future</code> / <code>await</code> で協調する流れを吹き出しで可視化します。
-      ブラウザ版 ABCL/c+ は AI mock を使用 (本物の Gemini は OCaml/Node 版で動かしてください)。
+      ブラウザ版 AIPL は AI mock を使用 (本物の Gemini は OCaml/Node 版で動かしてください)。
     </div>
     <div class="controls">
       <input id="question" type="text" value="What is 12 * 11? Show only the number.">
@@ -150,7 +150,7 @@
     const btnClear = document.getElementById("btnClear");
     const qInput   = document.getElementById("question");
 
-    // Map ABCL/c+ print labels → role styling for bubbles
+    // Map AIPL print labels → role styling for bubbles
     const ROLES = {
       "[plan]":            { kind: "planner",  who: "Planner",  emoji: "🧠", stage: "now planner.plan" },
       "[answer]":          { kind: "solver",   who: "Solver",   emoji: "⚙️", stage: "future + await solver.solve" },

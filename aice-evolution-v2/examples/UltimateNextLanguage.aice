@@ -1,0 +1,48 @@
+// 6 タスク全部を一度に評価する総合実験。
+
+aice UltimateNextLanguage {
+  dialect = "aice_evolution_v2";
+
+  task = "全6サンプル問題 (信号機/口座/哲学者/Webサービス/データパイプライン/コンパイラ) を横断して、次世代言語の方向を総合判定する。";
+
+  gene_schema = "schemas/programming_paradigm.schema.json";
+
+  evaluation_tasks {
+    task TrafficLight  { spec = "samples/problems.md#trafficlight"; }
+    task BankAccount   { spec = "samples/problems.md#bankaccount"; }
+    task Philosophers  { spec = "samples/problems.md#philosophers"; }
+    task WebService    { spec = "samples/problems.md#webservice"; }
+    task DataPipeline  { spec = "samples/problems.md#datapipeline"; }
+    task Compiler      { spec = "samples/problems.md#compiler"; }
+  }
+
+  search {
+    algorithm   = "map_elites";
+    cell_axes   = "paradigm, concurrency_model, type_safety";
+    generations = 40;
+    seed_count  = 12;
+    open_axes   = true;
+    rng_seed    = 42;
+  }
+
+  meta_fitness {
+    trend_alignment       = 0.20;
+    frontier_coverage     = 0.20;
+    novelty               = 0.15;
+    evolvability          = 0.15;
+    cross_task_generality = 0.20;
+    implementability      = 0.10;
+  }
+
+  ranking {
+    strategy  = "pareto_then_pairwise";
+    scenarios = ["conservative", "innovative", "general_purpose"];
+    top_k     = 5;
+  }
+
+  reviewers {
+    reviewer Plausibility     { persona = "あなたは6つの異なる問題ドメイン全てを横断して評価する将来予測レビュアーです。"; }
+    reviewer Coherence        { persona = "あなたは整合性レビュアーです。effect/ownership/type 軸の矛盾を厳しく見ます。"; }
+    reviewer Implementability { persona = "あなたは実装可能性レビュアーです。仮想的に実装した時のコストと安全性を見ます。"; }
+  }
+}

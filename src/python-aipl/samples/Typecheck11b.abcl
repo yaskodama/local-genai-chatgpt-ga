@@ -1,0 +1,69 @@
+// Phase 11b — call-site arg validation + actor method return inference.
+//
+// 11a flagged: var/field/return annotation mismatches, function arity.
+// 11b adds:
+//   - call-site arg type checks (user functions, builtins, methods)
+//   - `now obj.method()` return type inference via actor class lookup
+//   - constructor arg checks (`new C(...)` vs `init(...)` annotations)
+//   - variadic / optional-first signature handling
+
+function add(a: int, b: int) -> int { return a + b; }
+function greet(name: string) -> string { return "hello " + name; }
+
+class Counter {
+  var count: int = 0;
+  method init(start: int) { count = start; }
+  method tick(by: int) { count = count + by; }
+  method get() -> int { return count; }
+}
+
+class Demo {
+  method run() {
+    print("=== Phase 11b — strengthened type-check ===");
+
+    // -- correct uses (should NOT be flagged) ----
+    var ok1: int    = add(3, 4);              // OK
+    var ok2: string = greet("world");         // OK
+    var c = new Counter(10);                  // OK: init(start: int)
+    send c.tick(5);                            // OK
+    var n: int = now c.get();                 // OK: method return inferred
+
+    // -- intentionally INCORRECT (each flagged by 11b) ----
+    // (1) builtin call: read_file expects string, gets int
+    var bad_path = read_file(42);
+
+    // (2) user function call: add expects (int, int), gets (string, ?)
+    var bad_call = add("nope", 1);
+
+    // (3) too many args to a fixed-arity user function
+    var too_many = add(1, 2, 3);
+
+    // (4) NowCall on actor: tick expects (by: int), got string
+    var bad_method = now c.tick("nope");
+
+    // (5) Constructor: new Counter(start: int), passing string
+    var bad_ctor = new Counter("ten");
+
+    // (6) Variadic builtin (path_join takes string+) — string arg OK
+    var ok_path: string = path_join("a", "b", "c");
+
+    // (7) Variadic with wrong element type — int passed to string+ slot
+    var bad_path2 = path_join("a", 42, "c");
+
+    // -- print stats ----
+    var issues = type_check();
+    print("type_check() found " + array_len(issues) + " issue(s):");
+    var i = 0;
+    while (i < array_len(issues)) do {
+      print("  " + array_get(issues, i));
+      i = i + 1;
+    }
+
+    print("");
+    print("typeof(c.get())     = " + typeof(now c.get()));   // -> int
+    print("typeof(future c.get()) = " + typeof(future c.get())); // -> future
+  }
+}
+
+var d = new Demo();
+send d.run();

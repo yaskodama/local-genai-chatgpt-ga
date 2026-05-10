@@ -1,0 +1,94 @@
+// Phase 11c — union type annotations + simple generics.
+//
+// Union annotations:
+//   var x: int | string = 42;       // value can be either type
+//   function f(p: int | string) -> int { ... }
+//
+// Simple generics: a single uppercase NAME (T, U, V, ...) in a type
+// annotation is treated as a fresh type variable. Bound at the call
+// site and substituted in the return type.
+//
+//   function id(x: T) -> T { return x; }
+//   var n: int = id(42);          // T binds to int -> return is int
+//   var s: string = id("hi");     // separate call: T binds to string
+
+// --- generic functions ---
+
+function id(x: T) -> T {
+  return x;
+}
+
+function pair(a: T, b: T) -> tuple(T, T) {
+  return (a, b);
+}
+
+function head(arr: array[T]) -> T {
+  return arr[0];
+}
+
+// --- union annotations ---
+
+function describe(x: int | string) -> string {
+  return "got " + x;
+}
+
+class Demo {
+  method run() {
+    print("=== Phase 11c — unions + generics ===");
+
+    // -- generics: type variable binds per call --
+    var n: int    = id(42);          // OK: T = int
+    var s: string = id("hello");     // OK: T = string
+    print("id(42)    = " + n);
+    print("id(hello) = " + s);
+
+    // -- pair: both args bind T to the same type --
+    var p1: tuple(int, int)       = pair(1, 2);
+    var p2: tuple(string, string) = pair("a", "b");
+    print("pair p1[0]=" + p1[0] + " p1[1]=" + p1[1]);
+    print("pair p2[0]=" + p2[0]);
+
+    // -- head: array[T] -> T --
+    var hi: int = head([10, 20, 30]);
+    print("head(int) = " + hi);
+
+    // -- union annotations --
+    var u1: int | string = 42;       // OK: int ∈ int|string
+    var u2: int | string = "hello";  // OK: string ∈ int|string
+    print("u1 = " + u1);
+    print("u2 = " + u2);
+
+    // describe accepts either int or string
+    var d1: string = describe(7);
+    var d2: string = describe("x");
+    print("describe int = " + d1);
+    print("describe str = " + d2);
+
+    // -- intentionally INCORRECT (each flagged) --
+
+    // (1) generic conflict: pair(T, T) called with mismatched args
+    var bad_pair = pair(1, "two");
+
+    // (2) head(array[T]) called with non-array
+    var bad_head = head(42);
+
+    // (3) describe expects int|string, gets array
+    var bad_desc = describe([1, 2]);
+
+    // (4) annotated wrong: declared int|string, actual is float
+    var bad_union: int | string = 3.14;
+
+    // -- show issues --
+    var issues = type_check();
+    print("");
+    print("type_check() found " + array_len(issues) + " issue(s):");
+    var i = 0;
+    while (i < array_len(issues)) do {
+      print("  " + array_get(issues, i));
+      i = i + 1;
+    }
+  }
+}
+
+var d = new Demo();
+send d.run();

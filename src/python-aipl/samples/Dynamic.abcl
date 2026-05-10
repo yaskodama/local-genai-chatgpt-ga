@@ -1,0 +1,70 @@
+// Dynamic class compilation + spawn (AIPL runtime extension).
+//
+//   compile(source_text) — parses AIPL source and registers each class.
+//   spawn(name, args...) — instantiates a class by string name.
+//
+// CodeFactory is an ordinary actor that uses both: it receives a class
+// spec via message, compiles it, spawns an instance, and replies with
+// the new actor reference. The caller then sends regular messages to
+// the dynamically-created actor.
+
+class CodeFactory {
+  method create(name, source) {
+    var n = compile(source);
+    print("[factory] compiled " + n + " class(es) for '" + name + "'");
+    var fresh_actor = spawn(name);
+    reply(fresh_actor);
+  }
+}
+
+class Main {
+  var factory = 0;
+
+  method init() {
+    factory = new CodeFactory();
+  }
+
+  method run() {
+    print("=== AIPL dynamic compile + spawn demo ===");
+
+    // 1) Synthesize a Greeter class at runtime.
+    var greeter_src = "class Greeter {\n" +
+                      "  var count = 0;\n" +
+                      "  method hello(who) {\n" +
+                      "    count = count + 1;\n" +
+                      "    print(\"  [Greeter#\" + count + \"] hello, \" + who);\n" +
+                      "  }\n" +
+                      "}\n";
+    var greeter = now factory.create("Greeter", greeter_src);
+    send greeter.hello("Alice");
+    send greeter.hello("Bob");
+    send greeter.hello("Carol");
+
+    // 2) Synthesize a Counter class at runtime — completely different.
+    var counter_src = "class Counter {\n" +
+                      "  var n = 0;\n" +
+                      "  method tick() {\n" +
+                      "    n = n + 1;\n" +
+                      "    print(\"  [Counter] tick -> n=\" + n);\n" +
+                      "  }\n" +
+                      "  method dump() {\n" +
+                      "    print(\"  [Counter] final n=\" + n);\n" +
+                      "  }\n" +
+                      "}\n";
+    var counter = now factory.create("Counter", counter_src);
+    send counter.tick();
+    send counter.tick();
+    send counter.tick();
+    send counter.dump();
+
+    // 3) Multiple instances of the same dynamically-compiled class.
+    var another_greeter = now factory.create("Greeter", greeter_src);
+    send another_greeter.hello("Dave");
+    send greeter.hello("Eve");           // independent state from Dave's
+
+    print("=== demo end ===");
+  }
+}
+
+var main = new Main();
+send main.run();

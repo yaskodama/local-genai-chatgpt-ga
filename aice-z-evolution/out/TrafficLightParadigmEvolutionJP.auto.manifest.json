@@ -1,0 +1,221 @@
+{
+  "name": "TrafficLightParadigmEvolutionJP_Auto",
+  "dialect": "aice_evolution_v1",
+  "runtime": "ocaml_abcl_cplus",
+  "input": "aice-z-evolution/examples/TrafficLightParadigmEvolutionJP.auto.aice",
+  "abcl": "aice-z-evolution/out/TrafficLightParadigmEvolutionJP.auto.abcl",
+  "report": "aice-z-evolution/out/TrafficLightParadigmEvolutionJP.auto.report.md",
+  "final_archive": "ParallelOOPWinner",
+  "stages": [
+    {
+      "name": "Assembly",
+      "order": 1,
+      "branch": "main",
+      "parents": [],
+      "archive": "AssemblyWinner",
+      "genome": "paradigm=assembler; state_representation=register_integer; transition_style=increment_compare_jump; control_abstraction=labels_and_jumps; data_abstraction=none; encapsulation=none; type_safety=none; concurrency_model=none; executable_demo=tick_subroutine",
+      "mutations": "",
+      "crossover": "",
+      "focus": "correctness, paradigm_fit",
+      "candidates": [
+        {
+          "name": "A1",
+          "style": "minimal_registers",
+          "prompt": "状態を1つのレジスタに置き、ADD/CMP/JMP で循環する。"
+        },
+        {
+          "name": "A2",
+          "style": "commented_labels",
+          "prompt": "状態をメモリに置き、各色にラベルを付ける。"
+        },
+        {
+          "name": "A3",
+          "style": "named_addresses",
+          "prompt": "LIGHT_STATE と RED/YELLOW/GREEN 定数を使う。"
+        }
+      ]
+    },
+    {
+      "name": "BASIC",
+      "order": 2,
+      "branch": "main",
+      "parents": [
+        "AssemblyWinner"
+      ],
+      "archive": "BASICWinner",
+      "genome": "paradigm=BASIC; state_representation=global_numeric_variable; transition_style=if_goto_increment_wrap; control_abstraction=line_numbers_if_then_goto; data_abstraction=named_numeric_constants optional; encapsulation=none; type_safety=low; concurrency_model=none; executable_demo=four_tick_cycle_demo",
+      "mutations": "M1_Assembly_to_BASIC, M9_Add_Demo, M7_Integer_to_Symbolic_State optional",
+      "crossover": "",
+      "focus": "correctness, readability, paradigm_fit",
+      "candidates": [
+        {
+          "name": "B1",
+          "style": "line_number_minimal",
+          "prompt": "S 変数1つと IF による循環。"
+        },
+        {
+          "name": "B2",
+          "style": "commented_if_goto",
+          "prompt": "REM コメント付きの行番号実演。"
+        },
+        {
+          "name": "B3",
+          "style": "named_numeric_constants",
+          "prompt": "RED=0, YELLOW=1, GREEN=2 の定数。"
+        }
+      ]
+    },
+    {
+      "name": "C",
+      "order": 3,
+      "branch": "imperative_object_path",
+      "parents": [
+        "BASICWinner"
+      ],
+      "archive": "CWinner",
+      "genome": "paradigm=C; state_representation=enum_state; transition_style=switch_or_if_explicit_cases; control_abstraction=functions_and_blocks; data_abstraction=enum_and_function_signature; encapsulation=none; type_safety=medium; concurrency_model=none; executable_demo=main_function_four_ticks",
+      "mutations": "M2_BASIC_to_C, M7_Integer_to_Symbolic_State, M8_Implicit_Wrap_to_Explicit_Cases",
+      "crossover": "C1_BASIC_to_C_from_AssemblyTraits optional",
+      "focus": "correctness, executability, type_safety",
+      "candidates": [
+        {
+          "name": "C1",
+          "style": "enum_and_function",
+          "prompt": "enum LightState と tick 関数。"
+        },
+        {
+          "name": "C2",
+          "style": "switch_cases",
+          "prompt": "RED/YELLOW/GREEN の switch。"
+        },
+        {
+          "name": "C3",
+          "style": "testable_tick_function",
+          "prompt": "next_state と demo main。"
+        }
+      ]
+    },
+    {
+      "name": "JavaOOP",
+      "order": 4,
+      "branch": "imperative_object_path",
+      "parents": [
+        "CWinner"
+      ],
+      "archive": "JavaOOPWinner",
+      "genome": "paradigm=Java_OOP; state_representation=enum_inside_class; transition_style=method_switch_cases; control_abstraction=methods; data_abstraction=class_and_enum; encapsulation=private_state_public_tick; type_safety=high; concurrency_model=none; executable_demo=main_method_four_ticks",
+      "mutations": "M3_C_to_Java_OOP, M9_Add_Demo",
+      "crossover": "",
+      "focus": "correctness, encapsulation, paradigm_fit",
+      "candidates": [
+        {
+          "name": "J1",
+          "style": "TrafficLight_class",
+          "prompt": "TrafficLight が状態と tick を所有する。"
+        },
+        {
+          "name": "J2",
+          "style": "enum_inside_class",
+          "prompt": "class 内 enum State と switch。"
+        },
+        {
+          "name": "J3",
+          "style": "private_state_public_tick",
+          "prompt": "private State state と public tick/print。"
+        }
+      ]
+    },
+    {
+      "name": "Functional",
+      "order": 3,
+      "branch": "functional_object_path",
+      "parents": [
+        "BASICWinner"
+      ],
+      "archive": "FunctionalWinner",
+      "genome": "paradigm=Functional; state_representation=algebraic_data_type; transition_style=pure_pattern_match; control_abstraction=expression_evaluation; data_abstraction=ADT; encapsulation=none; type_safety=high; concurrency_model=none; executable_demo=immutable_list_of_ticks",
+      "mutations": "M4_BASIC_to_Functional, M7_Integer_to_Symbolic_State, M8_Implicit_Wrap_to_Explicit_Cases",
+      "crossover": "",
+      "focus": "correctness, type_safety, paradigm_fit",
+      "candidates": [
+        {
+          "name": "F1",
+          "style": "ADT_and_match",
+          "prompt": "type Light = Red | Yellow | Green。"
+        },
+        {
+          "name": "F2",
+          "style": "pure_next_function",
+          "prompt": "next : Light -> Light と show : Light -> string。"
+        },
+        {
+          "name": "F3",
+          "style": "list_demo_without_mutation",
+          "prompt": "不変な状態列に next を反復適用する。"
+        }
+      ]
+    },
+    {
+      "name": "FunctionalOOP",
+      "order": 4,
+      "branch": "functional_object_path",
+      "parents": [
+        "FunctionalWinner",
+        "BASICWinner"
+      ],
+      "archive": "FunctionalOOPWinner",
+      "genome": "paradigm=FunctionalOOP; state_representation=algebraic_data_type_or_sealed_trait; transition_style=pure_next_method_or_pattern_match; control_abstraction=method_calls_with_expression_core; data_abstraction=module_or_class_plus_ADT; encapsulation=object_or_module_boundary; type_safety=high; concurrency_model=none; executable_demo=object_demo_four_ticks",
+      "mutations": "M5_Functional_to_FunctionalOOP, M9_Add_Demo",
+      "crossover": "C2_Functional_to_FunctionalOOP_from_BASICDemo",
+      "focus": "correctness, type_safety, encapsulation, evolvability",
+      "candidates": [
+        {
+          "name": "FO1",
+          "style": "class_with_pure_next",
+          "prompt": "object が状態を持ち、pure next が遷移を計算する。"
+        },
+        {
+          "name": "FO2",
+          "style": "object_with_symbolic_state",
+          "prompt": "sealed な記号的状態と object wrapper。"
+        },
+        {
+          "name": "FO3",
+          "style": "module_plus_class",
+          "prompt": "module が ADT/next を定義し、class が委譲する。"
+        }
+      ]
+    },
+    {
+      "name": "ParallelOOP",
+      "order": 5,
+      "branch": "join",
+      "parents": [
+        "JavaOOPWinner",
+        "FunctionalOOPWinner"
+      ],
+      "archive": "ParallelOOPWinner",
+      "genome": "paradigm=ParallelOOP; state_representation=symbolic_state_owned_by_actor; transition_style=actor_method_uses_pure_next_cases; control_abstraction=asynchronous_send_messages; data_abstraction=TrafficLight_actor_class; encapsulation=single_state_owner_actor; type_safety=guarded_symbolic_state; concurrency_model=actor_messages; executable_demo=controller_sends_four_ticks",
+      "mutations": "M6_Join_to_ParallelOOP, M10_Add_State_Owner, M9_Add_Demo",
+      "crossover": "C3_JavaOOP_FunctionalOOP_to_ParallelOOP",
+      "focus": "correctness, executability, concurrency_model, evolvability",
+      "candidates": [
+        {
+          "name": "P1",
+          "style": "single_TrafficLight_actor",
+          "prompt": "1つの actor が状態を所有し、top-level が tick を4回 send する。"
+        },
+        {
+          "name": "P2",
+          "style": "controller_sends_ticks",
+          "prompt": "Controller actor が TrafficLight actor に順序付き tick を送る。"
+        },
+        {
+          "name": "P3",
+          "style": "parallel_tick_requests_with_ordered_state_owner",
+          "prompt": "複数の send 要求があっても TrafficLight だけが状態を変更する。"
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,46 @@
+// Example .aice v2 input. (Parser ships in Phase 4; this file is the
+// illustrative target form. Phase 2/3 read the equivalent .ga.json in
+// out/NextLanguagePrediction.ga.json directly.)
+
+aice NextLanguagePrediction {
+  dialect = "aice_evolution_v2";
+
+  task = "プログラミング・パラダイムの進化軌跡を発見し、次世代言語の候補を提示する。";
+
+  gene_schema = "schemas/programming_paradigm.schema.json";
+
+  evaluation_tasks {
+    task TrafficLight  { spec = "examples/traffic_light.aice"; }
+    task BankAccount   { spec = "examples/bank_account.aice"; }
+    task Philosophers  { spec = "examples/philosophers.aice"; }
+  }
+
+  search {
+    algorithm   = "map_elites";
+    cell_axes   = "paradigm, concurrency_model, type_safety";
+    generations = 30;
+    seed_count  = 8;
+    open_axes   = true;
+  }
+
+  meta_fitness {
+    trend_alignment       = 0.20;
+    frontier_coverage     = 0.20;
+    novelty               = 0.15;
+    evolvability          = 0.15;
+    cross_task_generality = 0.20;
+    implementability      = 0.10;
+  }
+
+  ranking {
+    strategy  = "pareto_then_pairwise";
+    scenarios = ["conservative", "innovative", "general_purpose"];
+    top_k     = 3;
+  }
+
+  reviewers {
+    reviewer Plausibility     { persona = "あなたは将来予測レビュアー..."; }
+    reviewer Coherence        { persona = "あなたは整合性レビュアー..."; }
+    reviewer Implementability { persona = "あなたは実装可能性レビュアー..."; }
+  }
+}

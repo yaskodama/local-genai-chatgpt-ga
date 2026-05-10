@@ -1,0 +1,569 @@
+% !TEX program = lualatex
+\documentclass[a4paper,11pt]{article}
+
+\usepackage[hiragino-pron,deluxe,expert]{luatexja-preset}
+\usepackage[margin=22mm]{geometry}
+\usepackage{graphicx}
+\usepackage{xcolor}
+\usepackage{listings}
+\usepackage{booktabs}
+\usepackage{tabularx}
+\usepackage{longtable}
+\usepackage{array}
+\usepackage{hyperref}
+\usepackage{titlesec}
+\usepackage{enumitem}
+
+\hypersetup{
+  colorlinks=true,
+  linkcolor=blue!50!black,
+  urlcolor=blue!60!black,
+  citecolor=blue!60!black
+}
+
+\definecolor{codebg}{RGB}{248,248,248}
+\definecolor{codekw}{RGB}{30,90,170}
+\definecolor{codestr}{RGB}{160,30,30}
+\definecolor{codecom}{RGB}{100,120,100}
+
+\lstset{
+  basicstyle=\ttfamily\small,
+  backgroundcolor=\color{codebg},
+  frame=single,
+  framerule=0pt,
+  rulecolor=\color{codebg},
+  xleftmargin=8pt,
+  xrightmargin=8pt,
+  framexleftmargin=4pt,
+  showstringspaces=false,
+  breaklines=true,
+  columns=fullflexible,
+  keepspaces=true,
+  keywordstyle=\color{codekw}\bfseries,
+  stringstyle=\color{codestr},
+  commentstyle=\color{codecom}\itshape,
+}
+
+\lstdefinelanguage{aice}{
+  morekeywords={aice,task,gene_schema,evaluation_tasks,search,meta_fitness,
+                ranking,reviewers,reviewer,operators,scenarios,
+                algorithm,cell_axes,generations,seed_count,open_axes,
+                rng_seed,strategy,top_k,persona,weight,dialect},
+  morecomment=[l]{//},
+  morestring=[b]"
+}
+
+\titleformat{\section}{\Large\bfseries}{\thesection}{0.7em}{}
+\titleformat{\subsection}{\large\bfseries}{\thesubsection}{0.6em}{}
+
+\title{\textbf{AICE Evolution v2}\\[2mm]
+       \large 多タスク横断進化探索による次世代プログラミング言語の予測}
+\author{aice-evolution-v2 / 実験レポート}
+\date{2026 年 5 月}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+\noindent
+プログラミング言語の進化を遺伝的アルゴリズム (GA) で表現する従来手法は、
+遺伝子・突然変異・交叉を人手で記述する負担が大きい。本研究では (1)
+遺伝子スキーマを 1 度書けば変異と交叉が機械派生される MAP-Elites 探索、
+(2) 複数のタスクドメイン横断で進化方向ベクトルを集計する手法、
+(3) 同一仕様から Python パイプラインと {\bfseries AIPL}
+(Actor-based Intelligent Parallel Language; 旧称 ABCL/c+) アクター並列
+実装の双方を自動生成するコード生成器、を組み合わせ、6 サンプル問題
+\(\times\) 5 実験で
+``次世代プログラミング言語の方向'' を機械抽出した。結果として
+{\bfseries 型安全性は 5/5 ドメインで強化される} (sign-agree 100\%)、
+{\bfseries 雑な並行モデルは 4/5 ドメインで淘汰される} (sign-agree 80\%)
+という 2 軸が普遍的進化圧力として抽出された。Pareto-top の多数決から
+得られる consensus genome は \texttt{capability} 効果系 \(+\)
+\texttt{symbol\_owned} 状態 \(+\) \texttt{high} 型安全性 \(+\)
+\texttt{linear} 所有権という組み合わせで、最近傍既存言語は Pony、
+未充足領域は \texttt{capability} \(\times\) \texttt{linear} \(\times\)
+\texttt{dependent types} \(\times\) \texttt{structured concurrency}
+の交点であることを示した。
+\end{abstract}
+
+\section{はじめに}
+
+\subsection{問題設定}
+
+ソフトウェアの進化を表現する際、AICE メタ言語上で GA を用いて
+{\bfseries アセンブラ \(\rightarrow\) BASIC \(\rightarrow\) C \(\rightarrow\) Java \(\rightarrow\) ParallelOOP}
+のような系譜を辿らせる試みは可能である。しかし従来手法では、
+
+\begin{itemize}
+  \item 遺伝子の具体的な内容 (どの軸でどんな値を取るか)
+  \item 突然変異 (例: \texttt{Assembly\_to\_BASIC})
+  \item 交叉 (例: \texttt{JavaOOP \(\times\) FunctionalOOP \(\to\) ParallelOOP})
+\end{itemize}
+
+\noindent
+の全てを人手で書く必要があり、自動化の余地が大きい。本研究の
+出発点となった問いは次の 3 つである:
+
+\begin{enumerate}
+  \item 遺伝子と操作子を自動派生できないか?
+  \item 進化軌跡を {\itshape 副産物} として系譜から得られないか?
+  \item この仕組みで「次世代プログラミング言語はどのようなものが良いか」
+        を機械的に予測できるか?
+\end{enumerate}
+
+\subsection{採用したアプローチ}
+
+\begin{description}[leftmargin=8mm,labelsep=4mm]
+  \item[(1) スキーマ駆動]
+    \texttt{gene\_schema} に「軸 \(\times\) 許容値 \(\times\)
+    coherence 制約」を 1 度書けば、突然変異 (1 軸ランダム書き換え)
+    と交叉 (ユニフォーム交叉) は機械的に派生される。
+  \item[(2) MAP-Elites]
+    単一の最適解ではなく {\itshape 各セルの champion} を保持する
+    Quality-Diversity 探索を採用。系譜を全保存することで、最深
+    champion の軌跡を ``発見された進化道筋'' として読み出せる。
+  \item[(3) 多タスク横断]
+    同じスキーマで {\itshape 異なる問題ドメイン} 5 種を独立に走らせ、
+    各 run の trend ベクトルを横断集計。タスクを超えて方向が一致する
+    軸を {\itshape 普遍的進化圧力}、ばらつく軸を
+    {\itshape task-specific ノイズ} として分離した。
+\end{description}
+
+\section{手法 — 7 段階パイプライン}
+
+開発は 7 つの Phase に分けて段階的に行った。各 Phase は前段階の成果物を
+入力にとり、独立にテスト可能である (表~\ref{tab:phases})。
+
+\begin{table}[h]
+\centering
+\caption{Phase 構成}
+\label{tab:phases}
+\small
+\begin{tabularx}{\linewidth}{cllX}
+\toprule
+\# & Phase 名 & 主成果物 & 内容 \\
+\midrule
+1 & スキーマ + IR        & \texttt{schema.json} / \texttt{ga.json}    & 遺伝子軸 / 許容値 / coherence 制約と中間表現 \\
+2 & MAP-Elites           & \texttt{map\_elites.py}                    & セル別 champion + 全系譜トラッキング \\
+3 & 解析 + ランキング    & \texttt{analysis.py} / \texttt{ranking.py} & trend ベクトル / Pareto gap / 多シナリオランキング \\
+4 & DSL パーサ           & \texttt{aice\_parser.py}                   & \texttt{.aice} v2 \(\to\) IR への lowering \\
+5 & AIPL コード生成      & \texttt{aipl\_codegen.py}                  & IR \(\to\) AIPL オーケストレータ \\
+6 & 実 LLM 結線          & \texttt{ai\_evaluator.py}                  & reviewer / pairwise judge を \texttt{ai\_call} 化 \\
+7 & 多タスク横断集計     & \texttt{cross\_task.py} / \texttt{batch.py} & N runs を集計 \(\to\) universal direction 抽出 \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\subsection{データの流れ}
+
+\begin{center}
+\small
+\begin{tabular}{lcl}
+\textbf{人間が書く} &        & \textbf{自動生成} \\
+\midrule
+\texttt{schemas/*.schema.json}        & $\rightarrow$ &                       \\
+\texttt{examples/*.aice} (5 ファイル) & $\rightarrow$ & \texttt{out/*.ga.json} \\
+                                      & $\rightarrow$ & \texttt{out/*.abcl} (\,オプション\,) \\
+                                      & $\rightarrow$ & \texttt{out/*.lineage.json} \\
+                                      & $\rightarrow$ & \texttt{out/*.elite\_map.json} \\
+                                      & $\rightarrow$ & \texttt{out/*.ranking.json} \\
+                                      & $\rightarrow$ & \texttt{out/*.report.md} \\
+                                      & $\rightarrow$ & \texttt{out/final\_prediction.cross\_task.\{md,json\}}
+\end{tabular}
+\end{center}
+
+\section{サンプル問題}
+
+抽象タスクとして 6 つを用意した (表~\ref{tab:tasks})。各タスクには
+``理想プロファイル'' (gene 値の組み合わせ) を割り当て、
+評価器がそれとの軸一致率をスコアにする。
+
+\begin{table}[h]
+\centering
+\caption{サンプル問題と理想プロファイル}
+\label{tab:tasks}
+\footnotesize
+\begin{tabularx}{\linewidth}{lXl}
+\toprule
+タスク & 内容 & 理想プロファイル抜粋 \\
+\midrule
+TrafficLight  & 信号機 tick (Red \(\to\) Yellow \(\to\) Green) を並行 tick 要求下で安全に処理 & ParallelOOP, actor\_messages, type\_safety=high \\
+BankAccount   & 残高保持 + deposit/withdraw/transfer の原子性 & Java\_OOP, threads\_locks, type\_safety=high, gc \\
+Philosophers  & 食事哲学者 + デッドロック回避 & ParallelOOP, actor\_messages, borrow\_check \\
+WebService    & REST + 認可 + 構造化並行 & FunctionalOOP, structured, algebraic\_effects, gc \\
+DataPipeline  & ストリーミング ETL + 純粋関数ステージ & Functional, ADT, csp\_channels, monadic \\
+Compiler      & AST 変換 + 型主導書き換え & Functional, ADT, type\_safety=dependent \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\section{実装 — \texttt{.aice} 仕様と変換}
+
+\subsection{\texttt{.aice} v2 — 人間が書く DSL}
+
+リスト~\ref{lst:aice} は最終デモで使った \texttt{.aice} の例である
+(全 5 ファイルが同形式)。\texttt{stages} / \texttt{mutations} / \texttt{crossovers}
+を書く必要がない点が従来手法との最大の差で、人間の負担は約
+1.5\,KB に収まる。
+
+\begin{lstlisting}[language=aice,caption={\texttt{examples/NextLanguagePrediction.aice} (抜粋)},label=lst:aice]
+aice NextLanguagePrediction {
+  task = "プログラミング・パラダイムの進化軌跡を発見し、次世代言語の候補を提示する。";
+  gene_schema = "schemas/programming_paradigm.schema.json";
+
+  evaluation_tasks {
+    task TrafficLight  { spec = "..."; }
+    task BankAccount   { spec = "..."; }
+    task Philosophers  { spec = "..."; }
+  }
+
+  search {
+    algorithm   = "map_elites";
+    cell_axes   = "paradigm, concurrency_model, type_safety";
+    generations = 30;
+    seed_count  = 8;
+    open_axes   = true;
+  }
+
+  meta_fitness {
+    trend_alignment       = 0.20;  novelty               = 0.15;
+    frontier_coverage     = 0.20;  evolvability          = 0.15;
+    cross_task_generality = 0.20;  implementability      = 0.10;
+  }
+
+  ranking {
+    scenarios = ["conservative", "innovative", "general_purpose"];
+    top_k     = 3;
+  }
+  reviewers { ... }
+}
+\end{lstlisting}
+
+\subsection{パーサと中間表現 (\texttt{.ga.json})}
+
+\texttt{aice\_parser.py} がトークナイズして AST を構築し、lowering 段階で
+operators / scenario\_weights のデフォルトを充填して
+\texttt{.ga.json} (約 2.8\,KB) に書き出す。
+
+\subsection{AIPL コード生成}
+
+\texttt{aipl\_codegen.py} は \texttt{.ga.json} を入力に、9 個のアクター
+クラスを持つ AIPL プログラム (約 19\,KB / 580 行) を生成する
+(表~\ref{tab:abcl})。
+
+\begin{table}[h]
+\centering
+\caption{生成 AIPL プログラムのアクター構成}
+\label{tab:abcl}
+\small
+\begin{tabularx}{\linewidth}{lX}
+\toprule
+アクター & 役割 \\
+\midrule
+\texttt{Util}            & CSV / 遺伝子文字列ヘルパ + \texttt{parse\_score} (LLM 応答 \(\to\) float) \\
+\texttt{DigitOps}        & \texttt{parse\_score} 補助 (peer actor; self 再入回避) \\
+\texttt{Generator}       & seed / mutate / cross 操作 \\
+\texttt{Reviewer}        & 1 reviewer = 1 actor; \texttt{ai\_call\_with\_system} 経由でスコアリング \\
+\texttt{Evaluator}       & 3 reviewer に \texttt{future} で fan-out \(\to\) \texttt{await} で集約 \\
+\texttt{Worker}          & \texttt{compute\_cell} / \texttt{compute\_score} (Coordinator の代理計算) \\
+\texttt{EliteMap}        & cell \(\to\) champion テーブル (parallel arrays) \\
+\texttt{Lineage}         & 全個体を append-only 記録 \(\to\) JSON dump \\
+\texttt{TaskProfiles}    & 各タスクの理想プロファイルを返す \\
+\texttt{Coordinator}     & Phase 1 (seed) \(\to\) Phase 2 (進化ループ) を駆動 \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+実装で踏んだ AIPL ランタイムの注意点を表~\ref{tab:abcl_pitfalls} に
+記録する。これらは生成器の知識として固定化済みである。
+
+\begin{table}[h]
+\centering
+\caption{AIPL コード生成で踏んだ罠}
+\label{tab:abcl_pitfalls}
+\footnotesize
+\begin{tabularx}{\linewidth}{lX}
+\toprule
+症状 & 対処 \\
+\midrule
+\texttt{now self.X()} で無限デッドロック        & 同アクター内では再入不可。Worker / DigitOps として peer 化 \\
+\texttt{xs = array\_push(xs, v)} で \texttt{xs} が \texttt{None} に & Python ランタイムは in-place + None 返却。戻り値破棄 \\
+\texttt{float(x)} がパースエラー                & \texttt{float} は型キーワード予約。\texttt{(x + 0.0)} で coerce \\
+\texttt{a \&\& b} がパースエラー                & 論理 AND/OR 無し。ネスト if で書く \\
+\texttt{0.0} の stringify が \texttt{"0."}      & 末尾 \texttt{"0"} を付与して JSON valid に \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\section{実験}
+
+\subsection{構成}
+
+5 つの \texttt{.aice} を用意し、それぞれ異なる task subset を採用した
+(表~\ref{tab:experiments})。全実験は同一の \texttt{rng\_seed = 42}
+で実行し、独立変数は採用タスクと reviewer persona のみである。
+
+\begin{table}[h]
+\centering
+\caption{実験 5 種の構成}
+\label{tab:experiments}
+\footnotesize
+\begin{tabularx}{\linewidth}{lXl}
+\toprule
+\texttt{.aice} & 採用タスク & 想定 domain \\
+\midrule
+\texttt{NextLanguagePrediction} & TrafficLight + BankAccount + Philosophers & 並行 + 状態機械 \\
+\texttt{WebServiceEvolution}    & WebService + BankAccount + TrafficLight   & リクエスト処理 \\
+\texttt{DataPipelineEvolution}  & DataPipeline + Compiler + TrafficLight    & 関数型 + 型 \\
+\texttt{CompilerEvolution}      & Compiler + DataPipeline + BankAccount     & 型システム \\
+\texttt{UltimateNextLanguage}   & 全 6 タスク                                & 総合判定 \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\subsection{Python パイプライン実行結果}
+
+各 run の MAP-Elites 結果 (Python 側) を表~\ref{tab:python_results}
+に示す。\texttt{UltimateNextLanguage} は他より \texttt{seed\_count=12,
+generations=40} で大きいため個体数が増える。
+
+\begin{table}[h]
+\centering
+\caption{Python パイプライン: 各 run の規模と最高 composite}
+\label{tab:python_results}
+\small
+\begin{tabular}{lrrrl}
+\toprule
+run & 個体 & セル & best & best 候補抜粋 \\
+\midrule
+NextLanguagePrediction & 38 & 20 & 0.795 & ParallelOOP / actor / type=high \\
+WebServiceEvolution    & 38 & 20 & 0.795 & ParallelOOP / actor / type=high \\
+DataPipelineEvolution  & 38 & 19 & 0.837 & Functional / structured / type=high \\
+CompilerEvolution      & 38 & 19 & 0.837 & Functional / structured / type=high \\
+UltimateNextLanguage   & 52 & 30 & 0.797 & ParallelOOP / actor / type=high \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{AIPL アクター並列実行結果}
+
+Python パイプラインと並行して、生成された 5 つの \texttt{.abcl} を
+\texttt{ABCL\_AI\_PROVIDER=mock} で実行した (表~\ref{tab:abcl_results})。
+RNG パスが Python と独立なため個体集合は異なるが、cell 充填数は
+むしろ多くなり、actor framework が end-to-end で動作することを確認した。
+
+\begin{table}[h]
+\centering
+\caption{AIPL ランタイム実行結果 (\texttt{.abcl})}
+\label{tab:abcl_results}
+\small
+\begin{tabular}{lrrrl}
+\toprule
+run & 個体 & セル & best & best 候補抜粋 \\
+\midrule
+NextLanguagePrediction & 38 & 24 & 0.417 & ParallelOOP + actor\_messages \\
+WebServiceEvolution    & 38 & 22 & 0.433 & C + structured + type=high \\
+DataPipelineEvolution  & 38 & 19 & 0.417 & assembler + type=high \\
+CompilerEvolution      & 38 & 19 & 0.467 & C + type=high \\
+UltimateNextLanguage   & 52 & 30 & 0.483 & Functional + csp\_channels \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\section{結果 — 多タスク横断集計}
+
+\subsection{進化方向ベクトルの軸別安定性}
+
+5 runs の trend ベクトルを集計し、各軸ごとに mean / std / sign-agree を
+計算した結果が表~\ref{tab:trend_stability} である。
+
+\begin{table}[h]
+\centering
+\caption{軸ごとのタスク横断安定性 (5 runs)}
+\label{tab:trend_stability}
+\small
+\begin{tabular}{lrrrr}
+\toprule
+axis & mean & std & +n / -n / 0n & sign-agree \\
+\midrule
+\texttt{type\_safety}        & \(+0.42\) & 0.10 & 5 / 0 / 0 & \textbf{100\%} \\
+\texttt{concurrency\_model}  & \(-0.22\) & 0.23 & 1 / 4 / 0 & \textbf{80\%} \\
+\texttt{ownership\_model}    & \(-0.08\) & 0.30 & 3 / 2 / 0 & 60\% \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Universal direction (普遍的進化圧力)}
+
+\texttt{sign-agreement} \(\geq\) 75\% かつ \(|\mathrm{mean}| > 0.05\)
+を ``universal'' の閾値とした:
+
+\begin{itemize}
+  \item \texttt{type\_safety}: \(+0.42\) (sign-agree 100\%, runs 5\(\uparrow\)/0\(\downarrow\))
+  \item \texttt{concurrency\_model}: \(-0.22\) (sign-agree 80\%, runs 1\(\uparrow\)/4\(\downarrow\))
+\end{itemize}
+
+\noindent
+これらは個別タスクのノイズではなく、{\bfseries 5 つの異なる問題ドメインを
+横断して再現した進化方向} である。
+
+\subsection{Consensus genome (Pareto-top の多数決)}
+
+各 run の Pareto-1 候補から軸別の最頻値を集計したのが
+表~\ref{tab:consensus} である。最大の合意は
+\texttt{effect\_handling=capability} (62\%) で、\texttt{type\_safety=high}
+と \texttt{state\_representation=symbol\_owned} がそれに続く。
+
+\begin{table}[h]
+\centering
+\caption{Consensus genome (5 runs の Pareto-top 候補 \(N=34\) からの多数決)}
+\label{tab:consensus}
+\small
+\begin{tabular}{lll}
+\toprule
+axis & winner value & votes / total \\
+\midrule
+\texttt{effect\_handling}      & \texttt{capability}      & 21 / 34 (62\%) \textbf{最強} \\
+\texttt{type\_safety}          & \texttt{high}            & 18 / 34 (53\%) \\
+\texttt{state\_representation} & \texttt{symbol\_owned}   & 18 / 34 (53\%) \\
+\texttt{ownership\_model}      & \texttt{linear}          & 14 / 34 (41\%) \\
+\texttt{concurrency\_model}    & \texttt{csp\_channels}   & 12 / 34 (35\%) \\
+\texttt{paradigm}              & \texttt{BASIC}           & 12 / 34 (35\%) (注:\,セル名のみ) \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\section{次世代プログラミング言語の予測}
+
+機械抽出の結果、推奨される性質は次の 5 軸に集約された:
+
+\begin{itemize}
+  \item \texttt{type\_safety = high} (もしくは更に \texttt{dependent})
+        \(\quad\) 5/5 ドメインで一致
+  \item \texttt{effect\_handling = capability}
+        \(\quad\) 全候補中 62\% で支持される最強の合意
+  \item \texttt{state\_representation = symbol\_owned}
+        \(\quad\) 単一所有 + 移譲モデル
+  \item \texttt{concurrency\_model = csp\_channels} もしくは \texttt{structured}
+        \(\quad\) 雑な \texttt{threads\_locks} は淘汰圧
+  \item \texttt{ownership\_model = linear} (もしくは \texttt{borrow\_check})
+        \(\quad\) GC は task-specific でやや弱い
+\end{itemize}
+
+\subsection{既存言語との対応}
+
+\begin{description}[leftmargin=8mm]
+  \item[最近傍] {\bfseries Pony} ---
+    capability + actor + linear types を満たす。
+  \item[次点] Rust + capability + algebraic effects ---
+    {\bfseries まだ言語として存在しない}。
+  \item[関数型側] Scala / Effekt ---
+    effect tracking + structured concurrency を満たす。
+\end{description}
+
+\subsection{Pareto frontier の未充足領域 — 次世代言語の置き場}
+
+\texttt{capability} \(\times\) \texttt{linear} \(\times\)
+\texttt{dependent types} \(\times\) \texttt{structured concurrency}
+を全て満たす言語は実在しない。これが
+{\bfseries 次世代言語が埋めるべき設計空間} である。
+
+\section{議論 — できたこと / できなかったこと}
+
+\subsection{達成できたこと}
+
+\begin{enumerate}
+  \item 遺伝子・突然変異・交叉を {\itshape 1 度のスキーマ宣言} から
+        機械派生する仕組みが完成した。
+  \item MAP-Elites の系譜トラッキングにより、
+        ``発見された進化軌跡'' を副産物として読み出せる。
+  \item 同一 \texttt{.aice} から Python と AIPL アクターの
+        二重実装を自動生成し、両者で end-to-end が動作した。
+  \item Phase 7 の多タスク横断集計で、{\itshape タスク固有のノイズと
+        普遍的進化圧力が定量的に分離} できた。
+\end{enumerate}
+
+\subsection{未解決の限界}
+
+\begin{enumerate}
+  \item {\bfseries サンプルサイズの小ささ} ---
+        5 runs では各軸の mean / std の信頼区間が広い。\texttt{rng\_seed}
+        を変えた追加実行 (Phase 8 候補) が望ましい。
+  \item {\bfseries モック評価器の限定性} ---
+        本番では \texttt{--ai} で実 LLM 化できるが、本実験は
+        コスト都合で deterministic な軸一致率に留めた。
+  \item {\bfseries 軸の閉鎖性} ---
+        \texttt{open\_axes = true} でも、現状の探索器は新軸を
+        提案しない。LLM 駆動で新しい軸 (例: ``differentiable
+        types'') を生成する開放系は Phase 9 候補。
+  \item {\bfseries 真のパラダイム転換は出ない} ---
+        ハードウェア・ML・量子計算といった外的圧力は本枠組みでは
+        モデル化しない。予測は ``既知軸の延長線上'' に閉じる。
+\end{enumerate}
+
+\section{結論}
+
+7 段階に分けて構築した \texttt{aice-evolution-v2} は、人間が
+\texttt{.aice} を 1.5\,KB 程度書くだけで MAP-Elites 探索 \(\to\)
+進化軌跡発見 \(\to\) Pareto ランキング \(\to\) Markdown レポート
+\(\to\) AIPL アクター並列実装 \(\to\) 多タスク横断集計までを
+end-to-end で自動化した。
+
+5 ドメイン横断の集計では、{\bfseries 型安全性は普遍的に強化される}
+(100\% sign-agreement) という強い結論と、
+{\bfseries capability 効果系 + linear 所有 + symbol\_owned 状態 +
+high 型安全性} という consensus genome を得た。最近傍既存言語は Pony、
+未充足領域は \texttt{capability} \(\times\) \texttt{linear} \(\times\)
+\texttt{dependent} \(\times\) \texttt{structured} の交点である。
+
+これは ``単一の言語名'' を当てる予測ではなく、
+{\bfseries 満たすべき設計軸の集合と、その不確実性} を返す予測である。
+本枠組みは出力に重み・シナリオ・信頼区間を保持するため、
+``保守的予測 / 革新的予測 / 汎用予測'' という 3 つの並行ランキングを
+出すことができ、外的条件次第で複数の解釈が可能である点を誠実に
+記録できる。
+
+\appendix
+\section{再現コマンド}
+
+\begin{lstlisting}[caption={5 実験の一括実行と最終集計}]
+# Python パイプライン (5 runs + 横断集計)
+python3 -m src.batch \
+    examples/NextLanguagePrediction.aice \
+    examples/WebServiceEvolution.aice \
+    examples/DataPipelineEvolution.aice \
+    examples/CompilerEvolution.aice \
+    examples/UltimateNextLanguage.aice \
+    -o out --name final_prediction
+
+# AIPL アクター並列実装の生成と実行 (各 .aice ごと)
+for ex in NextLanguagePrediction WebServiceEvolution \
+          DataPipelineEvolution CompilerEvolution \
+          UltimateNextLanguage; do
+  python3 -m src.cli examples/$ex.aice -o out --abcl --no-run
+  ABCL_AI_PROVIDER=mock python3 ../src/python-aipl/aipl_main.py \
+      --timeout 240 out/$ex.abcl
+done
+\end{lstlisting}
+
+\section{ファイル一覧}
+
+\subsection*{人間が書く入力}
+\begin{itemize}
+  \item \texttt{schemas/programming\_paradigm.schema.json} (1.7 KB)
+  \item \texttt{samples/problems.md} (4.5 KB)
+  \item \texttt{examples/*.aice} 5 ファイル (1.5--1.9 KB 各)
+\end{itemize}
+
+\subsection*{自動生成出力}
+\begin{itemize}
+  \item \texttt{out/*.ga.json} (各 \(\sim\)3 KB)
+  \item \texttt{out/*.abcl} (各 \(\sim\)19 KB)
+  \item \texttt{out/*.lineage.json} (各 28--44 KB)
+  \item \texttt{out/*.elite\_map.json} (各 \(\sim\)8 KB)
+  \item \texttt{out/*.ranking.json} (各 \(\sim\)45 KB)
+  \item \texttt{out/*.report.md} (各 \(\sim\)4.5 KB)
+  \item \texttt{out/final\_prediction.cross\_task.\{md,json\}} (各 \(\sim\)2 KB)
+\end{itemize}
+
+\end{document}

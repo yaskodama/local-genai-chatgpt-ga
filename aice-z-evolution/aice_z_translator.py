@@ -53,6 +53,43 @@ class Candidate:
     findings: list[str]
 
 
+@dataclasses.dataclass
+class EvolutionCandidate:
+    name: str
+    style: str
+    prompt: str
+
+
+@dataclasses.dataclass
+class EvolutionStage:
+    name: str
+    order: int
+    branch: str
+    parents: list[str]
+    archive: str
+    genome: str
+    mutations: str
+    crossover: str
+    focus: str
+    candidates: list[EvolutionCandidate]
+
+
+@dataclasses.dataclass
+class EvolutionProgram:
+    name: str
+    dialect: str
+    task: str
+    archive_path: str
+    final_archive: str
+    candidate_count: int
+    reviewer_count: int
+    selector_output: str
+    actors: dict[str, str]
+    reviewers: dict[str, str]
+    fitness: dict[str, str]
+    stages: list[EvolutionStage]
+
+
 def _strip_comments(src: str) -> str:
     return "\n".join(line.split("//", 1)[0] for line in src.splitlines())
 
@@ -62,11 +99,18 @@ def _find_name(src: str) -> str:
     return m.group(1) if m else "AiceZEvolution"
 
 
+def _decode_quoted(raw: str) -> str:
+    try:
+        return json.loads(f'"{raw}"')
+    except json.JSONDecodeError:
+        return raw
+
+
 def _find_string(src: str, key: str, default: str = "") -> str:
     m = re.search(rf"\b{re.escape(key)}\s*=\s*\"((?:\\.|[^\"])*)\"", src, re.S)
     if not m:
         return default
-    return bytes(m.group(1), "utf-8").decode("unicode_escape")
+    return _decode_quoted(m.group(1))
 
 
 def _find_word(src: str, key: str, default: str = "") -> str:
@@ -97,14 +141,112 @@ def _extract_block(src: str, name: str) -> str:
     return src[start : i - 1]
 
 
+def _extract_named_blocks(src: str, keyword: str) -> list[tuple[str, str]]:
+    blocks = []
+    pos = 0
+    pattern = re.compile(rf"\b{re.escape(keyword)}\s+([A-Za-z_][A-Za-z0-9_]*)\s*\{{")
+    while True:
+        m = pattern.search(src, pos)
+        if not m:
+            break
+        start = m.end()
+        depth = 1
+        i = start
+        while i < len(src) and depth:
+            if src[i] == "{":
+                depth += 1
+            elif src[i] == "}":
+                depth -= 1
+            i += 1
+        blocks.append((m.group(1), src[start : i - 1]))
+        pos = i
+    return blocks
+
+
 def _extract_list(block: str, name: str) -> list[str]:
     inner = _extract_block(block, name)
     if not inner:
         return []
     items = []
     for m in re.finditer(r"\"((?:\\.|[^\"])*)\"\s*;", inner, re.S):
-        items.append(bytes(m.group(1), "utf-8").decode("unicode_escape").strip())
+        items.append(_decode_quoted(m.group(1)).strip())
     return items
+
+
+def _find_decimal_fields(block: str) -> dict[str, str]:
+    fields = {}
+    for m in re.finditer(r"\b([A-Za-z_][A-Za-z0-9_]*)\s*=\s*([0-9]+(?:\.[0-9]+)?)\s*;", block):
+        fields[m.group(1)] = m.group(2)
+    return fields
+
+
+def _split_names(value: str) -> list[str]:
+    return [part.strip() for part in value.split(",") if part.strip()]
+
+
+def _safe_var(name: str) -> str:
+    cleaned = re.sub(r"[^A-Za-z0-9_]+", "_", name)
+    if not cleaned or not re.match(r"[A-Za-z_]", cleaned):
+        cleaned = f"v_{cleaned}"
+    return cleaned
+
+
+def parse_evolution_program(path: Path) -> EvolutionProgram:
+    src = _strip_comments(path.read_text(encoding="utf-8"))
+    policy_block = _extract_block(src, "policy")
+    archive_block = _extract_block(src, "archive")
+    actors_block = _extract_block(src, "actors")
+    reviewers_block = _extract_block(src, "reviewers")
+    fitness_block = _extract_block(src, "fitness")
+    stages_block = _extract_block(src, "stages")
+
+    actors = {
+        m.group(1): _decode_quoted(m.group(2))
+        for m in re.finditer(r"\b([A-Za-z_][A-Za-z0-9_]*)\s*=\s*\"((?:\\.|[^\"])*)\"\s*;", actors_block)
+    }
+    reviewers = {}
+    for name, body in _extract_named_blocks(reviewers_block, "reviewer"):
+        reviewers[name] = _find_string(body, "persona", "")
+
+    stages = []
+    for name, body in _extract_named_blocks(stages_block, "stage"):
+        candidates_block = _extract_block(body, "candidates")
+        candidates = [
+            EvolutionCandidate(
+                name=candidate_name,
+                style=_find_string(candidate_body, "style", candidate_name),
+                prompt=_find_string(candidate_body, "prompt", ""),
+            )
+            for candidate_name, candidate_body in _extract_named_blocks(candidates_block, "candidate")
+        ]
+        stages.append(
+            EvolutionStage(
+                name=name,
+                order=_find_int(body, "order", 0),
+                branch=_find_string(body, "branch", "main"),
+                parents=_split_names(_find_string(body, "parents", "")),
+                archive=_find_string(body, "archive", f"{name}Winner"),
+                genome=_find_string(body, "genome", ""),
+                mutations=_find_string(body, "mutations", ""),
+                crossover=_find_string(body, "crossover", ""),
+                focus=_find_string(body, "focus", ""),
+                candidates=candidates,
+            )
+        )
+    return EvolutionProgram(
+        name=_find_name(src),
+        dialect=_find_string(src, "dialect", ""),
+        task=_find_string(src, "task", ""),
+        archive_path=_find_string(archive_block, "path", ""),
+        final_archive=_find_string(archive_block, "final", ""),
+        candidate_count=_find_int(policy_block, "candidate_count", 3),
+        reviewer_count=max(3, _find_int(policy_block, "reviewer_count", 3)),
+        selector_output=_find_string(policy_block, "selector_output", "1|2|3"),
+        actors=actors,
+        reviewers=reviewers,
+        fitness=_find_decimal_fields(fitness_block),
+        stages=stages,
+    )
 
 
 def _extract_mutations(src: str) -> list[str]:
@@ -348,14 +490,14 @@ def emit_abcl(spec: AiceSpec, z_spec: str, checks: list[CheckResult], winners: l
         + "\n\nGenerate a complete program, then check it against the Z specification and acceptance conditions."
     )
     return f"""// Generated from {spec.name}.aice by aice_z_translator.py
-// Runtime: OCaml ABCL/c+ (src/repl_thread.ml / abclrepl_thread).
+// Runtime: OCaml AIPL (src/repl_thread.ml / abclrepl_thread).
 // Pipeline: initial specification -> Z -> two logical checks -> {reviewer_count} reviewers -> evolutionary repair/selection -> final program verification.
 
 class EvolutionCoordinator {{
   var z_spec = {abcl_string(z_spec)};
   var logical_checks = {abcl_string(checks_text)};
-  var persona = "You generate production-quality programs from formal Z-style specifications. Prefer OCaml ABCL/c+ actor syntax unless the target language is explicitly not ABCL. Return only the requested program and concise verification notes.";
-  var reviewer_persona = "You are a formal methods reviewer for OCaml ABCL/c+. Check whether the candidate program satisfies the Z specification, predicate normal form, state transition model, and acceptance conditions. Return PASS or FAIL first, then the most important reason.";
+  var persona = "You generate production-quality programs from formal Z-style specifications. Prefer OCaml AIPL actor syntax unless the target language is explicitly not ABCL. Return only the requested program and concise verification notes.";
+  var reviewer_persona = "You are a formal methods reviewer for OCaml AIPL. Check whether the candidate program satisfies the Z specification, predicate normal form, state transition model, and acceptance conditions. Return PASS or FAIL first, then the most important reason.";
 
   method run() {{
     var prompt = {abcl_string(task)};
@@ -389,7 +531,195 @@ send coordinator.run();
 """
 
 
+def _stage_prompt(stage: EvolutionStage) -> str:
+    parts = [
+        f"世代: {stage.name}",
+        f"branch: {stage.branch}",
+        f"archive: {stage.archive}",
+        f"遺伝子: {stage.genome}",
+        f"突然変異: {stage.mutations or 'なし'}",
+        f"交叉: {stage.crossover or 'なし'}",
+        f"評価観点: {stage.focus}",
+    ]
+    if stage.parents:
+        parts.append("親: " + ", ".join(stage.parents))
+    return "\n".join(parts)
+
+
+def _topology_summary(stages: list[EvolutionStage]) -> str:
+    main = [stage.name for stage in stages if stage.branch == "main"]
+    join = [stage.name for stage in stages if stage.branch == "join"]
+    branches: dict[str, list[str]] = {}
+    for stage in stages:
+        if stage.branch not in {"main", "join"}:
+            branches.setdefault(stage.branch, []).append(stage.name)
+    if not branches:
+        return " -> ".join(stage.name for stage in stages)
+    branch_text = ", ".join(" -> ".join(names) for names in branches.values())
+    parts = []
+    if main:
+        parts.append(" -> ".join(main))
+    parts.append("fork { " + branch_text + " }")
+    if join:
+        parts.append(" -> ".join(join))
+    return " -> ".join(parts)
+
+
+def emit_evolution_abcl(program: EvolutionProgram) -> str:
+    reviewer_names = list(program.reviewers)[:3]
+    while len(reviewer_names) < 3:
+        reviewer_names.append(f"Reviewer{len(reviewer_names) + 1}")
+    reviewer_personas = [
+        program.reviewers.get(reviewer_names[0], "あなたは正しさレビュアーです。候補を比較して最良候補番号を返してください。"),
+        program.reviewers.get(reviewer_names[1], "あなたはパラダイムレビュアーです。候補を比較して最良候補番号を返してください。"),
+        program.reviewers.get(reviewer_names[2], "あなたは実装レビュアーです。候補を比較して最良候補番号を返してください。"),
+    ]
+    fitness = ", ".join(f"{k}={v}" for k, v in program.fitness.items())
+    path_summary = _topology_summary(program.stages)
+    lines = [
+        f"// {program.name}.aice から自動変換した AIPL(AIPL) プログラム。",
+        "// 入力 dialect: aice_evolution_v1",
+        "// 形式チェックは外部工程。このプログラムは進化計算、3候補生成、3レビュー、選択、アーカイブ出力を行う。",
+        "",
+        f"class {program.name} {{",
+        f"  var task = {abcl_string(program.task)};",
+        f"  var generator_persona = {abcl_string('あなたは進化計算の候補生成器です。指定された世代、親、遺伝子、突然変異、交叉に合う短い候補プログラムを1つ生成してください。説明は日本語で、候補コードは指定パラダイムに合わせて書いてください。最後に IMPROVES 行を1行だけ付けてください。')};",
+        f"  var reviewer1_persona = {abcl_string(reviewer_personas[0])};",
+        f"  var reviewer2_persona = {abcl_string(reviewer_personas[1])};",
+        f"  var reviewer3_persona = {abcl_string(reviewer_personas[2])};",
+        f"  var selector_persona = {abcl_string('あなたは選択器です。3つの候補と3つのレビューを読み、最良候補を1つ選んでください。出力は ' + program.selector_output + ' のどれかだけにしてください。')};",
+        f"  var weights = {abcl_string(fitness)};",
+        "",
+        "  method run() {",
+        f"    print({abcl_string('===== ' + program.name + ' =====')});",
+        f"    print({abcl_string('dialect = ' + program.dialect)});",
+        f"    print({abcl_string('経路 = ' + path_summary)});",
+        f"    print({abcl_string('候補数 = ' + str(program.candidate_count))});",
+        f"    print({abcl_string('レビュアー数 = ' + str(program.reviewer_count))});",
+        '    print("評価重み = " + weights);',
+        '    print("");',
+        "",
+    ]
+
+    for index, stage in enumerate(program.stages, start=1):
+        prefix = _safe_var(stage.name.lower())
+        stage_prompt = _stage_prompt(stage)
+        parent_parts = []
+        for parent in stage.parents:
+            parent_var = _safe_var(parent)
+            parent_parts.append(f' + "\\n\\n親 {parent}:\\n" + {parent_var}')
+        parent_expr = "".join(parent_parts)
+        lines.extend(
+            [
+                f"    print({abcl_string('===== 世代' + str(stage.order) + ': ' + stage.name + ' =====')});",
+                f"    print({abcl_string('branch: ' + stage.branch)});",
+                f"    print({abcl_string('遺伝子: ' + stage.genome)});",
+                f"    print({abcl_string('突然変異: ' + (stage.mutations or 'なし'))});",
+                f"    print({abcl_string('交叉: ' + (stage.crossover or 'なし'))});",
+                f"    var {prefix}_base = task + {abcl_string(chr(10) + chr(10) + stage_prompt)}{parent_expr};",
+            ]
+        )
+        candidates = stage.candidates[: max(1, program.candidate_count)]
+        while len(candidates) < 3:
+            n = len(candidates) + 1
+            candidates.append(EvolutionCandidate(f"{stage.name}{n}", f"variant_{n}", "この世代に合う別案を生成する。"))
+        candidate_vars = []
+        for n, candidate in enumerate(candidates[:3], start=1):
+            var_name = f"{prefix}_{n}"
+            candidate_vars.append(var_name)
+            prompt = f"\n候補{n} id={candidate.name} style={candidate.style}。{candidate.prompt}"
+            lines.append(f"    var {var_name} = ai_call_with_system(generator_persona, {prefix}_base + {abcl_string(prompt)});")
+        for n, var_name in enumerate(candidate_vars, start=1):
+            lines.append(f"    print({abcl_string('--- ' + stage.name + ' candidate ' + str(n) + ' ---')}); print({var_name});")
+        payload_var = f"{prefix}_payload"
+        lines.extend(
+            [
+                f"    var {payload_var} = {abcl_string('世代 ' + stage.name + '\\n候補:\\n1:\\n')} + {candidate_vars[0]} + {abcl_string(chr(10) + chr(10) + '2:' + chr(10))} + {candidate_vars[1]} + {abcl_string(chr(10) + chr(10) + '3:' + chr(10))} + {candidate_vars[2]};",
+                f"    var {prefix}_r1 = ai_call_with_system(reviewer1_persona, {payload_var});",
+                f"    var {prefix}_r2 = ai_call_with_system(reviewer2_persona, {payload_var});",
+                f"    var {prefix}_r3 = ai_call_with_system(reviewer3_persona, {payload_var});",
+                f"    print({abcl_string('[review ' + reviewer_names[0] + ' ' + stage.name + ']')}); print({prefix}_r1);",
+                f"    print({abcl_string('[review ' + reviewer_names[1] + ' ' + stage.name + ']')}); print({prefix}_r2);",
+                f"    print({abcl_string('[review ' + reviewer_names[2] + ' ' + stage.name + ']')}); print({prefix}_r3);",
+                f"    var {prefix}_pick = ai_call_with_system(selector_persona, {payload_var} + {abcl_string(chr(10) + chr(10) + 'レビュー:' + chr(10))} + {prefix}_r1 + {abcl_string(chr(10))} + {prefix}_r2 + {abcl_string(chr(10))} + {prefix}_r3);",
+                f"    var {_safe_var(stage.archive)} = {candidate_vars[0]};",
+                f"    if ({prefix}_pick == \"2\") {{ {_safe_var(stage.archive)} = {candidate_vars[1]}; }}",
+                f"    if ({prefix}_pick == \"3\") {{ {_safe_var(stage.archive)} = {candidate_vars[2]}; }}",
+                f"    print({abcl_string('[selector picked ' + stage.name + ': ')} + {prefix}_pick + {abcl_string(']')});",
+                f"    print({abcl_string('[aice/archive] BEGIN ' + stage.archive)}); print({_safe_var(stage.archive)}); print({abcl_string('[aice/archive] END ' + stage.archive)});",
+                '    print("");',
+                "",
+            ]
+        )
+        if index == 2:
+            lines.extend(
+                [
+                    f"    print({abcl_string('===== fork from ' + stage.archive + ' =====')});",
+                    '    print("");',
+                    "",
+                ]
+            )
+
+    lines.extend(
+        [
+            f"    print({abcl_string('===== レポート =====')});",
+            f"    print({abcl_string('final_archive: ' + (program.final_archive or (program.stages[-1].archive if program.stages else '')))});",
+            '    print(ai_usage());',
+            "  }",
+            "}",
+            "",
+            f"var coordinator = new {program.name}();",
+            "send coordinator.run();",
+            "",
+        ]
+    )
+    return "\n".join(lines)
+
+
 def write_outputs(input_path: Path, out_dir: Path) -> dict[str, str]:
+    raw = _strip_comments(input_path.read_text(encoding="utf-8"))
+    if _find_string(raw, "dialect", "") == "aice_evolution_v1":
+        program = parse_evolution_program(input_path)
+        out_dir.mkdir(parents=True, exist_ok=True)
+        stem = input_path.stem
+        abcl_path = out_dir / f"{stem}.abcl"
+        report_path = out_dir / f"{stem}.report.md"
+        manifest_path = out_dir / f"{stem}.manifest.json"
+        abcl_path.write_text(emit_evolution_abcl(program), encoding="utf-8")
+        report = [
+            f"# {program.name} 自動変換レポート",
+            "",
+            f"- dialect: `{program.dialect}`",
+            f"- candidate_count: `{program.candidate_count}`",
+            f"- reviewer_count: `{program.reviewer_count}`",
+            f"- final_archive: `{program.final_archive}`",
+            "",
+            "## Stages",
+            "",
+        ]
+        for stage in program.stages:
+            report.extend(
+                [
+                    f"- order {stage.order} `{stage.name}` branch `{stage.branch}` archive `{stage.archive}`",
+                    f"  - parents: `{', '.join(stage.parents) or 'none'}`",
+                    f"  - mutations: `{stage.mutations or 'none'}`",
+                    f"  - crossover: `{stage.crossover or 'none'}`",
+                ]
+            )
+        report_path.write_text("\n".join(report) + "\n", encoding="utf-8")
+        manifest = {
+            "name": program.name,
+            "dialect": program.dialect,
+            "runtime": "ocaml_abcl_cplus",
+            "input": str(input_path),
+            "abcl": str(abcl_path),
+            "report": str(report_path),
+            "final_archive": program.final_archive,
+            "stages": [dataclasses.asdict(stage) for stage in program.stages],
+        }
+        manifest_path.write_text(json.dumps(manifest, ensure_ascii=False, indent=2), encoding="utf-8")
+        return {"abcl": str(abcl_path), "report": str(report_path), "manifest": str(manifest_path)}
+
     spec = parse_aice(input_path)
     z_spec = to_z_spec(spec)
     initial_checks = [

@@ -1,5 +1,5 @@
 (* web_gateway.ml
-   Minimal HTTP gateway embedded in the ABCL/c+ runtime.
+   Minimal HTTP gateway embedded in the AIPL runtime.
 
    - No external OCaml web libraries.
   - Runs as a background thread.
@@ -491,11 +491,11 @@ let html_index () : string =
   "<html>\n" ^
   "<head>\n" ^
   "  <meta charset='utf-8'>\n" ^
-  "  <title>ABCL/c+ Web Gateway</title>\n" ^
+  "  <title>AIPL Web Gateway</title>\n" ^
   "</head>\n" ^
   "<body style='font-family:sans-serif'>\n" ^
-  "  <h2>ABCL/c+ Web Gateway</h2>\n" ^
-  "  <p>Send a message to an actor in the running ABCL/c+ process.</p>\n" ^
+  "  <h2>AIPL Web Gateway</h2>\n" ^
+  "  <p>Send a message to an actor in the running AIPL process.</p>\n" ^
   "\n" ^
   "  <div style='display:flex; gap:24px; align-items:flex-start'>\n" ^
   "    <div>\n" ^
@@ -528,10 +528,10 @@ let html_index () : string =
 (*
 let html_index () : string =
   "<!doctype html>\n" ^
-  "<html><head><meta charset='utf-8'><title>ABCL/c+ Web Gateway</title></head>\n" ^
+  "<html><head><meta charset='utf-8'><title>AIPL Web Gateway</title></head>\n" ^
   "<body style='font-family: sans-serif'>\n" ^
-  "<h2>ABCL/c+ Web Gateway</h2>\n" ^
-  "<p>Send a message to an actor in the running ABCL/c+ process.</p>\n" ^
+  "<h2>AIPL Web Gateway</h2>\n" ^
+  "<p>Send a message to an actor in the running AIPL process.</p>\n" ^
   "<div style='display:flex; gap:24px; align-items:flex-start'>\n" ^
   "<div>\n" ^
   "<h3>Direct send (JSON)</h3>\n" ^

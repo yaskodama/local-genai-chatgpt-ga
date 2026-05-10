@@ -5,9 +5,9 @@
 #   2. src/browser-abcl/_smoke_test.sh [--dynamic]
 #                             -> JS syntax + parser
 #                                (and headless Chrome run when --dynamic)
-#   3. src/python-abcl/_smoke_test.sh
+#   3. src/python-aipl/_smoke_test.sh
 #                             -> Python interpreter on samples/
-#   4. src/python-abcl/_smoke_dist.py
+#   4. src/python-aipl/_smoke_dist.py
 #                             -> 3-node distributed smoke (mock provider)
 #
 # Pass --dynamic to enable the headless-browser phase.  Without it,
@@ -44,20 +44,20 @@ js_summary=$(echo "$js_out" | sed -n '/^==== JS smoke summary ====/,$p' | tail -
 
 echo
 echo "============================================================"
-echo " 3/4  Python ABCL/c+ (src/python-abcl/_smoke_test.sh)"
+echo " 3/4  Python AIPL (src/python-aipl/_smoke_test.sh)"
 echo "============================================================"
-py_out=$(./src/python-abcl/_smoke_test.sh 2>&1)
+py_out=$(./src/python-aipl/_smoke_test.sh 2>&1)
 echo "$py_out"
 py_summary=$(echo "$py_out" | grep '^==== Python smoke summary ====' -A 1 | tail -1)
 
 echo
 echo "============================================================"
-echo " 4/4  Distributed 3-node mock smoke (src/python-abcl/_smoke_dist.py)"
+echo " 4/4  Distributed 3-node mock smoke (src/python-aipl/_smoke_dist.py)"
 echo "============================================================"
 # Use the same Python that the rest of the Python suite uses so the
 # subprocesses _smoke_dist.py spawns inherit the right `lark` install.
 DIST_PY=${PYTHON:-/opt/homebrew/bin/python3.13}
-dist_out=$("$DIST_PY" ./src/python-abcl/_smoke_dist.py 2>&1)
+dist_out=$("$DIST_PY" ./src/python-aipl/_smoke_dist.py 2>&1)
 dist_rc=$?
 echo "$dist_out"
 dist_summary=$(echo "$dist_out" | grep '^==== distributed smoke ====' -A 0 | tail -1)

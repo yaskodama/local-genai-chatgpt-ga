@@ -2,7 +2,7 @@ aice TrafficLightZEvolution {
 
   target_language = ABCL;
 
-  task = "Create a correct traffic-light tick program for the OCaml ABCL/c+ runtime. The final program must model the state transitions Red -> Yellow -> Green -> Red, exclude illegal states by construction as much as ABCL/c+ allows, encapsulate state in an actor/class, and demonstrate several ticks.";
+  task = "Create a correct traffic-light tick program for the OCaml AIPL runtime. The final program must model the state transitions Red -> Yellow -> Green -> Red, exclude illegal states by construction as much as AIPL allows, encapsulate state in an actor/class, and demonstrate several ticks.";
 
   specification {
     entities {
@@ -37,7 +37,7 @@ aice TrafficLightZEvolution {
     }
 
     acceptance {
-      "The final program is valid OCaml ABCL/c+";
+      "The final program is valid OCaml AIPL";
       "The final program defines a TrafficLight class or actor";
       "The final program demonstrates at least four printed states";
       "The final program includes a final formal verification step against the Z specification";
@@ -82,7 +82,7 @@ aice TrafficLightZEvolution {
         target = target_language;
         from = any;
         to = ABCL;
-        reason = "Use the OCaml ABCL/c+ runtime as the executable target.";
+        reason = "Use the OCaml AIPL runtime as the executable target.";
       }
 
       rule M2_Integer_to_Symbolic_State {

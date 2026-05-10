@@ -2,7 +2,7 @@ aice TrafficLightEvolutionOnly {
 
   target_language = ABCL;
 
-  task = "Evolve a traffic-light tick program for the OCaml ABCL/c+ runtime. Formal verification is handled outside this meta program; this file only describes evolutionary search, selection, mutation, crossover, and archive flow.";
+  task = "Evolve a traffic-light tick program for the OCaml AIPL runtime. Formal verification is handled outside this meta program; this file only describes evolutionary search, selection, mutation, crossover, and archive flow.";
 
   nodes {
     node local {
@@ -58,7 +58,7 @@ aice TrafficLightEvolutionOnly {
         target = target_language;
         from = ABCL;
         to = ABCL;
-        reason = "Keep all generated candidates executable on the OCaml ABCL/c+ runtime.";
+        reason = "Keep all generated candidates executable on the OCaml AIPL runtime.";
       }
 
       rule M2_Integer_to_Named_State {

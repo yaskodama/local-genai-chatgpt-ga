@@ -1,0 +1,83 @@
+// AIPL builtin & function signature inference demo.
+//
+// `typeof(name)` works on:
+//   - bare runtime builtin (read_bytes, image_load, ai_call, ...)
+//       → returns the curated static signature
+//   - user-defined function (function fib(n) {...})
+//       → returns the trace-inferred signature (refines on each call)
+//   - any value
+//       → returns the structural type (record, tuple, array, image, ...)
+
+function fib(n) {
+  if (n < 2) { return n; }
+  return fib(n - 1) + fib(n - 2);
+}
+
+function describe(x) {
+  return typeof(x) + " : " + x;
+}
+
+class Demo {
+  method run() {
+    print("=== Builtin signatures (static) ===");
+    print("typeof(print)            = " + typeof(print));
+    print("typeof(read_file)        = " + typeof(read_file));
+    print("typeof(write_file)       = " + typeof(write_file));
+    print("typeof(read_bytes)       = " + typeof(read_bytes));
+    print("typeof(write_bytes)      = " + typeof(write_bytes));
+    print("typeof(image_load)       = " + typeof(image_load));
+    print("typeof(image_create)     = " + typeof(image_create));
+    print("typeof(image_pixel)      = " + typeof(image_pixel));
+    print("typeof(image_size)       = " + typeof(image_size));
+    print("typeof(json_parse)       = " + typeof(json_parse));
+    print("typeof(json_stringify)   = " + typeof(json_stringify));
+    print("typeof(list_dir)         = " + typeof(list_dir));
+    print("typeof(path_join)        = " + typeof(path_join));
+    print("");
+
+    print("=== AI calls (provider override + multimodal) ===");
+    print("typeof(ai_call)                  = " + typeof(ai_call));
+    print("typeof(ai_call_with_system)      = " + typeof(ai_call_with_system));
+    print("typeof(ai_call_image)            = " + typeof(ai_call_image));
+    print("typeof(ai_call_image_with_system)= " + typeof(ai_call_image_with_system));
+    print("typeof(ai_call_priority)         = " + typeof(ai_call_priority));
+    print("typeof(ai_usage)                 = " + typeof(ai_usage));
+    print("");
+
+    print("=== Class / actor / function meta ===");
+    print("typeof(compile)        = " + typeof(compile));
+    print("typeof(spawn)          = " + typeof(spawn));
+    print("typeof(add_method)     = " + typeof(add_method));
+    print("typeof(remove_method)  = " + typeof(remove_method));
+    print("typeof(methods_of)     = " + typeof(methods_of));
+    print("typeof(typeof)         = " + typeof(typeof));
+    print("");
+
+    print("=== User-defined functions (trace-inferred) ===");
+    var f1 = fib(8);
+    var f2 = fib(12);
+    print("fib(8)  = " + f1);
+    print("fib(12) = " + f2);
+    print("typeof(fib) = " + typeof(fib));
+
+    var d1 = describe(42);
+    var d2 = describe("hello");
+    var d3 = describe(3.14);
+    print("typeof(describe) (after int call only)        = will widen below");
+    print("typeof(describe) (after int+string+float) = " + typeof(describe));
+    print("");
+
+    print("=== Mixing: typeof on call results vs on the builtin itself ===");
+    var img = image_create(8, 8, 0, 200, 100, 255);
+    print("typeof(image_create)        = " + typeof(image_create));        // static
+    print("typeof(image_create(8,8,0,200,100,255)) = " + typeof(image_create(8, 8, 0, 200, 100, 255))); // value
+    print("typeof(image_pixel)             = " + typeof(image_pixel));     // static
+    print("typeof(image_pixel(img,0,0))    = " + typeof(image_pixel(img, 0, 0))); // value
+    print("typeof(json_stringify)              = " + typeof(json_stringify));
+    print("typeof(json_stringify({a:1, b:[2,3]}, 2)) = " + typeof(json_stringify({a:1, b:[2,3]}, 2)));
+    print("typeof(ai_call(2,\"hi\"))             = " + typeof(ai_call(2, "hi")));
+  }
+}
+
+var d = new Demo();
+send d.run();

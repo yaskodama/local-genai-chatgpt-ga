@@ -1,7 +1,7 @@
 document.addEventListener("DOMContentLoaded", () => {
   document.body.innerHTML = `
   <div style="padding:16px;font-family:monospace;">
-    <h2>Browser ABCL/c+</h2>
+    <h2>Browser AIPL</h2>
     <p style="color:#555;">Actor-based concurrent programs running in the browser.</p>
     <h3>Demos</h3>
     <ul>

@@ -1,5 +1,5 @@
 #!/bin/bash
-# Launch the OCaml ABCL/c+ REPL with the integrated web IDE enabled.
+# Launch the OCaml AIPL REPL with the integrated web IDE enabled.
 #
 # The IDE provides four panes in the browser:
 #   * Command input (REPL commands or ABCL source)
@@ -39,6 +39,6 @@ fi
 # REPL-level script: src/ide_boot.bat contains `load ide_boot.abcl` +
 # `compile`, and the REPL's `script` command now chdirs into the .bat's
 # directory while it runs — so those relative paths resolve from src/.
-echo "[run] launching ABCL/c+ IDE"
+echo "[run] launching AIPL IDE"
 echo "[run] open http://localhost:${PORT}/ide  (port is fixed in src/ide_boot.abcl)"
 exec ./_build/default/src/repl_thread.exe -f src/ide_boot.bat

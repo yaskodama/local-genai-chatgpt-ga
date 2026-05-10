@@ -1,0 +1,91 @@
+// Static-sized array syntax demo for AIPL.
+//
+//   var name[N];           — N-element array, all 0
+//   var name[N] = init;    — N copies of init
+//   x[i]                   — read
+//   x[i] = v;              — write
+//
+// All four forms work in fields (class-level) and locals (method-level).
+
+class Histogram {
+  // Field-level array: 10 buckets, all 0 initially.
+  var counts[10];
+  var label_a = "first";
+  // Field-level array with explicit init.
+  var labels[5] = "blank";
+
+  method bump(bucket) {
+    counts[bucket] = counts[bucket] + 1;
+  }
+
+  method set_label(idx, name) {
+    labels[idx] = name;
+  }
+
+  method dump() {
+    print("Counts:");
+    var i = 0;
+    while (i < 10) do {
+      print("  bucket[" + i + "] = " + counts[i]);
+      i = i + 1;
+    }
+    print("Labels:");
+    var j = 0;
+    while (j < 5) do {
+      print("  label[" + j + "] = " + labels[j]);
+      j = j + 1;
+    }
+  }
+}
+
+class Demo {
+  method run() {
+    print("=== AIPL static-array syntax demo ===");
+
+    // Local array declaration (method scope).
+    var workers[3];
+    workers[0] = "alice";
+    workers[1] = "bob";
+    workers[2] = "carol";
+    print("Workers:");
+    var i = 0;
+    while (i < 3) do {
+      print("  workers[" + i + "] = " + workers[i]);
+      i = i + 1;
+    }
+
+    // Local array with default init.
+    var temperatures[4] = -1;
+    temperatures[0] = 20;
+    temperatures[3] = 35;
+    print("Temperatures (slot 1,2 keep default -1):");
+    var j = 0;
+    while (j < 4) do {
+      print("  t[" + j + "] = " + temperatures[j]);
+      j = j + 1;
+    }
+
+    // Compute sum via index access.
+    var sum = 0;
+    var k = 0;
+    while (k < 4) do {
+      sum = sum + temperatures[k];
+      k = k + 1;
+    }
+    print("sum = " + sum);
+
+    // Use the field-level arrays via Histogram.
+    var h = new Histogram();
+    send h.bump(3);
+    send h.bump(7);
+    send h.bump(3);
+    send h.bump(3);
+    send h.set_label(0, "Mon");
+    send h.set_label(2, "Wed");
+    send h.set_label(4, "Fri");
+    send h.dump();
+  }
+}
+
+var d = new Demo();
+send d.run();

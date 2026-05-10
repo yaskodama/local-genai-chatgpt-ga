@@ -1,0 +1,161 @@
+// Lark grammar for ABCL/c+ (medium-scope Python implementation).
+// Mirrors src/parser.mly: classes with var/float fields and methods,
+// actor-style send/become, and the usual control-flow constructs.
+
+start: decl+
+
+?decl: class_decl
+     | function_decl
+     | global_stmt
+
+class_decl: "class" NAME "{" (field | method_decl | function_decl)* "}"
+
+// User-defined function (synchronous, returns via `return`). Usable
+// at top level and inside a class body. Inside a class, its name
+// shadows top-level functions of the same name during method execution.
+// Optional `-> Type` annotates the return type for the type-checker.
+// Optional `!{eff1, eff2}` declares the function's side-effect set.
+function_decl: "function" NAME "(" params ")" return_anno? effect_anno? "{" stmt* "}"
+
+return_anno: "->" type_expr
+
+// Phase 12: effect annotation. `!{fs, ai, net, mut}` declares which
+// side-effect categories the function may produce. The static checker
+// propagates effects through call chains and flags shortfalls.
+effect_anno: "!" "{" (NAME ("," NAME)*)? "}"
+
+field: ("var" | "float" | "int") NAME type_anno? "=" expr ";"
+     | ("var" | "float" | "int") NAME dim_list ";"               -> field_array
+     | ("var" | "float" | "int") NAME dim_list "=" expr ";"      -> field_array_init
+
+type_anno: ":" type_expr
+
+// One or more "[expr]" dimensions, e.g. [10] or [3][4][2].
+// `expr` (not INT) so dimensions can be variables, fields, or any expression.
+dim_list: ("[" expr "]")+
+
+method_decl: "method" NAME "(" params ")" return_anno? effect_anno? "{" stmt* "}"
+params: (param ("," param)*)?
+// Optional type annotation on each parameter, e.g. `method add(a: int, b: int)`.
+param: NAME type_anno?
+
+// Type expressions: atomic identifier, array[int], tuple(int, string),
+// record{a:int, b:string}, plus unions (T1 | T2), type variables
+// (single uppercase letter, implicit generics), and length-tagged
+// arrays (array[T, N]) for Phase 11e dependent-type-lite.
+?type_expr: type_term ("|" type_term)+                           -> type_union
+          | type_term
+
+?type_term: type_atom_kw                                         -> type_atom_kw_pass
+          | type_atom_kw "[" type_arg ("," type_arg)* "]"        -> type_param_kw
+          | NAME                                                 -> type_atom
+          | NAME "[" type_arg ("," type_arg)* "]"                -> type_param
+          | "tuple" "(" (type_expr ("," type_expr)* ","?)? ")"   -> type_tuple
+          | "record" "{" (type_record_field ("," type_record_field)* ","?)? "}" -> type_record
+
+// A type argument inside [...] is either a type or an INT literal
+// (used as a length parameter for fixed-length arrays).
+?type_arg: type_expr
+         | INT                                                   -> type_int_arg
+
+!type_atom_kw: "int" | "float"
+
+type_record_field: NAME ":" type_expr
+
+global_stmt: var_new_stmt
+           | var_decl_stmt
+           | send_stmt
+           | call_stmt
+
+?stmt: var_new_stmt
+     | var_decl_stmt
+     | assign_stmt
+     | send_stmt
+     | call_stmt
+     | if_stmt
+     | while_stmt
+     | become_stmt
+     | return_stmt
+     | block
+
+return_stmt: "return" expr ";"   -> return_value
+           | "return" ";"        -> return_unit
+
+var_new_stmt: ("var" | "float" | "int")? NAME "=" "new" NAME "(" args ")" ";"
+var_decl_stmt: ("var" | "float" | "int") NAME type_anno? "=" expr ";"
+             | ("var" | "float" | "int") NAME dim_list ";"            -> var_array_decl
+             | ("var" | "float" | "int") NAME dim_list "=" expr ";"   -> var_array_decl_init
+assign_stmt: NAME "=" expr ";"
+           | NAME dim_list "=" expr ";"                               -> index_assign
+           | NAME ("." NAME)+ "=" expr ";"                            -> field_assign
+send_stmt: "send" "self"   "." NAME "(" args ")" ";"   -> send_self
+         | "send" "sender" "." NAME "(" args ")" ";"   -> send_sender
+         | "send" NAME     "." NAME "(" args ")" ";"   -> send_named
+call_stmt: ("call")? NAME "(" args ")" ";"
+if_stmt: "if" "(" expr ")" stmt ("else" stmt)?
+while_stmt: "while" expr "do" stmt
+become_stmt: "become" NAME "(" args ")" ";"
+block: "{" stmt* "}"
+
+args: (expr ("," expr)*)?
+
+?expr: rel_expr
+?rel_expr: add_expr (rel_op add_expr)*
+!rel_op: "==" | "!=" | "<=" | ">=" | "<" | ">"
+?add_expr: mul_expr (add_op mul_expr)*
+!add_op: "+" | "-"
+?mul_expr: unary (mul_op unary)*
+!mul_op: "*" | "/"
+?unary: "-" unary    -> neg
+      | atom
+
+?atom: INT           -> int_lit
+     | FLOAT         -> float_lit
+     | STRING        -> string_lit
+     | "[" args "]"  -> array_lit
+     | "self"        -> self_var
+     | "sender"      -> sender_var
+     | "new" NAME "(" args ")"                       -> new_expr
+     // now-type send: synchronous, returns reply value
+     | "now"    "self"   "." NAME "(" args ")"       -> now_self
+     | "now"    "sender" "." NAME "(" args ")"       -> now_sender
+     | "now"    NAME     "." NAME "(" args ")"       -> now_call
+     // future-type send: returns Future immediately, await(f) for value
+     | "future" "self"   "." NAME "(" args ")"       -> future_self
+     | "future" "sender" "." NAME "(" args ")"       -> future_sender
+     | "future" NAME     "." NAME "(" args ")"       -> future_call
+     // await keyword: `await fut` blocks on a future and returns its value.
+     // Equivalent to the builtin `await(f)` form, kept for parity with the
+     // OCaml runtime where `await` is a unary keyword operator.
+     | "await" atom                                  -> await_expr
+     | NAME "(" args ")"         -> call_expr
+     | NAME dim_list             -> index_expr
+     | NAME ("." NAME)+          -> field_access
+     | NAME                      -> var_expr
+     | "{" record_fields "}"     -> record_lit
+     | "{" "}"                   -> record_empty
+     // Tuple literals (組型). Disambiguation rules:
+     //   ()           — empty tuple
+     //   (x,)         — 1-tuple (trailing comma required)
+     //   (x, y, ...)  — N-tuple
+     //   (x)          — grouped expression (not a tuple)
+     | "(" ")"                                       -> tuple_empty
+     | "(" expr "," ")"                              -> tuple_one
+     | "(" expr ("," expr)+ ","? ")"                 -> tuple_many
+     | "(" expr ")"
+
+// Record literal body: zero-or-more "key: expr" pairs (comma-separated,
+// trailing comma OK). The fields are kept in source order.
+record_fields: record_field ("," record_field)* ","?
+record_field:  NAME ":" expr
+
+NAME: /(?!(class|method|function|return|var|float|int|new|send|call|become|if|else|while|do|self|sender|now|future|await|true|false)\b)[a-zA-Z_][a-zA-Z0-9_]*/
+INT: /[0-9]+(?!\.)/
+FLOAT: /[0-9]+\.[0-9]*|\.[0-9]+/
+STRING: /"([^"\\]|\\.)*"/
+
+%import common.WS
+%ignore WS
+
+COMMENT: "//" /[^\n]*/
+%ignore COMMENT

@@ -1,0 +1,102 @@
+// AI actor — auto-spawned at AIPL runtime startup, like the SDL library.
+//
+// `var AI = new AI();` is injected by the interpreter as a preamble, so
+// every program can use the standard actor message protocols on it:
+//
+//   var r = now AI.ask("hello");          // synchronous (blocks for reply)
+//   var f = future AI.ask("long task");   // parallel (returns Future)
+//   var a = await(f);                      // collect later
+//   send AI.ask("fire and forget");        // ignored if no reply needed
+//
+// (Note: `call` is reserved in AIPL — used for `call f(args);` — so the
+// AI methods are named `ask` for text and `see` for vision.)
+
+class Demo {
+  method run() {
+    print("=== AI actor — auto-spawned, now / future / send ===");
+    print("typeof(AI) = " + typeof(AI));
+    print("methods_of(AI) = " + methods_of(AI));
+    print("");
+
+    // 1) Synchronous (now)
+    print("--- (1) now AI.ask(prompt) ---");
+    var r1 = now AI.ask("Hello AI");
+    print("typeof(r1) = " + typeof(r1));
+    print("r1 = " + r1);
+    print("");
+
+    // 2) Provider override
+    print("--- (2) now AI.ask_p(provider, prompt) ---");
+    print("Gemini    : " + (now AI.ask_p(1, "ping")));
+    print("Anthropic : " + (now AI.ask_p(2, "ping")));
+    print("OpenAI    : " + (now AI.ask_p(3, "ping")));
+    print("");
+
+    // 3) Future fan-out — three parallel calls.
+    print("--- (3) future AI.ask(prompt) — parallel ---");
+    var f1 = future AI.ask("Q1");
+    var f2 = future AI.ask("Q2");
+    var f3 = future AI.ask("Q3");
+    var a1 = await(f1);
+    var a2 = await(f2);
+    var a3 = await(f3);
+    print("typeof(f1) = " + typeof(f1));
+    print("Q1 -> " + a1);
+    print("Q2 -> " + a2);
+    print("Q3 -> " + a3);
+    print("");
+
+    // 4) System prompt + provider
+    print("--- (4) now AI.ask_sys_p(provider, system, prompt) ---");
+    var r4 = now AI.ask_sys_p(2, "Be brief.", "Tell me a fact about actors.");
+    print("typeof(r4) = " + typeof(r4));
+    print("r4 = " + r4);
+    print("");
+
+    // 5) Vision: now AI.see(prompt, image)
+    print("--- (5) multimodal: now AI.see(prompt, image) ---");
+    var img = image_create(8, 8, 100, 200, 50, 255);
+    print("typeof(img) = " + typeof(img));
+    var r5 = now AI.see("describe this", img);
+    print("typeof(r5) = " + typeof(r5));
+    print("r5 = " + r5);
+    print("");
+
+    // 6) Vision + system + provider, future-style
+    print("--- (6) future AI.see_sys_p(provider, system, prompt, image) ---");
+    var fv = future AI.see_sys_p(2, "Be terse.", "What pattern?", img);
+    var rv = await(fv);
+    print("typeof(rv) = " + typeof(rv));
+    print("rv = " + rv);
+    print("");
+
+    // 7) Pool pattern — multiple AI actors for true parallelism.
+    print("--- (7) pool: three AI actor instances, parallel ---");
+    var ai_a = new AI();
+    var ai_b = new AI();
+    var ai_c = new AI();
+    var pa = future ai_a.ask_p(1, "from a");
+    var pb = future ai_b.ask_p(2, "from b");
+    var pc = future ai_c.ask_p(3, "from c");
+    print("typeof(ai_a) = " + typeof(ai_a));
+    print("a -> " + (await(pa)));
+    print("b -> " + (await(pb)));
+    print("c -> " + (await(pc)));
+    print("");
+
+    // 8) Method-level type inference. Methods don't expose individual
+    // type signatures (typeof on an actor lists methods), but every
+    // call result is structurally typed.
+    print("--- (8) typeof on AI calls ---");
+    print("typeof(now AI.ask(\"x\"))             = " + typeof(now AI.ask("x")));
+    print("typeof(now AI.see(\"x\", img))        = " + typeof(now AI.see("x", img)));
+    print("typeof(future AI.ask(\"x\"))          = " + typeof(future AI.ask("x")));
+    print("typeof(now AI.usage())              = " + typeof(now AI.usage()));
+    // also: typeof on the underlying builtin
+    print("typeof(ai_call)        (builtin sig) = " + typeof(ai_call));
+    print("typeof(ai_call_image)  (builtin sig) = " + typeof(ai_call_image));
+  }
+}
+
+var d = new Demo();
+send d.run();

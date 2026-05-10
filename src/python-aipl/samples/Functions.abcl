@@ -1,0 +1,104 @@
+// User-defined functions in AIPL.
+//
+//   function name(p1, p2) { ... return e; }
+//
+// Live at top level (visible everywhere) or inside a class body
+// (visible to that class's methods unqualified). Synchronous,
+// recursive, returns a value via `return`. typeof on a function
+// reference shows the trace-inferred signature.
+
+// ---------- Top-level functions ----------
+
+function add(a, b) {
+  return a + b;
+}
+
+function fib(n) {
+  if (n < 2) {
+    return n;
+  }
+  return fib(n - 1) + fib(n - 2);
+}
+
+function describe(x) {
+  // Heterogeneous: takes anything, always returns a string.
+  return typeof(x) + " : " + x;
+}
+
+// ---------- Class with both methods and in-class functions ----------
+
+class StatActor {
+  var samples = [];
+
+  // In-class helper — visible only to StatActor methods (unqualified).
+  function clamp(x, lo, hi) {
+    if (x < lo) { return lo; }
+    if (x > hi) { return hi; }
+    return x;
+  }
+
+  function avg(xs) {
+    var n = array_len(xs);
+    if (n == 0) { return 0; }
+    var s = 0;
+    var i = 0;
+    while (i < n) do {
+      s = s + array_get(xs, i);
+      i = i + 1;
+    }
+    // Use the local helper to bound the answer just for demo.
+    return clamp(s / n, 0, 100);
+  }
+
+  method add(x) {
+    array_push(samples, x);
+  }
+
+  method summary() {
+    var m = avg(samples);          // in-class helper called unqualified
+    print("[StatActor] count=" + array_len(samples) + " avg=" + m);
+    reply(m);
+  }
+}
+
+// ---------- Demo ----------
+
+class Demo {
+  method run() {
+    print("=== AIPL user-defined functions + return + typeof ===");
+
+    // 1) Plain top-level call
+    print("add(3, 4)   = " + add(3, 4));
+    print("fib(10)     = " + fib(10));
+    print("describe(42) = " + describe(42));
+
+    // 2) FunctionRef + typeof. Initially the signature is unknown ("?")
+    // because no calls have been observed via the ref. We've called the
+    // functions through CallExpr above, which DOES train the trace.
+    print("typeof(add)      = " + typeof(add));
+    print("typeof(fib)      = " + typeof(fib));
+    print("typeof(describe) = " + typeof(describe));
+
+    // 3) Heterogeneous call grows the union — typeof reflects all signatures.
+    var s1 = describe("hello");
+    var s2 = describe(3.14);
+    print("describe(\"hello\") = " + s1);
+    print("describe(3.14)    = " + s2);
+    print("typeof(describe) (after mixed args) = " + typeof(describe));
+
+    // 4) Recursion via top-level function.
+    print("fib(15) = " + fib(15));
+    print("typeof(fib(15)) = " + typeof(fib(15)));
+
+    // 5) In-class function used through actor.
+    var stat = new StatActor();
+    send stat.add(42);
+    send stat.add(99);
+    send stat.add(7);
+    var avg_v = now stat.summary();
+    print("avg from actor = " + avg_v);
+  }
+}
+
+var d = new Demo();
+send d.run();

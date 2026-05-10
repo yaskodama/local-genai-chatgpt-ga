@@ -1,5 +1,5 @@
 #!/bin/bash
-# Native GUI version of the ABCL/c+ integrated environment.
+# Native GUI version of the AIPL integrated environment.
 #
 # Opens an SDL window with four panes drawn using a built-in 8x8 bitmap
 # font:
@@ -37,5 +37,5 @@ if [ ! -x "./_build/default/src/gui_ide.exe" ]; then
   echo "[build] gui_ide.exe missing — cannot launch"; exit 1;
 fi
 
-echo "[run] launching ABCL/c+ GUI IDE (SDL)"
+echo "[run] launching AIPL GUI IDE (SDL)"
 exec ./_build/default/src/gui_ide.exe

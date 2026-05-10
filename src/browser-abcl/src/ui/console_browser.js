@@ -624,7 +624,7 @@ window.addEventListener("DOMContentLoaded", () => {
     <div id="inputRow"
          style="display:flex;gap:8px;align-items:center;padding:10px;
                 background:#181818;border-top:1px solid #333;">
-      <span style="color:#0f0;font-family:monospace;font-weight:bold;">ABCL/c+&gt;</span>
+      <span style="color:#0f0;font-family:monospace;font-weight:bold;">AIPL&gt;</span>
       <input id="cmd" type="text" placeholder="single command"
              style="flex:1;padding:8px;background:#222;color:#fff;border:1px solid #555;font-family:monospace;">
       <button id="runCmdBtn"
@@ -883,12 +883,12 @@ window.addEventListener("DOMContentLoaded", () => {
     if (trimmed === "exit" || trimmed === "quit") { closeConsoleWindow(); return; }
     if (trimmed === "help") {
       appendConsole("Commands: help, exit, stop");
-      appendConsole("Or type any ABCL/c+ statement.");
+      appendConsole("Or type any AIPL statement.");
       return;
     }
     if (trimmed === "stop") { stopAll(); appendConsole("[stopped]"); return; }
 
-    appendConsole("ABCL/c+> " + trimmed);
+    appendConsole("AIPL> " + trimmed);
     try {
       const wrapped = trimmed.endsWith(";") ? trimmed : trimmed + ";";
       const ast = parser.parse(wrapped);
@@ -947,7 +947,7 @@ window.addEventListener("DOMContentLoaded", () => {
     }
   });
 
-  appendConsole("ABCL/c+ Browser Console — actor threads edition");
+  appendConsole("AIPL Browser Console — actor threads edition");
   appendConsole("Each actor runs as an independent setTimeout thread.");
   appendConsole("");
   appendConsole("Samples: PingPong / Calc(select) / Rotate4Lines / 5 Philosophers / Bounded Buffer");

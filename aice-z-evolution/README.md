@@ -13,14 +13,14 @@ Pipeline:
 5. If contradictions are found, repair by `logical_consensus` and carry the
    repaired specification to the next generation.
 6. Run deterministic evolutionary selection over candidate genomes.
-7. Emit an OCaml ABCL/c+ actor program for `src/repl_thread.ml` /
+7. Emit an OCaml AIPL actor program for `src/repl_thread.ml` /
    `abclrepl_thread` that generates the target program and performs a final
    check against the Z specification and logical artifacts.
 
 `target_language = ABCL;` is the default for the example. A concrete language
 can be selected by writing, for example, `target_language = python;`.
 `target_language = any;` is also accepted when the program language should be
-left open, while the generated orchestration file remains OCaml ABCL/c+.
+left open, while the generated orchestration file remains OCaml AIPL.
 
 Run:
 

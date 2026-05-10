@@ -670,7 +670,7 @@ let rec process_command line =
 let run_repl_command_from_web (cmd:string) : string =
   web_repl_clear ();
   try
-    repl_logf "ABCL/c+> %s\n" cmd;
+    repl_logf "AIPL> %s\n" cmd;
     process_command cmd;
 
     for _i = 1 to 10 do
@@ -700,7 +700,7 @@ let run_repl_command_from_web (cmd:string) : string =
 let run_repl_command_from_web (cmd:string) : string =
   web_repl_clear ();
   try
-    repl_logf "ABCL/c+> %s\n" cmd;
+    repl_logf "AIPL> %s\n" cmd;
     process_command cmd;
     flush_replies_to_repl ();
     let out = web_repl_contents () in
@@ -730,7 +730,7 @@ let start_repl () =
   Web_gateway.set_repl_command_handler run_repl_command_from_web;
   let prompt () =
     if !building then print_string "... "
-    else print_string "ABCL/c+> ";
+    else print_string "AIPL> ";
     flush stdout
   in
   let rec loop () =

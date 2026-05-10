@@ -7,7 +7,7 @@ document.body.innerHTML = `
 <div id="consoleOut"
      style="height:calc(100vh - 120px);overflow:auto;padding:12px;white-space:pre-wrap;background:#000;color:#0f0;font-family:monospace;"></div>
 <div id="inputRow" style="display:flex;gap:8px;padding:10px;background:#181818;border-top:1px solid #333;">
-  <input id="cmd" type="text" placeholder="Browser ABCL/c+ command"
+  <input id="cmd" type="text" placeholder="Browser AIPL command"
          style="flex:1;padding:8px;background:#222;color:#fff;border:1px solid #555;">
   <button id="runBtn"
           style="padding:8px 12px;background:#333;color:#fff;border:1px solid #666;cursor:pointer;">Run</button>
@@ -36,7 +36,7 @@ function closeConsoleWindow() {
 }
 
 /* =========================================================
-   Minimal Browser-only ABCL/c+ runtime
+   Minimal Browser-only AIPL runtime
    ========================================================= */
 
 class BrowserABCLRuntime {
@@ -413,8 +413,8 @@ document.getElementById("btnClear").addEventListener("click", () => {
   consoleOut.textContent = "";
 });
 
-appendConsole("ABCL/c+ Browser Console");
-appendConsole("This is phase 1 of a browser-only ABCL/c+ interpreter.");
+appendConsole("AIPL Browser Console");
+appendConsole("This is phase 1 of a browser-only AIPL interpreter.");
 appendConsole("Available now: class / method / var / new / send / send! / print / reply");
 appendConsole('Try: help');
 appendConsole("");

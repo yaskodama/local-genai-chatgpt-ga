@@ -1,4 +1,4 @@
-# ABCL/c+ — top-level Makefile
+# AIPL — top-level Makefile
 #
 # Two implementations of the same language live under src/:
 #   * OCaml interpreter:  src/*.ml, src/lexer.mll, src/parser.mly  (dune build)
@@ -15,7 +15,7 @@ JS_GRAMMAR   = $(BROWSER_DIR)/src/parser/grammar.jison
 JS_PARSER    = $(BROWSER_DIR)/src/parser/parser.js
 SERVE_PORT  ?= 3000
 PY          ?= /opt/homebrew/bin/python3.13
-PYDIR       := src/python-abcl
+PYDIR       := src/python-aipl
 DOCKER      ?= docker
 IMAGE       ?= abcl-cp:latest
 
@@ -28,7 +28,7 @@ IMAGE       ?= abcl-cp:latest
 all: ocaml js
 
 help:
-	@echo 'ABCL/c+ build targets:'
+	@echo 'AIPL build targets:'
 	@echo '  make / make all        Build both implementations (OCaml + JS)'
 	@echo '  make ocaml             Build the OCaml interpreter via dune'
 	@echo '  make js                Regenerate the JS parser from jison grammar'
@@ -106,7 +106,7 @@ smoke-dynamic:
 	./run_all_smoke_tests.sh --dynamic
 
 repl:
-	$(PY) $(PYDIR)/abcl_main.py
+	$(PY) $(PYDIR)/aipl_main.py
 
 # Reformat a .abcl file.  Usage: make fmt FILE=path/to/x.abcl [INPLACE=1]
 fmt:

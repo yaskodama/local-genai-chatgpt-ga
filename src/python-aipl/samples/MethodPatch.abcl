@@ -1,0 +1,111 @@
+// Dynamic method injection + removal (AIPL).
+//
+//   add_method(target, source)    — inject method(s)
+//                                    target = class-name string OR actor ref
+//                                    source = "method NAME(p) { ... }"
+//   remove_method(target, name)   — remove a method by name
+//   methods_of(target)            — array of currently-available method names
+//   typeof(actor)                 — "actor(Cls, methods=[m1, m2, ...])"
+//
+// Per-actor override: when target is an actor reference, the new method
+// is stored on that specific instance and shadows the class-level one
+// for that instance only.
+//
+// We use `now` (synchronous send) so each greet call completes BEFORE the
+// next add/remove. With plain `send` everything queues up and processes
+// after the patches, hiding the time-sequenced behaviour we want to show.
+
+class Greeter {
+  var label = "default";
+
+  method init(l) {
+    label = l;
+  }
+
+  method greet(name) {
+    print("[" + label + "] hello, " + name);
+  }
+}
+
+class Demo {
+  method run() {
+    print("=== AIPL dynamic method injection / removal ===");
+
+    // 1) Two Greeter instances, same class, different labels.
+    var g1 = new Greeter("g1");
+    var g2 = new Greeter("g2");
+    var _x1 = now g1.greet("Alice");
+    var _x2 = now g2.greet("Bob");
+    print("methods_of(\"Greeter\") = " + methods_of("Greeter"));
+    print("typeof(g1)             = " + typeof(g1));
+    print("");
+
+    // 2) Class-level injection. Both instances see it immediately.
+    print("--- (2) class-level add_method: shout ---");
+    var n1 = add_method("Greeter",
+      "method shout(name) {\n" +
+      "  print(\"[\" + label + \"] HEY!! \" + name);\n" +
+      "}");
+    print("returned " + n1);
+    var _x3 = now g1.shout("Charlie");
+    var _x4 = now g2.shout("Diana");
+    print("methods_of(\"Greeter\") = " + methods_of("Greeter"));
+    print("");
+
+    // 3) Replace an existing method.
+    print("--- (3) replace 'greet' at class level ---");
+    var n2 = add_method("Greeter",
+      "method greet(name) {\n" +
+      "  print(\"[\" + label + \"] (NEW) hi, \" + name);\n" +
+      "}");
+    print("returned " + n2);
+    var _x5 = now g1.greet("Eve");
+    var _x6 = now g2.greet("Frank");
+    print("");
+
+    // 4) Per-actor injection. Only g1 gets the new method.
+    print("--- (4) per-actor add_method on g1: whisper ---");
+    var n3 = add_method(g1,
+      "method whisper(name) {\n" +
+      "  print(\"[\" + label + \"] (psst) \" + name);\n" +
+      "}");
+    print("returned " + n3);
+    var _x7 = now g1.whisper("Grace");        // works
+    var _x8 = now g2.whisper("Heidi");        // dropped — g2 has no whisper
+    print("methods_of(g1) = " + methods_of(g1));
+    print("methods_of(g2) = " + methods_of(g2));
+    print("typeof(g1) = " + typeof(g1));
+    print("typeof(g2) = " + typeof(g2));
+    print("");
+
+    // 5) Per-actor override of an existing method.
+    print("--- (5) per-actor override of 'greet' on g1 ---");
+    var n4 = add_method(g1,
+      "method greet(name) {\n" +
+      "  print(\"[\" + label + \"] (g1-ONLY) salutations, \" + name);\n" +
+      "}");
+    print("returned " + n4);
+    var _x9 = now g1.greet("Ivy");             // uses g1's instance method
+    var _xA = now g2.greet("Jack");            // still uses class-level (NEW)
+    print("");
+
+    // 6) Remove the per-actor override.
+    print("--- (6) remove per-actor override on g1 ---");
+    var r1 = remove_method(g1, "greet");
+    print("removed " + r1);
+    var _xB = now g1.greet("Ken");             // falls back to class-level (NEW)
+    print("");
+
+    // 7) Remove a class-level method.
+    print("--- (7) remove class-level 'shout' ---");
+    var r2 = remove_method("Greeter", "shout");
+    print("removed " + r2);
+    var _xC = now g1.shout("Liam");            // dropped — class-level shout gone
+    var _xD = now g2.shout("Mary");
+    print("final methods_of(g1) = " + methods_of(g1));
+    print("final methods_of(g2) = " + methods_of(g2));
+  }
+}
+
+var d = new Demo();
+send d.run();

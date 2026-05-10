@@ -1,0 +1,222 @@
+// TrafficLightParadigmEvolutionJP_Auto.aice から自動変換した AIPL(ABCL/c+) プログラム。
+// 入力 dialect: aice_evolution_v1
+// 形式チェックは外部工程。このプログラムは進化計算、3候補生成、3レビュー、選択、アーカイブ出力を行う。
+
+class TrafficLightParadigmEvolutionJP_Auto {
+  var task = "信号機 tick 問題を、プログラミング・パラダイムの進化として解く。信号機は Red -> Yellow -> Green -> Red の順に進み、複数回の tick を実演する。";
+  var generator_persona = "あなたは進化計算の候補生成器です。指定された世代、親、遺伝子、突然変異、交叉に合う短い候補プログラムを1つ生成してください。説明は日本語で、候補コードは指定パラダイムに合わせて書いてください。最後に IMPROVES 行を1行だけ付けてください。";
+  var reviewer1_persona = "あなたは正しさレビュアーです。3つの候補を、信号機遷移 Red -> Yellow -> Green -> Red の正しさ、遷移の完全性、tick 実演の分かりやすさで評価してください。簡潔な点数と最良候補番号を返してください。";
+  var reviewer2_persona = "あなたはパラダイムレビュアーです。3つの候補を、その世代のプログラミング・パラダイムに合っているか、慣用的か、抽象化の段階が適切かで評価してください。簡潔な点数と最良候補番号を返してください。";
+  var reviewer3_persona = "あなたは実装レビュアーです。3つの候補を、実行可能性、読みやすさ、進化しやすさ、型安全性で評価してください。簡潔な点数と最良候補番号を返してください。";
+  var selector_persona = "あなたは選択器です。3つの候補と3つのレビューを読み、最良候補を1つ選んでください。出力は 1|2|3 のどれかだけにしてください。";
+  var weights = "correctness=0.35, executability=0.20, paradigm_fit=0.15, readability=0.10, type_safety=0.10, evolvability=0.10";
+
+  method run() {
+    print("===== TrafficLightParadigmEvolutionJP_Auto =====");
+    print("dialect = aice_evolution_v1");
+    print("経路 = Assembly -> BASIC -> fork { C -> JavaOOP, Functional -> FunctionalOOP } -> ParallelOOP");
+    print("候補数 = 3");
+    print("レビュアー数 = 3");
+    print("評価重み = " + weights);
+    print("");
+
+    print("===== 世代1: Assembly =====");
+    print("branch: main");
+    print("遺伝子: paradigm=assembler; state_representation=register_integer; transition_style=increment_compare_jump; control_abstraction=labels_and_jumps; data_abstraction=none; encapsulation=none; type_safety=none; concurrency_model=none; executable_demo=tick_subroutine");
+    print("突然変異: なし");
+    print("交叉: なし");
+    var assembly_base = task + "\n\n世代: Assembly\nbranch: main\narchive: AssemblyWinner\n遺伝子: paradigm=assembler; state_representation=register_integer; transition_style=increment_compare_jump; control_abstraction=labels_and_jumps; data_abstraction=none; encapsulation=none; type_safety=none; concurrency_model=none; executable_demo=tick_subroutine\n突然変異: なし\n交叉: なし\n評価観点: correctness, paradigm_fit";
+    var assembly_1 = ai_call_with_system(generator_persona, assembly_base + "\n候補1 id=A1 style=minimal_registers。状態を1つのレジスタに置き、ADD/CMP/JMP で循環する。");
+    var assembly_2 = ai_call_with_system(generator_persona, assembly_base + "\n候補2 id=A2 style=commented_labels。状態をメモリに置き、各色にラベルを付ける。");
+    var assembly_3 = ai_call_with_system(generator_persona, assembly_base + "\n候補3 id=A3 style=named_addresses。LIGHT_STATE と RED/YELLOW/GREEN 定数を使う。");
+    print("--- Assembly candidate 1 ---"); print(assembly_1);
+    print("--- Assembly candidate 2 ---"); print(assembly_2);
+    print("--- Assembly candidate 3 ---"); print(assembly_3);
+    var assembly_payload = "世代 Assembly\\n候補:\\n1:\\n" + assembly_1 + "\n\n2:\n" + assembly_2 + "\n\n3:\n" + assembly_3;
+    var assembly_r1 = ai_call_with_system(reviewer1_persona, assembly_payload);
+    var assembly_r2 = ai_call_with_system(reviewer2_persona, assembly_payload);
+    var assembly_r3 = ai_call_with_system(reviewer3_persona, assembly_payload);
+    print("[review CorrectnessReviewer Assembly]"); print(assembly_r1);
+    print("[review ParadigmReviewer Assembly]"); print(assembly_r2);
+    print("[review EngineeringReviewer Assembly]"); print(assembly_r3);
+    var assembly_pick = ai_call_with_system(selector_persona, assembly_payload + "\n\nレビュー:\n" + assembly_r1 + "\n" + assembly_r2 + "\n" + assembly_r3);
+    var AssemblyWinner = assembly_1;
+    if (assembly_pick == "2") { AssemblyWinner = assembly_2; }
+    if (assembly_pick == "3") { AssemblyWinner = assembly_3; }
+    print("[selector picked Assembly: " + assembly_pick + "]");
+    print("[aice/archive] BEGIN AssemblyWinner"); print(AssemblyWinner); print("[aice/archive] END AssemblyWinner");
+    print("");
+
+    print("===== 世代2: BASIC =====");
+    print("branch: main");
+    print("遺伝子: paradigm=BASIC; state_representation=global_numeric_variable; transition_style=if_goto_increment_wrap; control_abstraction=line_numbers_if_then_goto; data_abstraction=named_numeric_constants optional; encapsulation=none; type_safety=low; concurrency_model=none; executable_demo=four_tick_cycle_demo");
+    print("突然変異: M1_Assembly_to_BASIC, M9_Add_Demo, M7_Integer_to_Symbolic_State optional");
+    print("交叉: なし");
+    var basic_base = task + "\n\n世代: BASIC\nbranch: main\narchive: BASICWinner\n遺伝子: paradigm=BASIC; state_representation=global_numeric_variable; transition_style=if_goto_increment_wrap; control_abstraction=line_numbers_if_then_goto; data_abstraction=named_numeric_constants optional; encapsulation=none; type_safety=low; concurrency_model=none; executable_demo=four_tick_cycle_demo\n突然変異: M1_Assembly_to_BASIC, M9_Add_Demo, M7_Integer_to_Symbolic_State optional\n交叉: なし\n評価観点: correctness, readability, paradigm_fit\n親: AssemblyWinner" + "\n\n親 AssemblyWinner:\n" + AssemblyWinner;
+    var basic_1 = ai_call_with_system(generator_persona, basic_base + "\n候補1 id=B1 style=line_number_minimal。S 変数1つと IF による循環。");
+    var basic_2 = ai_call_with_system(generator_persona, basic_base + "\n候補2 id=B2 style=commented_if_goto。REM コメント付きの行番号実演。");
+    var basic_3 = ai_call_with_system(generator_persona, basic_base + "\n候補3 id=B3 style=named_numeric_constants。RED=0, YELLOW=1, GREEN=2 の定数。");
+    print("--- BASIC candidate 1 ---"); print(basic_1);
+    print("--- BASIC candidate 2 ---"); print(basic_2);
+    print("--- BASIC candidate 3 ---"); print(basic_3);
+    var basic_payload = "世代 BASIC\\n候補:\\n1:\\n" + basic_1 + "\n\n2:\n" + basic_2 + "\n\n3:\n" + basic_3;
+    var basic_r1 = ai_call_with_system(reviewer1_persona, basic_payload);
+    var basic_r2 = ai_call_with_system(reviewer2_persona, basic_payload);
+    var basic_r3 = ai_call_with_system(reviewer3_persona, basic_payload);
+    print("[review CorrectnessReviewer BASIC]"); print(basic_r1);
+    print("[review ParadigmReviewer BASIC]"); print(basic_r2);
+    print("[review EngineeringReviewer BASIC]"); print(basic_r3);
+    var basic_pick = ai_call_with_system(selector_persona, basic_payload + "\n\nレビュー:\n" + basic_r1 + "\n" + basic_r2 + "\n" + basic_r3);
+    var BASICWinner = basic_1;
+    if (basic_pick == "2") { BASICWinner = basic_2; }
+    if (basic_pick == "3") { BASICWinner = basic_3; }
+    print("[selector picked BASIC: " + basic_pick + "]");
+    print("[aice/archive] BEGIN BASICWinner"); print(BASICWinner); print("[aice/archive] END BASICWinner");
+    print("");
+
+    print("===== fork from BASICWinner =====");
+    print("");
+
+    print("===== 世代3: C =====");
+    print("branch: imperative_object_path");
+    print("遺伝子: paradigm=C; state_representation=enum_state; transition_style=switch_or_if_explicit_cases; control_abstraction=functions_and_blocks; data_abstraction=enum_and_function_signature; encapsulation=none; type_safety=medium; concurrency_model=none; executable_demo=main_function_four_ticks");
+    print("突然変異: M2_BASIC_to_C, M7_Integer_to_Symbolic_State, M8_Implicit_Wrap_to_Explicit_Cases");
+    print("交叉: C1_BASIC_to_C_from_AssemblyTraits optional");
+    var c_base = task + "\n\n世代: C\nbranch: imperative_object_path\narchive: CWinner\n遺伝子: paradigm=C; state_representation=enum_state; transition_style=switch_or_if_explicit_cases; control_abstraction=functions_and_blocks; data_abstraction=enum_and_function_signature; encapsulation=none; type_safety=medium; concurrency_model=none; executable_demo=main_function_four_ticks\n突然変異: M2_BASIC_to_C, M7_Integer_to_Symbolic_State, M8_Implicit_Wrap_to_Explicit_Cases\n交叉: C1_BASIC_to_C_from_AssemblyTraits optional\n評価観点: correctness, executability, type_safety\n親: BASICWinner" + "\n\n親 BASICWinner:\n" + BASICWinner;
+    var c_1 = ai_call_with_system(generator_persona, c_base + "\n候補1 id=C1 style=enum_and_function。enum LightState と tick 関数。");
+    var c_2 = ai_call_with_system(generator_persona, c_base + "\n候補2 id=C2 style=switch_cases。RED/YELLOW/GREEN の switch。");
+    var c_3 = ai_call_with_system(generator_persona, c_base + "\n候補3 id=C3 style=testable_tick_function。next_state と demo main。");
+    print("--- C candidate 1 ---"); print(c_1);
+    print("--- C candidate 2 ---"); print(c_2);
+    print("--- C candidate 3 ---"); print(c_3);
+    var c_payload = "世代 C\\n候補:\\n1:\\n" + c_1 + "\n\n2:\n" + c_2 + "\n\n3:\n" + c_3;
+    var c_r1 = ai_call_with_system(reviewer1_persona, c_payload);
+    var c_r2 = ai_call_with_system(reviewer2_persona, c_payload);
+    var c_r3 = ai_call_with_system(reviewer3_persona, c_payload);
+    print("[review CorrectnessReviewer C]"); print(c_r1);
+    print("[review ParadigmReviewer C]"); print(c_r2);
+    print("[review EngineeringReviewer C]"); print(c_r3);
+    var c_pick = ai_call_with_system(selector_persona, c_payload + "\n\nレビュー:\n" + c_r1 + "\n" + c_r2 + "\n" + c_r3);
+    var CWinner = c_1;
+    if (c_pick == "2") { CWinner = c_2; }
+    if (c_pick == "3") { CWinner = c_3; }
+    print("[selector picked C: " + c_pick + "]");
+    print("[aice/archive] BEGIN CWinner"); print(CWinner); print("[aice/archive] END CWinner");
+    print("");
+
+    print("===== 世代4: JavaOOP =====");
+    print("branch: imperative_object_path");
+    print("遺伝子: paradigm=Java_OOP; state_representation=enum_inside_class; transition_style=method_switch_cases; control_abstraction=methods; data_abstraction=class_and_enum; encapsulation=private_state_public_tick; type_safety=high; concurrency_model=none; executable_demo=main_method_four_ticks");
+    print("突然変異: M3_C_to_Java_OOP, M9_Add_Demo");
+    print("交叉: なし");
+    var javaoop_base = task + "\n\n世代: JavaOOP\nbranch: imperative_object_path\narchive: JavaOOPWinner\n遺伝子: paradigm=Java_OOP; state_representation=enum_inside_class; transition_style=method_switch_cases; control_abstraction=methods; data_abstraction=class_and_enum; encapsulation=private_state_public_tick; type_safety=high; concurrency_model=none; executable_demo=main_method_four_ticks\n突然変異: M3_C_to_Java_OOP, M9_Add_Demo\n交叉: なし\n評価観点: correctness, encapsulation, paradigm_fit\n親: CWinner" + "\n\n親 CWinner:\n" + CWinner;
+    var javaoop_1 = ai_call_with_system(generator_persona, javaoop_base + "\n候補1 id=J1 style=TrafficLight_class。TrafficLight が状態と tick を所有する。");
+    var javaoop_2 = ai_call_with_system(generator_persona, javaoop_base + "\n候補2 id=J2 style=enum_inside_class。class 内 enum State と switch。");
+    var javaoop_3 = ai_call_with_system(generator_persona, javaoop_base + "\n候補3 id=J3 style=private_state_public_tick。private State state と public tick/print。");
+    print("--- JavaOOP candidate 1 ---"); print(javaoop_1);
+    print("--- JavaOOP candidate 2 ---"); print(javaoop_2);
+    print("--- JavaOOP candidate 3 ---"); print(javaoop_3);
+    var javaoop_payload = "世代 JavaOOP\\n候補:\\n1:\\n" + javaoop_1 + "\n\n2:\n" + javaoop_2 + "\n\n3:\n" + javaoop_3;
+    var javaoop_r1 = ai_call_with_system(reviewer1_persona, javaoop_payload);
+    var javaoop_r2 = ai_call_with_system(reviewer2_persona, javaoop_payload);
+    var javaoop_r3 = ai_call_with_system(reviewer3_persona, javaoop_payload);
+    print("[review CorrectnessReviewer JavaOOP]"); print(javaoop_r1);
+    print("[review ParadigmReviewer JavaOOP]"); print(javaoop_r2);
+    print("[review EngineeringReviewer JavaOOP]"); print(javaoop_r3);
+    var javaoop_pick = ai_call_with_system(selector_persona, javaoop_payload + "\n\nレビュー:\n" + javaoop_r1 + "\n" + javaoop_r2 + "\n" + javaoop_r3);
+    var JavaOOPWinner = javaoop_1;
+    if (javaoop_pick == "2") { JavaOOPWinner = javaoop_2; }
+    if (javaoop_pick == "3") { JavaOOPWinner = javaoop_3; }
+    print("[selector picked JavaOOP: " + javaoop_pick + "]");
+    print("[aice/archive] BEGIN JavaOOPWinner"); print(JavaOOPWinner); print("[aice/archive] END JavaOOPWinner");
+    print("");
+
+    print("===== 世代3: Functional =====");
+    print("branch: functional_object_path");
+    print("遺伝子: paradigm=Functional; state_representation=algebraic_data_type; transition_style=pure_pattern_match; control_abstraction=expression_evaluation; data_abstraction=ADT; encapsulation=none; type_safety=high; concurrency_model=none; executable_demo=immutable_list_of_ticks");
+    print("突然変異: M4_BASIC_to_Functional, M7_Integer_to_Symbolic_State, M8_Implicit_Wrap_to_Explicit_Cases");
+    print("交叉: なし");
+    var functional_base = task + "\n\n世代: Functional\nbranch: functional_object_path\narchive: FunctionalWinner\n遺伝子: paradigm=Functional; state_representation=algebraic_data_type; transition_style=pure_pattern_match; control_abstraction=expression_evaluation; data_abstraction=ADT; encapsulation=none; type_safety=high; concurrency_model=none; executable_demo=immutable_list_of_ticks\n突然変異: M4_BASIC_to_Functional, M7_Integer_to_Symbolic_State, M8_Implicit_Wrap_to_Explicit_Cases\n交叉: なし\n評価観点: correctness, type_safety, paradigm_fit\n親: BASICWinner" + "\n\n親 BASICWinner:\n" + BASICWinner;
+    var functional_1 = ai_call_with_system(generator_persona, functional_base + "\n候補1 id=F1 style=ADT_and_match。type Light = Red | Yellow | Green。");
+    var functional_2 = ai_call_with_system(generator_persona, functional_base + "\n候補2 id=F2 style=pure_next_function。next : Light -> Light と show : Light -> string。");
+    var functional_3 = ai_call_with_system(generator_persona, functional_base + "\n候補3 id=F3 style=list_demo_without_mutation。不変な状態列に next を反復適用する。");
+    print("--- Functional candidate 1 ---"); print(functional_1);
+    print("--- Functional candidate 2 ---"); print(functional_2);
+    print("--- Functional candidate 3 ---"); print(functional_3);
+    var functional_payload = "世代 Functional\\n候補:\\n1:\\n" + functional_1 + "\n\n2:\n" + functional_2 + "\n\n3:\n" + functional_3;
+    var functional_r1 = ai_call_with_system(reviewer1_persona, functional_payload);
+    var functional_r2 = ai_call_with_system(reviewer2_persona, functional_payload);
+    var functional_r3 = ai_call_with_system(reviewer3_persona, functional_payload);
+    print("[review CorrectnessReviewer Functional]"); print(functional_r1);
+    print("[review ParadigmReviewer Functional]"); print(functional_r2);
+    print("[review EngineeringReviewer Functional]"); print(functional_r3);
+    var functional_pick = ai_call_with_system(selector_persona, functional_payload + "\n\nレビュー:\n" + functional_r1 + "\n" + functional_r2 + "\n" + functional_r3);
+    var FunctionalWinner = functional_1;
+    if (functional_pick == "2") { FunctionalWinner = functional_2; }
+    if (functional_pick == "3") { FunctionalWinner = functional_3; }
+    print("[selector picked Functional: " + functional_pick + "]");
+    print("[aice/archive] BEGIN FunctionalWinner"); print(FunctionalWinner); print("[aice/archive] END FunctionalWinner");
+    print("");
+
+    print("===== 世代4: FunctionalOOP =====");
+    print("branch: functional_object_path");
+    print("遺伝子: paradigm=FunctionalOOP; state_representation=algebraic_data_type_or_sealed_trait; transition_style=pure_next_method_or_pattern_match; control_abstraction=method_calls_with_expression_core; data_abstraction=module_or_class_plus_ADT; encapsulation=object_or_module_boundary; type_safety=high; concurrency_model=none; executable_demo=object_demo_four_ticks");
+    print("突然変異: M5_Functional_to_FunctionalOOP, M9_Add_Demo");
+    print("交叉: C2_Functional_to_FunctionalOOP_from_BASICDemo");
+    var functionaloop_base = task + "\n\n世代: FunctionalOOP\nbranch: functional_object_path\narchive: FunctionalOOPWinner\n遺伝子: paradigm=FunctionalOOP; state_representation=algebraic_data_type_or_sealed_trait; transition_style=pure_next_method_or_pattern_match; control_abstraction=method_calls_with_expression_core; data_abstraction=module_or_class_plus_ADT; encapsulation=object_or_module_boundary; type_safety=high; concurrency_model=none; executable_demo=object_demo_four_ticks\n突然変異: M5_Functional_to_FunctionalOOP, M9_Add_Demo\n交叉: C2_Functional_to_FunctionalOOP_from_BASICDemo\n評価観点: correctness, type_safety, encapsulation, evolvability\n親: FunctionalWinner, BASICWinner" + "\n\n親 FunctionalWinner:\n" + FunctionalWinner + "\n\n親 BASICWinner:\n" + BASICWinner;
+    var functionaloop_1 = ai_call_with_system(generator_persona, functionaloop_base + "\n候補1 id=FO1 style=class_with_pure_next。object が状態を持ち、pure next が遷移を計算する。");
+    var functionaloop_2 = ai_call_with_system(generator_persona, functionaloop_base + "\n候補2 id=FO2 style=object_with_symbolic_state。sealed な記号的状態と object wrapper。");
+    var functionaloop_3 = ai_call_with_system(generator_persona, functionaloop_base + "\n候補3 id=FO3 style=module_plus_class。module が ADT/next を定義し、class が委譲する。");
+    print("--- FunctionalOOP candidate 1 ---"); print(functionaloop_1);
+    print("--- FunctionalOOP candidate 2 ---"); print(functionaloop_2);
+    print("--- FunctionalOOP candidate 3 ---"); print(functionaloop_3);
+    var functionaloop_payload = "世代 FunctionalOOP\\n候補:\\n1:\\n" + functionaloop_1 + "\n\n2:\n" + functionaloop_2 + "\n\n3:\n" + functionaloop_3;
+    var functionaloop_r1 = ai_call_with_system(reviewer1_persona, functionaloop_payload);
+    var functionaloop_r2 = ai_call_with_system(reviewer2_persona, functionaloop_payload);
+    var functionaloop_r3 = ai_call_with_system(reviewer3_persona, functionaloop_payload);
+    print("[review CorrectnessReviewer FunctionalOOP]"); print(functionaloop_r1);
+    print("[review ParadigmReviewer FunctionalOOP]"); print(functionaloop_r2);
+    print("[review EngineeringReviewer FunctionalOOP]"); print(functionaloop_r3);
+    var functionaloop_pick = ai_call_with_system(selector_persona, functionaloop_payload + "\n\nレビュー:\n" + functionaloop_r1 + "\n" + functionaloop_r2 + "\n" + functionaloop_r3);
+    var FunctionalOOPWinner = functionaloop_1;
+    if (functionaloop_pick == "2") { FunctionalOOPWinner = functionaloop_2; }
+    if (functionaloop_pick == "3") { FunctionalOOPWinner = functionaloop_3; }
+    print("[selector picked FunctionalOOP: " + functionaloop_pick + "]");
+    print("[aice/archive] BEGIN FunctionalOOPWinner"); print(FunctionalOOPWinner); print("[aice/archive] END FunctionalOOPWinner");
+    print("");
+
+    print("===== 世代5: ParallelOOP =====");
+    print("branch: join");
+    print("遺伝子: paradigm=ParallelOOP; state_representation=symbolic_state_owned_by_actor; transition_style=actor_method_uses_pure_next_cases; control_abstraction=asynchronous_send_messages; data_abstraction=TrafficLight_actor_class; encapsulation=single_state_owner_actor; type_safety=guarded_symbolic_state; concurrency_model=actor_messages; executable_demo=controller_sends_four_ticks");
+    print("突然変異: M6_Join_to_ParallelOOP, M10_Add_State_Owner, M9_Add_Demo");
+    print("交叉: C3_JavaOOP_FunctionalOOP_to_ParallelOOP");
+    var paralleloop_base = task + "\n\n世代: ParallelOOP\nbranch: join\narchive: ParallelOOPWinner\n遺伝子: paradigm=ParallelOOP; state_representation=symbolic_state_owned_by_actor; transition_style=actor_method_uses_pure_next_cases; control_abstraction=asynchronous_send_messages; data_abstraction=TrafficLight_actor_class; encapsulation=single_state_owner_actor; type_safety=guarded_symbolic_state; concurrency_model=actor_messages; executable_demo=controller_sends_four_ticks\n突然変異: M6_Join_to_ParallelOOP, M10_Add_State_Owner, M9_Add_Demo\n交叉: C3_JavaOOP_FunctionalOOP_to_ParallelOOP\n評価観点: correctness, executability, concurrency_model, evolvability\n親: JavaOOPWinner, FunctionalOOPWinner" + "\n\n親 JavaOOPWinner:\n" + JavaOOPWinner + "\n\n親 FunctionalOOPWinner:\n" + FunctionalOOPWinner;
+    var paralleloop_1 = ai_call_with_system(generator_persona, paralleloop_base + "\n候補1 id=P1 style=single_TrafficLight_actor。1つの actor が状態を所有し、top-level が tick を4回 send する。");
+    var paralleloop_2 = ai_call_with_system(generator_persona, paralleloop_base + "\n候補2 id=P2 style=controller_sends_ticks。Controller actor が TrafficLight actor に順序付き tick を送る。");
+    var paralleloop_3 = ai_call_with_system(generator_persona, paralleloop_base + "\n候補3 id=P3 style=parallel_tick_requests_with_ordered_state_owner。複数の send 要求があっても TrafficLight だけが状態を変更する。");
+    print("--- ParallelOOP candidate 1 ---"); print(paralleloop_1);
+    print("--- ParallelOOP candidate 2 ---"); print(paralleloop_2);
+    print("--- ParallelOOP candidate 3 ---"); print(paralleloop_3);
+    var paralleloop_payload = "世代 ParallelOOP\\n候補:\\n1:\\n" + paralleloop_1 + "\n\n2:\n" + paralleloop_2 + "\n\n3:\n" + paralleloop_3;
+    var paralleloop_r1 = ai_call_with_system(reviewer1_persona, paralleloop_payload);
+    var paralleloop_r2 = ai_call_with_system(reviewer2_persona, paralleloop_payload);
+    var paralleloop_r3 = ai_call_with_system(reviewer3_persona, paralleloop_payload);
+    print("[review CorrectnessReviewer ParallelOOP]"); print(paralleloop_r1);
+    print("[review ParadigmReviewer ParallelOOP]"); print(paralleloop_r2);
+    print("[review EngineeringReviewer ParallelOOP]"); print(paralleloop_r3);
+    var paralleloop_pick = ai_call_with_system(selector_persona, paralleloop_payload + "\n\nレビュー:\n" + paralleloop_r1 + "\n" + paralleloop_r2 + "\n" + paralleloop_r3);
+    var ParallelOOPWinner = paralleloop_1;
+    if (paralleloop_pick == "2") { ParallelOOPWinner = paralleloop_2; }
+    if (paralleloop_pick == "3") { ParallelOOPWinner = paralleloop_3; }
+    print("[selector picked ParallelOOP: " + paralleloop_pick + "]");
+    print("[aice/archive] BEGIN ParallelOOPWinner"); print(ParallelOOPWinner); print("[aice/archive] END ParallelOOPWinner");
+    print("");
+
+    print("===== レポート =====");
+    print("final_archive: ParallelOOPWinner");
+    print(ai_usage());
+  }
+}
+
+var coordinator = new TrafficLightParadigmEvolutionJP_Auto();
+send coordinator.run();

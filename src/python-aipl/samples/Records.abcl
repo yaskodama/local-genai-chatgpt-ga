@@ -1,0 +1,85 @@
+// Record literals + dot-field access + structural typeof (AIPL).
+//
+//   var r = { name: "Alice", age: 30, score: 95.5 };
+//   r.field                — read
+//   r.field = v;           — write
+//   r.outer.inner          — chain (dict-of-dicts)
+//   typeof(r)              — "record{name:string, age:int, score:float}"
+
+class Profile {
+  // Fields can hold record values just like ints/strings/arrays.
+  var owner = { id: 0, label: "anonymous" };
+  var stats = { hits: 0, misses: 0 };
+  var nested = { outer: { inner: { leaf: 42 } } };
+
+  method touch_hit() {
+    stats.hits = stats.hits + 1;
+  }
+
+  method touch_miss() {
+    stats.misses = stats.misses + 1;
+  }
+
+  method rename(new_label) {
+    owner.label = new_label;
+  }
+
+  method peek_leaf() {
+    reply(nested.outer.inner.leaf);
+  }
+
+  method dump() {
+    print("owner = " + owner.label + " (id=" + owner.id + ")");
+    print("stats = hits:" + stats.hits + " misses:" + stats.misses);
+    print("nested.outer.inner.leaf = " + nested.outer.inner.leaf);
+    print("typeof(owner)  = " + typeof(owner));
+    print("typeof(stats)  = " + typeof(stats));
+    print("typeof(nested) = " + typeof(nested));
+  }
+}
+
+class Demo {
+  method run() {
+    print("=== AIPL record literal + field access + typeof ===");
+
+    // 1) Local record literal.
+    var alice = { name: "Alice", age: 30, score: 95.5 };
+    print("alice.name  = " + alice.name);
+    print("alice.age   = " + alice.age);
+    print("alice.score = " + alice.score);
+    print("typeof(alice) = " + typeof(alice));
+
+    // 2) Field assignment.
+    alice.age = alice.age + 1;
+    print("after birthday, age = " + alice.age);
+
+    // 3) Mixed record (different value types).
+    var config = { host: "localhost", port: 8080, ssl: 1, owner: { name: "ops" } };
+    print("config.host       = " + config.host);
+    print("config.owner.name = " + config.owner.name);
+    print("typeof(config)    = " + typeof(config));
+
+    // 4) Empty record + typeof on various values.
+    var empty_rec = {};
+    print("typeof(empty_rec) = " + typeof(empty_rec));
+    print("typeof(42)        = " + typeof(42));
+    print("typeof(3.14)      = " + typeof(3.14));
+    print("typeof(\"hi\")      = " + typeof("hi"));
+    print("typeof([1,2,3])   = " + typeof([1, 2, 3]));
+    print("typeof([1,\"a\"])   = " + typeof([1, "a"]));
+
+    // 5) Field-level records on Profile actor.
+    var p = new Profile();
+    send p.touch_hit();
+    send p.touch_hit();
+    send p.touch_hit();
+    send p.touch_miss();
+    send p.rename("admin");
+    var leaf = now p.peek_leaf();
+    print("peek leaf = " + leaf);
+    send p.dump();
+  }
+}
+
+var d = new Demo();
+send d.run();

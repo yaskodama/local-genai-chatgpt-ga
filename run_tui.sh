@@ -1,5 +1,5 @@
 #!/bin/bash
-# Native OCaml terminal IDE for ABCL/c+.
+# Native OCaml terminal IDE for AIPL.
 #
 # Starts repl_thread.exe in the background (with the web gateway so the
 # TUI can drive it over HTTP) and then launches tui_ide.exe in the

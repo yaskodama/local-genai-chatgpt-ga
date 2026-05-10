@@ -196,7 +196,7 @@ document.addEventListener("DOMContentLoaded", () => {
 <html>
 <head>
   <meta charset="utf-8">
-  <title>ABCL/c+ Browser Console</title>
+  <title>AIPL Browser Console</title>
   <style>
     body { font-family: monospace; margin: 0; background: #111; color: #ddd; }
     #consoleOut {
@@ -277,7 +277,7 @@ document.addEventListener("DOMContentLoaded", () => {
   });
 
     consoleOut.textContent =
-    "ABCL/c+ Browser Console (Local)\n" +
+    "AIPL Browser Console (Local)\n" +
     "This runs JavaScript locally (next step: ABCL interpreter)\n\n";
   }
 
@@ -354,7 +354,7 @@ document.addEventListener("DOMContentLoaded", () => {
 <html>
 <head>
   <meta charset="utf-8">
-  <title>ABCL/c+ Console</title>
+  <title>AIPL Console</title>
   <style>
     body { font-family: monospace; margin: 0; background: #111; color: #ddd; }
     #bar { padding: 10px; background: #222; border-bottom: 1px solid #333; }
@@ -401,7 +401,7 @@ document.addEventListener("DOMContentLoaded", () => {
   </div>
   <div id="consoleOut"></div>
   <div id="inputRow">
-    <input id="cmd" type="text" placeholder="Enter ABCL/c+ command">
+    <input id="cmd" type="text" placeholder="Enter AIPL command">
     <button id="runBtn">Run</button>
   </div>
 </body>
@@ -461,7 +461,7 @@ document.addEventListener("DOMContentLoaded", () => {
       runReplCommand("var c = new Calc();", consoleOut);
     });
     consoleOut.textContent =
-      "ABCL/c+ Web Console\n" +
+      "AIPL Web Console\n" +
       "sid=" + sid + "\n" +
       "Open from http://localhost:8080/\n\n";
   }

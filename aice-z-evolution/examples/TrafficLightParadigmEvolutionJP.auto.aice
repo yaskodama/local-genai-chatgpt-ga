@@ -1,0 +1,268 @@
+aice TrafficLightParadigmEvolutionJP_Auto {
+
+  dialect = "aice_evolution_v1";
+
+  task = "信号機 tick 問題を、プログラミング・パラダイムの進化として解く。信号機は Red -> Yellow -> Green -> Red の順に進み、複数回の tick を実演する。";
+
+  runtime {
+    engine = "ocaml_abcl_cplus";
+    executable = "dune exec ./src/repl_thread.exe";
+  }
+
+  archive {
+    path = "aice-z-evolution/out/evolution/traffic_light_paradigms_jp/";
+    final = "ParallelOOPWinner";
+  }
+
+  policy {
+    candidate_count = 3;
+    reviewer_count = 3;
+    selector_output = "1|2|3";
+    language_mode = "natural_text_passthrough";
+    formal_check = "external";
+  }
+
+  actors {
+    generator = "候補生成器";
+    reviewer_correctness = "正しさレビュアー";
+    reviewer_paradigm = "パラダイムレビュアー";
+    reviewer_engineering = "実装レビュアー";
+    selector = "選択器";
+    archive = "アーカイブ";
+  }
+
+  reviewers {
+    reviewer CorrectnessReviewer {
+      persona = "あなたは正しさレビュアーです。3つの候補を、信号機遷移 Red -> Yellow -> Green -> Red の正しさ、遷移の完全性、tick 実演の分かりやすさで評価してください。簡潔な点数と最良候補番号を返してください。";
+      focus = "correctness, transition_completeness, demo_behavior";
+    }
+
+    reviewer ParadigmReviewer {
+      persona = "あなたはパラダイムレビュアーです。3つの候補を、その世代のプログラミング・パラダイムに合っているか、慣用的か、抽象化の段階が適切かで評価してください。簡潔な点数と最良候補番号を返してください。";
+      focus = "paradigm_fit, idiomatic_use, abstraction_level";
+    }
+
+    reviewer EngineeringReviewer {
+      persona = "あなたは実装レビュアーです。3つの候補を、実行可能性、読みやすさ、進化しやすさ、型安全性で評価してください。簡潔な点数と最良候補番号を返してください。";
+      focus = "executability, readability, evolvability, type_safety";
+    }
+  }
+
+  fitness {
+    correctness = 0.35;
+    executability = 0.20;
+    paradigm_fit = 0.15;
+    readability = 0.10;
+    type_safety = 0.10;
+    evolvability = 0.10;
+  }
+
+  mutations {
+    mutation M1_Assembly_to_BASIC {
+      kind = "paradigm_lift";
+      changes = "paradigm: assembler -> BASIC; control_abstraction: labels_and_jumps -> line_numbers_if_goto; state_representation: register_integer -> global_numeric_variable";
+      reason = "レジスタとジャンプで書かれた処理を、BASIC の変数、行番号、IF、GOTO に移す。";
+    }
+
+    mutation M2_BASIC_to_C {
+      kind = "structuring_mutation";
+      changes = "paradigm: BASIC -> C; control_abstraction: line_numbers_if_goto -> functions_and_blocks; state_representation: global_numeric_variable -> enum_state; transition_style: if_goto -> switch_or_if_cases";
+      reason = "命令的な枝を、非構造的な BASIC から、関数と記号的状態を持つ構造化 C に進める。";
+    }
+
+    mutation M3_C_to_Java_OOP {
+      kind = "encapsulation_mutation";
+      changes = "paradigm: C -> Java_OOP; encapsulation: none -> TrafficLight_class; data_abstraction: enum_state -> private_fields_public_methods";
+      reason = "C の状態と tick 関数を、Java の TrafficLight オブジェクトに閉じ込める。";
+    }
+
+    mutation M4_BASIC_to_Functional {
+      kind = "branch_mutation";
+      changes = "paradigm: BASIC -> Functional; control_abstraction: line_numbers_if_goto -> expression_evaluation; state_representation: global_numeric_variable -> algebraic_data_type; transition_style: if_goto -> pure_pattern_match";
+      reason = "BASIC から別の道へ分岐し、不変な記号的状態と純粋な next 関数を持つ関数型解へ進める。";
+    }
+
+    mutation M5_Functional_to_FunctionalOOP {
+      kind = "hybridization_mutation";
+      changes = "paradigm: Functional -> FunctionalOOP; encapsulation: none -> object_or_module_boundary; transition_style: pure_pattern_match -> method_calls_pure_transition";
+      reason = "関数型の next 関数のまわりに、オブジェクトまたはモジュールの境界を追加する。";
+    }
+
+    mutation M6_Join_to_ParallelOOP {
+      kind = "parallelization_mutation";
+      changes = "paradigm: Java_OOP_and_FunctionalOOP -> ParallelOOP; concurrency_model: none -> actor_messages; encapsulation: object_or_module -> TrafficLight_actor";
+      reason = "分岐を合流させた後、オブジェクトの所有権と関数型の遷移を、メッセージを受け取る actor として表現する。";
+    }
+
+    mutation M7_Integer_to_Symbolic_State {
+      kind = "representation_mutation";
+      changes = "state_representation: register_integer_or_numeric_variable -> Red_Yellow_Green_symbols";
+      reason = "数値状態を Red、Yellow、Green という明示的な状態名へ置き換える。";
+    }
+
+    mutation M8_Implicit_Wrap_to_Explicit_Cases {
+      kind = "transition_mutation";
+      changes = "transition_style: increment_and_wrap -> explicit_Red_Yellow_Green_cases";
+      reason = "Red->Yellow、Yellow->Green、Green->Red を、それぞれ独立した場合として見えるようにする。";
+    }
+
+    mutation M9_Add_Demo {
+      kind = "demonstration_mutation";
+      changes = "executable_demo: tick_subroutine -> four_tick_cycle_demo";
+      reason = "Red -> Yellow -> Green -> Red -> Yellow が見えるように、4回の tick 実演を追加する。";
+    }
+
+    mutation M10_Add_State_Owner {
+      kind = "concurrency_safety_mutation";
+      changes = "concurrency_model: none -> single_state_owner_actor";
+      reason = "最終的な並列オブジェクト指向では、1つの actor だけが信号機の状態を所有し、並列 tick 要求が直接状態を壊さないようにする。";
+    }
+  }
+
+  crossovers {
+    crossover C1_BASIC_to_C_from_AssemblyTraits {
+      parents = "BASICWinner, AssemblyWinner";
+      child = "CSeed";
+      kind = "local_refinement_crossover";
+      combine = "take BASICWinner.readable_variable_flow; take BASICWinner.executable_demo; take AssemblyWinner.minimal_tick_core; replace state_representation with enum_state; replace control_abstraction with function_and_switch";
+      reason = "BASIC の読みやすい流れと Assembly の最小 tick 核を残し、構造化 C として表現する。";
+    }
+
+    crossover C2_Functional_to_FunctionalOOP_from_BASICDemo {
+      parents = "FunctionalWinner, BASICWinner";
+      child = "FunctionalOOPSeed";
+      kind = "branch_internal_crossover";
+      combine = "take FunctionalWinner.algebraic_state_model; take FunctionalWinner.pure_next_function; take BASICWinner.four_tick_cycle_demo; replace encapsulation with object_or_module_boundary";
+      reason = "関数型枝の純粋な遷移モデルを保ちつつ、以前の実演の形を関数型オブジェクト境界の中で再利用する。";
+    }
+
+    crossover C3_JavaOOP_FunctionalOOP_to_ParallelOOP {
+      parents = "JavaOOPWinner, FunctionalOOPWinner";
+      child = "ParallelOOPSeed";
+      kind = "branch_join_crossover";
+      combine = "take JavaOOPWinner.encapsulation; take JavaOOPWinner.private_state_public_tick_interface; take FunctionalOOPWinner.symbolic_state_model; take FunctionalOOPWinner.pure_next_transition; replace concurrency_model with actor_messages";
+      reason = "Java OOP は状態所有と公開 tick インターフェイスを提供し、Functional OOP は記号的状態と純粋な遷移を提供する。子は actor メッセージ型の並列オブジェクト指向になる。";
+    }
+  }
+
+  stages {
+    stage Assembly {
+      order = 1;
+      branch = "main";
+      parents = "";
+      archive = "AssemblyWinner";
+      genome = "paradigm=assembler; state_representation=register_integer; transition_style=increment_compare_jump; control_abstraction=labels_and_jumps; data_abstraction=none; encapsulation=none; type_safety=none; concurrency_model=none; executable_demo=tick_subroutine";
+      mutations = "";
+      crossover = "";
+      focus = "correctness, paradigm_fit";
+
+      candidates {
+        candidate A1 { style = "minimal_registers"; prompt = "状態を1つのレジスタに置き、ADD/CMP/JMP で循環する。"; }
+        candidate A2 { style = "commented_labels"; prompt = "状態をメモリに置き、各色にラベルを付ける。"; }
+        candidate A3 { style = "named_addresses"; prompt = "LIGHT_STATE と RED/YELLOW/GREEN 定数を使う。"; }
+      }
+    }
+
+    stage BASIC {
+      order = 2;
+      branch = "main";
+      parents = "AssemblyWinner";
+      archive = "BASICWinner";
+      genome = "paradigm=BASIC; state_representation=global_numeric_variable; transition_style=if_goto_increment_wrap; control_abstraction=line_numbers_if_then_goto; data_abstraction=named_numeric_constants optional; encapsulation=none; type_safety=low; concurrency_model=none; executable_demo=four_tick_cycle_demo";
+      mutations = "M1_Assembly_to_BASIC, M9_Add_Demo, M7_Integer_to_Symbolic_State optional";
+      crossover = "";
+      focus = "correctness, readability, paradigm_fit";
+
+      candidates {
+        candidate B1 { style = "line_number_minimal"; prompt = "S 変数1つと IF による循環。"; }
+        candidate B2 { style = "commented_if_goto"; prompt = "REM コメント付きの行番号実演。"; }
+        candidate B3 { style = "named_numeric_constants"; prompt = "RED=0, YELLOW=1, GREEN=2 の定数。"; }
+      }
+    }
+
+    stage C {
+      order = 3;
+      branch = "imperative_object_path";
+      parents = "BASICWinner";
+      archive = "CWinner";
+      genome = "paradigm=C; state_representation=enum_state; transition_style=switch_or_if_explicit_cases; control_abstraction=functions_and_blocks; data_abstraction=enum_and_function_signature; encapsulation=none; type_safety=medium; concurrency_model=none; executable_demo=main_function_four_ticks";
+      mutations = "M2_BASIC_to_C, M7_Integer_to_Symbolic_State, M8_Implicit_Wrap_to_Explicit_Cases";
+      crossover = "C1_BASIC_to_C_from_AssemblyTraits optional";
+      focus = "correctness, executability, type_safety";
+
+      candidates {
+        candidate C1 { style = "enum_and_function"; prompt = "enum LightState と tick 関数。"; }
+        candidate C2 { style = "switch_cases"; prompt = "RED/YELLOW/GREEN の switch。"; }
+        candidate C3 { style = "testable_tick_function"; prompt = "next_state と demo main。"; }
+      }
+    }
+
+    stage JavaOOP {
+      order = 4;
+      branch = "imperative_object_path";
+      parents = "CWinner";
+      archive = "JavaOOPWinner";
+      genome = "paradigm=Java_OOP; state_representation=enum_inside_class; transition_style=method_switch_cases; control_abstraction=methods; data_abstraction=class_and_enum; encapsulation=private_state_public_tick; type_safety=high; concurrency_model=none; executable_demo=main_method_four_ticks";
+      mutations = "M3_C_to_Java_OOP, M9_Add_Demo";
+      crossover = "";
+      focus = "correctness, encapsulation, paradigm_fit";
+
+      candidates {
+        candidate J1 { style = "TrafficLight_class"; prompt = "TrafficLight が状態と tick を所有する。"; }
+        candidate J2 { style = "enum_inside_class"; prompt = "class 内 enum State と switch。"; }
+        candidate J3 { style = "private_state_public_tick"; prompt = "private State state と public tick/print。"; }
+      }
+    }
+
+    stage Functional {
+      order = 3;
+      branch = "functional_object_path";
+      parents = "BASICWinner";
+      archive = "FunctionalWinner";
+      genome = "paradigm=Functional; state_representation=algebraic_data_type; transition_style=pure_pattern_match; control_abstraction=expression_evaluation; data_abstraction=ADT; encapsulation=none; type_safety=high; concurrency_model=none; executable_demo=immutable_list_of_ticks";
+      mutations = "M4_BASIC_to_Functional, M7_Integer_to_Symbolic_State, M8_Implicit_Wrap_to_Explicit_Cases";
+      crossover = "";
+      focus = "correctness, type_safety, paradigm_fit";
+
+      candidates {
+        candidate F1 { style = "ADT_and_match"; prompt = "type Light = Red | Yellow | Green。"; }
+        candidate F2 { style = "pure_next_function"; prompt = "next : Light -> Light と show : Light -> string。"; }
+        candidate F3 { style = "list_demo_without_mutation"; prompt = "不変な状態列に next を反復適用する。"; }
+      }
+    }
+
+    stage FunctionalOOP {
+      order = 4;
+      branch = "functional_object_path";
+      parents = "FunctionalWinner, BASICWinner";
+      archive = "FunctionalOOPWinner";
+      genome = "paradigm=FunctionalOOP; state_representation=algebraic_data_type_or_sealed_trait; transition_style=pure_next_method_or_pattern_match; control_abstraction=method_calls_with_expression_core; data_abstraction=module_or_class_plus_ADT; encapsulation=object_or_module_boundary; type_safety=high; concurrency_model=none; executable_demo=object_demo_four_ticks";
+      mutations = "M5_Functional_to_FunctionalOOP, M9_Add_Demo";
+      crossover = "C2_Functional_to_FunctionalOOP_from_BASICDemo";
+      focus = "correctness, type_safety, encapsulation, evolvability";
+
+      candidates {
+        candidate FO1 { style = "class_with_pure_next"; prompt = "object が状態を持ち、pure next が遷移を計算する。"; }
+        candidate FO2 { style = "object_with_symbolic_state"; prompt = "sealed な記号的状態と object wrapper。"; }
+        candidate FO3 { style = "module_plus_class"; prompt = "module が ADT/next を定義し、class が委譲する。"; }
+      }
+    }
+
+    stage ParallelOOP {
+      order = 5;
+      branch = "join";
+      parents = "JavaOOPWinner, FunctionalOOPWinner";
+      archive = "ParallelOOPWinner";
+      genome = "paradigm=ParallelOOP; state_representation=symbolic_state_owned_by_actor; transition_style=actor_method_uses_pure_next_cases; control_abstraction=asynchronous_send_messages; data_abstraction=TrafficLight_actor_class; encapsulation=single_state_owner_actor; type_safety=guarded_symbolic_state; concurrency_model=actor_messages; executable_demo=controller_sends_four_ticks";
+      mutations = "M6_Join_to_ParallelOOP, M10_Add_State_Owner, M9_Add_Demo";
+      crossover = "C3_JavaOOP_FunctionalOOP_to_ParallelOOP";
+      focus = "correctness, executability, concurrency_model, evolvability";
+
+      candidates {
+        candidate P1 { style = "single_TrafficLight_actor"; prompt = "1つの actor が状態を所有し、top-level が tick を4回 send する。"; }
+        candidate P2 { style = "controller_sends_ticks"; prompt = "Controller actor が TrafficLight actor に順序付き tick を送る。"; }
+        candidate P3 { style = "parallel_tick_requests_with_ordered_state_owner"; prompt = "複数の send 要求があっても TrafficLight だけが状態を変更する。"; }
+      }
+    }
+  }
+}

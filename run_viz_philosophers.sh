@@ -1,5 +1,5 @@
 #!/bin/bash
-# Restart the ABCL/c+ REPL with the viz_philosophers demo loaded.
+# Restart the AIPL REPL with the viz_philosophers demo loaded.
 # Kills any currently running instance so port 8080 is free.
 cd "$(dirname "$0")"
 

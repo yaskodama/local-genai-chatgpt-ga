@@ -1,0 +1,86 @@
+// Phase 11d (narrowing) + Phase 11e (length-tagged arrays).
+//
+// 11d: `if (typeof(x) == "T")` narrows `x` to `T` in the then-branch
+//      and to (union \ T) in the else-branch.
+//
+// 11e: `array[T, N]` annotation declares a fixed-length array. The
+//      static checker rejects mismatched-length initialisers and
+//      flags out-of-bound literal-index reads.
+
+// --- Phase 11d: type narrowing ---
+
+function describe(x: int | string) -> string {
+  // Inside this branch, x is narrowed to int — `x + 1` is well-typed.
+  if (typeof(x) == "int") {
+    var n: int = x + 1;
+    return "int: " + n;
+  }
+  // Else branch: x narrowed to string.
+  var s: string = x;
+  return "str: " + s;
+}
+
+// Inverted guard via != demonstrates the narrowing of the OTHER branch.
+function safe_len(x: int | string) -> int {
+  if (typeof(x) != "string") {
+    // Then-branch: x is NOT string → narrowed to int.
+    return 0;
+  }
+  // Else-branch: x is string.
+  var s: string = x;
+  return str_len(s);
+}
+
+// --- Phase 11e: fixed-length arrays ---
+
+class Demo {
+  // 3-element array of int. Initialiser must match the length.
+  var counts: array[int, 3] = [10, 20, 30];
+
+  method run() {
+    print("=== Phase 11d narrowing + 11e dependent-type lite ===");
+
+    // -- 11d narrowing in action --
+    var d1: string = describe(42);          // OK: int branch
+    var d2: string = describe("hi");        // OK: string branch
+    print("describe(42)  = " + d1);
+    print("describe(hi)  = " + d2);
+
+    var l1: int = safe_len(99);             // OK: not-string branch -> int
+    var l2: int = safe_len("hello");        // OK: string branch -> str_len
+    print("safe_len(99)    = " + l1);
+    print("safe_len(hello) = " + l2);
+
+    // -- 11e correct uses --
+    var trio: array[int, 3] = [1, 2, 3];     // OK: 3 == 3
+    var first: int = trio[0];                 // OK
+    var last:  int = trio[2];                 // OK (index 2 < length 3)
+
+    // -- 11e intentionally INCORRECT --
+
+    // (1) length mismatch on initializer
+    var short: array[int, 5] = [1, 2];        // ✗ declared 5, got 2
+
+    // (2) literal-index out-of-bounds
+    var oops: int = trio[5];                  // ✗ index 5 >= length 3
+
+    // (3) declared length conflicts with literal
+    var also_bad: array[int, 4] = [1, 2, 3];  // ✗ declared 4, got 3
+
+    // (4) field-level length mismatch (counts is array[int, 3])
+    counts = [1, 2];                          // ✗ length 2 != 3
+
+    // -- show issues --
+    var issues = type_check();
+    print("");
+    print("type_check() found " + array_len(issues) + " issue(s):");
+    var i = 0;
+    while (i < array_len(issues)) do {
+      print("  " + array_get(issues, i));
+      i = i + 1;
+    }
+  }
+}
+
+var d = new Demo();
+send d.run();
