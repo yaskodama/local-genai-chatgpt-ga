@@ -42,6 +42,8 @@ def main():
     p.add_argument("--dropout", type=float, default=0.1)
     p.add_argument("--eval-every", type=int, default=400)
     p.add_argument("--warmup", type=int, default=600)
+    p.add_argument("--weight-decay", type=float, default=0.01)
+    p.add_argument("--label-smoothing", type=float, default=0.0)
     p.add_argument("--out-name", default="transformer_stage4.pt")
     args = p.parse_args()
 
@@ -56,6 +58,8 @@ def main():
         "bptt": args.bptt, "batch": args.batch,
         "dropout": args.dropout, "lr": args.lr,
         "steps": args.steps, "warmup": args.warmup,
+        "weight_decay": args.weight_decay,
+        "label_smoothing": args.label_smoothing,
     }
     print(f"genome: {spec}")
     print(f"device: {args.device}")
@@ -68,6 +72,8 @@ def main():
         device=args.device,
         bptt=args.bptt, batch=args.batch, lr=args.lr,
         eval_every=args.eval_every, warmup=args.warmup,
+        weight_decay=args.weight_decay,
+        label_smoothing=args.label_smoothing,
         verbose=True,
     )
 

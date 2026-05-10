@@ -132,12 +132,15 @@ def train_and_eval(d_model: int, n_heads: int, ctx: int,
                    lr: float | None = None,
                    eval_every: int | None = None,
                    warmup: int | None = None,
+                   weight_decay: float | None = None,
+                   label_smoothing: float = 0.0,
                    verbose: bool = False) -> dict:
     bptt = bptt or BPTT
     batch = batch or BATCH
     lr = lr if lr is not None else LR
     eval_every = eval_every or EVAL_EVERY
     warmup = warmup if warmup is not None else WARMUP
+    wd = weight_decay if weight_decay is not None else WD
     if bptt > ctx:
         raise ValueError(f"bptt ({bptt}) must be <= ctx ({ctx}) since pos embedding is sized to ctx")
 
@@ -151,7 +154,7 @@ def train_and_eval(d_model: int, n_heads: int, ctx: int,
                              ffn_mult=4, ctx=ctx, depth=depth,
                              dropout=dropout).to(device)
     n_params = count_params(model)
-    opt = torch.optim.AdamW(model.parameters(), lr=lr, weight_decay=WD)
+    opt = torch.optim.AdamW(model.parameters(), lr=lr, weight_decay=wd)
 
     def _eval_holdout() -> float:
         model.eval()
@@ -188,7 +191,8 @@ def train_and_eval(d_model: int, n_heads: int, ctx: int,
             cursor = 0
             continue
         logits = model(x)
-        loss = F.cross_entropy(logits.reshape(-1, VOCAB), y.reshape(-1))
+        loss = F.cross_entropy(logits.reshape(-1, VOCAB), y.reshape(-1),
+                               label_smoothing=label_smoothing)
         opt.zero_grad()
         loss.backward()
         torch.nn.utils.clip_grad_norm_(model.parameters(), GRAD_CLIP)
@@ -222,7 +226,8 @@ def train_and_eval(d_model: int, n_heads: int, ctx: int,
                    "ctx": ctx, "ffn_mult": 4,
                    "depth": depth, "dropout": dropout,
                    "bptt": bptt, "batch": batch, "lr": lr,
-                   "steps": steps, "warmup": warmup},
+                   "steps": steps, "warmup": warmup,
+                   "weight_decay": wd, "label_smoothing": label_smoothing},
     }
 
 
