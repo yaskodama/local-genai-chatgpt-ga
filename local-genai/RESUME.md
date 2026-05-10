@@ -49,16 +49,20 @@ local-genai/out/transformer_stage4e.pt
 **Pareto 経路** (1MB tail ppl × params, 図示):
 ```
 ppl
-6.5 |  R1_100KB(OOD)
-6.0 | * R1_1MB(LSTM)                                * Stage4(初期)
-5.7 |                       * Stage4b
-5.5 |          * Stage4c
-5.3 |     ★ Stage4e        * Stage4d-orth
-    +-------------------------------------------------- params (log)
-       100K   200K  400K   800K   1.6M
+6.2 | ● R1_1MB(LSTM 131K)                        ● Stage4 (1.87M)
+6.0 |
+5.7 |                      ● Stage4b (855K)
+5.5 |     ● Stage4f-mini   ● Stage4c (383K)
+    |       (181K, 同点)
+5.3 |              ★ Stage4e (383K) ● Stage4d-orth (855K)
+    +---------------------------------------------------- params (log)
+       100K   200K     400K     800K    1.6M
 ```
-383K (Stage-4e) が現状の Pareto 左下。 LSTM 131K は params/ppl 効率のみ
-未踏 (transformer 130K で 5.3 を維持できれば LSTM を完全制圧)。
+- Stage-4e (383K, ppl 5.30) が **絶対 ppl champion**
+- Stage-4f-mini (181K, ppl 5.52) が **新 Pareto 点**: 4c と同 ppl を半分の params で。
+  step 10000 で未収束 → 延長で 5.4 切れる可能性。
+- LSTM 1MB (131K, ppl 6.17) はもはや transformer に完敗 (4f-mini 181K で
+  -0.66 ppl, params も近い)。 params/ppl 効率は **transformer 領域に陥落**。
 
 **3 種の正則化 (noise / target-dist / magnitude) を薄く重ねる戦略**は、
 1MB scale で堅牢:
@@ -170,6 +174,7 @@ cd aice-evolution-v2 && /opt/homebrew/bin/python3.13 -m src.cli \
 | 4c (1MB) | Tx d=96 d3 ctx=256 dropout 0.2 | 1MB | 383K | 5.52 | 5.52 |
 | 4d-orth (1MB) | Tx d=128 d4 + dropout 0.1 + ls 0.05 + wd 0.05 | 1MB | 855K | 5.30 | 5.30 |
 | **4e (1MB)** | **Tx d=96 d3 + dropout 0.1 + ls 0.05 + wd 0.05** | **1MB** | **383K** | **5.30** | **5.30 (champion)** |
+| 4f-mini (1MB) | Tx d=64 d3 + 直交正則化 (同上) | 1MB | 181K | 5.52 | 5.52 (Pareto: 4c と同 ppl で半分) |
 
 教訓:
 - Stage-3 の transformer 敗北は ctx だけの問題ではなかった: BPTT < ctx
@@ -197,10 +202,10 @@ cd aice-evolution-v2 && /opt/homebrew/bin/python3.13 -m src.cli \
 
 ## 続行候補
 
-1. **Stage-4f-mini: 容量を更に縮小** (LSTM 131K と直接対決)
-   - d_model=64, depth=3, n_heads=4 + 直交正則化 → ≈170K params
-   - LSTM (131K, ppl 6.17) を ppl で完全圧倒できるか
-2. **Stage-4g-long: 4e/4c を延長** (どちらも step 10000 で未収束)
+1. ~~**Stage-4f-mini**~~ — 完了 (181K params, ppl 5.52, LSTM を圧倒)。
+2. **Stage-4f-extend: 4f-mini を延長** (step 10000 で未収束)
+   - 同設定で steps=20000 + cosine 終端 LR=1e-5 → 5.4 切り狙い
+3. **Stage-4g-long: 4e を延長**
    - 同設定で steps=20000 + warmup=1500 + cosine 終端 LR=1e-5 で 5.0 切り狙い
 3. **Stage-5-RoPE: 位置埋め込みを刷新**
    - 4e サイズ + RoPE で learned pos を排除 → 汎化向上を期待
@@ -211,7 +216,7 @@ cd aice-evolution-v2 && /opt/homebrew/bin/python3.13 -m src.cli \
 6. **SemiAutoEvolve**: Ollama (gemma2:2b) で次世代 mutation を
    3 案起草 (`LocalGenAIScaledEvolutionJP.aice` の Stage 7 仕様あり)。
 
-## Stage-4e (現 champion) を回す手順
+## Stage-4e (現 ppl champion) を回す手順
 
 ```sh
 local-genai/.venv/bin/python local-genai/train_stage4.py \
@@ -222,6 +227,19 @@ local-genai/.venv/bin/python local-genai/train_stage4.py \
   --label-smoothing 0.05 --weight-decay 0.05 \
   --out-name transformer_stage4e.pt
 # 約 7 分 (M2 MPS), best ppl 5.302 @ step 10000 (収束未達)
+```
+
+## Stage-4f-mini (Pareto 左下) を回す手順
+
+```sh
+local-genai/.venv/bin/python local-genai/train_stage4.py \
+  --steps 10000 --eval-every 500 --warmup 800 \
+  --batch 24 --bptt 256 --ctx 256 \
+  --depth 3 --d-model 64 --n-heads 4 \
+  --lr 2e-3 --dropout 0.1 \
+  --label-smoothing 0.05 --weight-decay 0.05 \
+  --out-name transformer_stage4f_mini.pt
+# 約 6 分 (M2 MPS, 351s), 181K params, best ppl 5.523 @ step 10000 (未収束)
 ```
 
 ## Stage-4d-orth (歴史的: 直交正則化 855K)
