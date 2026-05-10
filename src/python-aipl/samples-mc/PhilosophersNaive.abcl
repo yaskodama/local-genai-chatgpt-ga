@@ -1,0 +1,93 @@
+// Dining philosophers — naive variant (deadlock-prone).
+//
+// Forks queue blocked requesters; philosopher i takes its own
+// fork (f_i) as `lo` and its neighbour's fork (f_{i+1}) as `hi`.
+// All N philosophers can race to grab their `lo` simultaneously,
+// then each waits for its `hi` (held by neighbour) — circular wait.
+//
+// Run:
+//   python3 -c "
+//     from aipl_modelcheck_load import load_program
+//     from aipl_modelcheck    import ModelChecker
+//     def all_done(s):
+//       return all(a._fields.get('done',0)==1 for a in s.actors.values()
+//                  if hasattr(a,'_fields') and 'done' in a._fields)
+//     init,_ = load_program('samples-mc/PhilosophersNaive.abcl')
+//     mc = ModelChecker(init, depth=2000)
+//     print(mc.check_deadlock_free(is_terminal=all_done).render())
+//   "
+
+class Fork {
+  var held   = 0;
+  var queue  = [];      // FIFO of blocked philosopher names
+  var qstart = 0;       // FIFO head index (no array_pop in AIPL)
+
+  method request() {
+    if (held == 0) {
+      held = 1;
+      send sender.granted();
+    } else {
+      array_push(queue, sender);
+    }
+  }
+
+  method release() {
+    if (qstart < array_len(queue)) {
+      var nxt = array_get(queue, qstart);
+      qstart = qstart + 1;
+      send nxt.granted();
+    } else {
+      held = 0;
+    }
+  }
+}
+
+class Phil {
+  var lo     = "";
+  var hi     = "";
+  var meals  = 0;
+  var got_lo = 0;
+  var done   = 0;
+
+  method init(lo_fork, hi_fork, m) {
+    lo = lo_fork;
+    hi = hi_fork;
+    meals = m;
+    send self.try_eat();
+  }
+
+  method try_eat() {
+    if (meals <= 0) {
+      done = 1;
+    } else {
+      got_lo = 0;
+      send lo.request();
+    }
+  }
+
+  method granted() {
+    if (got_lo == 0) {
+      got_lo = 1;
+      send hi.request();
+    } else {
+      meals  = meals - 1;
+      got_lo = 0;
+      send lo.release();
+      send hi.release();
+      if (meals > 0) {
+        send self.try_eat();
+      } else {
+        done = 1;
+      }
+    }
+  }
+}
+
+var f0 = new Fork();
+var f1 = new Fork();
+var f2 = new Fork();
+
+// Naive: phil i takes f_i as lo, f_{(i+1) mod 3} as hi.
+var p0 = new Phil("f0", "f1", 1);
+var p1 = new Phil("f1", "f2", 1);
+var p2 = new Phil("f2", "f0", 1);

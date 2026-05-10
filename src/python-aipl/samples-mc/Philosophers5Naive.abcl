@@ -1,0 +1,63 @@
+// 5 dining philosophers — naive variant.
+//
+// Same Fork / Phil classes as the 3-phil version, but with 5
+// forks and 5 philosophers.  State space ~order of 10^4–10^5.
+
+class Fork {
+  var held   = 0;
+  var queue  = [];
+  var qstart = 0;
+
+  method request() {
+    if (held == 0) { held = 1; send sender.granted(); }
+    else           { array_push(queue, sender); }
+  }
+  method release() {
+    if (qstart < array_len(queue)) {
+      var nxt = array_get(queue, qstart);
+      qstart = qstart + 1;
+      send nxt.granted();
+    } else {
+      held = 0;
+    }
+  }
+}
+
+class Phil {
+  var lo     = "";
+  var hi     = "";
+  var meals  = 0;
+  var got_lo = 0;
+  var done   = 0;
+
+  method init(lo_fork, hi_fork, m) {
+    lo = lo_fork; hi = hi_fork; meals = m;
+    send self.try_eat();
+  }
+  method try_eat() {
+    if (meals <= 0) { done = 1; }
+    else            { got_lo = 0; send lo.request(); }
+  }
+  method granted() {
+    if (got_lo == 0) {
+      got_lo = 1; send hi.request();
+    } else {
+      meals = meals - 1; got_lo = 0;
+      send lo.release(); send hi.release();
+      if (meals > 0) { send self.try_eat(); }
+      else           { done = 1; }
+    }
+  }
+}
+
+var f0 = new Fork();
+var f1 = new Fork();
+var f2 = new Fork();
+var f3 = new Fork();
+var f4 = new Fork();
+
+var p0 = new Phil("f0", "f1", 1);
+var p1 = new Phil("f1", "f2", 1);
+var p2 = new Phil("f2", "f3", 1);
+var p3 = new Phil("f3", "f4", 1);
+var p4 = new Phil("f4", "f0", 1);

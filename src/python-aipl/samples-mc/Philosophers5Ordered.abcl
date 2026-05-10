@@ -1,0 +1,66 @@
+// 5 dining philosophers — ordered variant (deadlock-free).
+
+class Fork {
+  var held   = 0;
+  var queue  = [];
+  var qstart = 0;
+
+  method request() {
+    if (held == 0) { held = 1; send sender.granted(); }
+    else           { array_push(queue, sender); }
+  }
+  method release() {
+    if (qstart < array_len(queue)) {
+      var nxt = array_get(queue, qstart);
+      qstart = qstart + 1;
+      send nxt.granted();
+    } else {
+      held = 0;
+    }
+  }
+}
+
+class Phil {
+  var lo     = "";
+  var hi     = "";
+  var meals  = 0;
+  var got_lo = 0;
+  var done   = 0;
+
+  method init(lo_fork, hi_fork, m) {
+    lo = lo_fork; hi = hi_fork; meals = m;
+    send self.try_eat();
+  }
+  method try_eat() {
+    if (meals <= 0) { done = 1; }
+    else            { got_lo = 0; send lo.request(); }
+  }
+  method granted() {
+    if (got_lo == 0) {
+      got_lo = 1; send hi.request();
+    } else {
+      meals = meals - 1; got_lo = 0;
+      send lo.release(); send hi.release();
+      if (meals > 0) { send self.try_eat(); }
+      else           { done = 1; }
+    }
+  }
+}
+
+var f0 = new Fork();
+var f1 = new Fork();
+var f2 = new Fork();
+var f3 = new Fork();
+var f4 = new Fork();
+
+// Ordered: every philosopher acquires min(left,right) first.
+//   p0: left=f0, right=f1  -> lo=f0, hi=f1
+//   p1: left=f1, right=f2  -> lo=f1, hi=f2
+//   p2: left=f2, right=f3  -> lo=f2, hi=f3
+//   p3: left=f3, right=f4  -> lo=f3, hi=f4
+//   p4: left=f4, right=f0  -> lo=f0, hi=f4    ← key change
+var p0 = new Phil("f0", "f1", 1);
+var p1 = new Phil("f1", "f2", 1);
+var p2 = new Phil("f2", "f3", 1);
+var p3 = new Phil("f3", "f4", 1);
+var p4 = new Phil("f0", "f4", 1);
