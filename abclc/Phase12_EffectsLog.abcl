@@ -1,0 +1,72 @@
+// Phase 12 — Capability-based effect system.
+//
+// Python AIPL では関数/メソッドに副作用カテゴリを宣言する:
+//   function read_url(u: string) -> string !{net, fs} { ... }
+// 静的検査器は呼出連鎖を通じて効果集合を伝播し,呼び元が宣言した
+// 効果集合を超える副作用を検出する.
+//
+// OCaml 版は宣言構文を持たないが,同じ意図を「効果別アクターの
+// 分離」で表現できる.純粋ロジック (Pure) は副作用アクター (Fs/Net/Ai)
+// にメッセージを送るしかなく,各アクターは明示的に
+//   //   !{fs}     —— ファイル系
+//   //   !{net}    —— 通信系
+//   //   !{ai}     —— LLM 呼出系
+//   //   !{mut}    —— 共有状態書込系
+// と注釈される.静的検査器が無くても,アクター境界が effect 境界を
+// 強制するため,同じ規律が運用上維持される.
+
+class FsActor {        // !{fs}
+  method write(path, content) {
+    print("[fs] write");
+    print(path);
+    print(content);
+    reply(0);
+  }
+}
+
+class NetActor {       // !{net}
+  method get(url) {
+    print("[net] GET");
+    print(url);
+    reply("<200 OK fake-body>");
+  }
+}
+
+class AiActor {        // !{ai}
+  method ask(prompt) {
+    print("[ai] prompt");
+    print(prompt);
+    reply("[fake-llm] response: 1+1=2");
+  }
+}
+
+class Pure {           // !{} — pure logic, dispatches to capability actors only
+  method init() {
+    print("=== Phase 12 — effect-segregated actors ===");
+  }
+
+  method run() {
+    // ファイル書込効果は FsActor 経由でのみ発生
+    var w = now fs.write("/tmp/log.txt", "hello world");
+    print("fs.write returned");
+    print(w);
+
+    // ネットワーク効果は NetActor 経由でのみ発生
+    var body = now net.get("https://example.com/");
+    print("net.get returned");
+    print(body);
+
+    // LLM 効果は AiActor 経由でのみ発生
+    var resp = now ai.ask("What is 1+1?");
+    print("ai.ask returned");
+    print(resp);
+
+    print("Pure.run() exited — effects were all dispatched, never inlined.");
+  }
+}
+
+var fs = new FsActor();
+var net = new NetActor();
+var ai = new AiActor();
+var p = new Pure();
+send p.run();

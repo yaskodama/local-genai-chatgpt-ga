@@ -1,0 +1,50 @@
+// Phase 11 — Typed annotations / generics / typeof narrowing.
+//
+// Python AIPL では method の引数・戻り値に型注釈を付け,
+//    method tick(amount: int) -> int { ... }
+// のように呼出サイト整合を静的検査する.
+//
+// OCaml 版は注釈構文を持たないが Hindley-Milner 風型推論器
+// (src/infer.ml) が呼出サイトから具体型を推論する.この
+// サンプルは推論器が "param int + literal int -> reply int" を
+// 確認できる単純な計算アクターを示す.
+
+class Calc {
+  method init() {
+    print("[Calc] ready");
+  }
+
+  // Phase 11 contract: add(a: int, b: int) -> int
+  method add(a, b) {
+    reply(a + b);
+  }
+
+  // Phase 11 contract: bump(a: int) -> int  (a の +1 を返す)
+  method bump(a) {
+    reply(a + 1);
+  }
+}
+
+class Driver {
+  method init() {
+    print("=== Phase 11 — typed calc (HM-inferred) ===");
+  }
+
+  method query() {
+    var r1 = now calc.add(3, 4);
+    print("3 + 4 =");
+    print(r1);
+
+    var r2 = now calc.add(10, 20);
+    print("10 + 20 =");
+    print(r2);
+
+    var r3 = now calc.bump(99);
+    print("bump(99) =");
+    print(r3);
+  }
+}
+
+var calc = new Calc();
+var drv = new Driver();
+send drv.query();

@@ -1,0 +1,101 @@
+// Phase 15 — symbol_owned: actor field encapsulation.
+//
+// Python AIPL では:
+//   class BankAccount {
+//     var balance: int = 0;            // private (default)
+//     pub var holder: string = "";     // 外部から read 可
+//     method deposit(n: int) -> int { balance = balance + n; return balance; }
+//   }
+// と書き,静的検査器が
+//   - 外部からの private field read (`acct.balance`) を flag
+//   - 外部からの field 書込 (pub/private 問わず `acct.balance = ...`) を禁止
+// と検査する.アクターの不変条件を方使い経路で保護する.
+//
+// OCaml 版にはそもそもアクター field への外部アクセス構文 (`obj.field`)
+// が存在しない.全ての state は method 経由でしかアクセスできず,
+// 設計レベルで Phase 15 の規律 (symbol_owned) を満たしている.
+//
+// このサンプルでは BankAccount の状態をメソッドだけで操作し,
+// 外部の Auditor は public-equivalent な peek メソッドだけを使う.
+
+class BankAccount {
+  var balance = 0;
+  var holder = "anonymous";
+
+  method init() {
+    print("[BankAccount] opened");
+  }
+
+  // open(name, initial)  — pub-equivalent setter.外部からの状態
+  // 変更は ALL このメソッドを経由する.
+  method open(name, initial) {
+    holder = name;
+    balance = initial;
+    print("[open] holder=");
+    print(holder);
+    print("balance=");
+    print(balance);
+    reply(balance);
+  }
+
+  // set_balance(b) — same-class method writing own field.OK.
+  // (`balance + n` 形は OCaml HM の overload 解決を回避するため,
+  //  呼び元が新しい balance を計算して渡す)
+  method set_balance(b) {
+    balance = b;
+    print("[set_balance] now");
+    print(balance);
+    reply(balance);
+  }
+
+  // peek() — pub-equivalent getter.読みのみ.
+  method peek() {
+    reply(balance);
+  }
+
+  // peek_holder() — pub-equivalent getter for holder.
+  method peek_holder() {
+    reply(holder);
+  }
+}
+
+class Auditor {
+  method init() {
+    print("=== Phase 15 — encapsulated bank account ===");
+  }
+
+  method run() {
+    // (1) state 初期化はメソッド経由
+    var bal0 = now acct.open("Alice", 100);
+    print("opened with balance=");
+    print(bal0);
+
+    // (2) holder の確認は peek_holder で.直接 acct.holder 構文は AIPL に
+    //     そもそも無い.
+    var who = now acct.peek_holder();
+    print("holder=");
+    print(who);
+
+    // (3) state 書換は set_balance を経由するのみ.
+    //    BankAccount の field は外部から直接代入する構文を持たないため,
+    //    Phase 15 の symbol_owned 規律は AIPL 側で自動的に成り立つ.
+    var bal1 = now acct.set_balance(150);
+    print("after set_balance(150)=");
+    print(bal1);
+
+    var bal2 = now acct.set_balance(175);
+    print("after set_balance(175)=");
+    print(bal2);
+
+    // (4) 最終 peek
+    var bal_final = now acct.peek();
+    print("final balance=");
+    print(bal_final);
+
+    print("Auditor.run() done — all state mutations were method-mediated.");
+  }
+}
+
+var acct = new BankAccount();
+var a = new Auditor();
+send a.run();

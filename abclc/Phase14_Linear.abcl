@@ -1,0 +1,82 @@
+// Phase 14 — Linear / affine ownership.
+//
+// Python AIPL では `linear T` プレフィックスで「最大 1 回しか使えない値」
+// を宣言する:
+//   function open(name: string) -> linear int { ... }
+//   function write(f: linear int, s: string) -> linear int { ... }
+//   function close(f: linear int) -> int { ... }
+// 静的検査器は use-after-move を検出する.
+//
+// OCaml 版は線形性宣言を持たないが,「token が moved になり得ない」
+// 規律を rebind パターンで運用できる:
+//   - open はトークン T1 を返す
+//   - write はトークン T2 を返し,T1 は失効
+//   - close で消費,以降はトークン無し
+//
+// 静的保証は無いため違反は実行時にしか分からないが,
+// アクター内部で seq をモノトニックに増やし,旧トークン使用を
+// 簡易検出することは出来る.このサンプルは正しい rebind 経路の
+// みを実行し,違反シナリオはコメントで示す.
+
+class FileHandle {
+  var seq = 0;
+
+  method init() {
+    print("[FileHandle] ready");
+  }
+
+  // open(name) -> linear token
+  method open(name) {
+    seq = seq + 1;
+    print("[FileHandle.open] name=");
+    print(name);
+    print("issued token=");
+    print(seq);
+    reply(seq);
+  }
+
+  // write(token) -> linear new_token  (old token は moved)
+  // ※ Python 版なら以前の token を以降使ったら use-after-move エラー
+  method write(token) {
+    seq = seq + 1;
+    print("[FileHandle.write] consumed token=");
+    print(token);
+    print("new token=");
+    print(seq);
+    reply(seq);
+  }
+
+  // close(token) -> 0  (final consumption; 以降は token 無し)
+  method close(token) {
+    print("[FileHandle.close] consumed token=");
+    print(token);
+    reply(0);
+  }
+}
+
+class Driver {
+  method init() {
+    print("=== Phase 14 — linear handle (rebind pattern) ===");
+  }
+
+  method run() {
+    // open: T1 を取得
+    var fh = now fh_actor.open("hello.txt");
+
+    // write: 戻り値を fh に rebind. 旧 fh は moved (Python 版なら以降参照禁止).
+    fh = now fh_actor.write(fh);
+    fh = now fh_actor.write(fh);
+
+    // close: 最終消費.以降の fh 参照は use-after-move (Python 版で検出される).
+    var rc = now fh_actor.close(fh);
+    print("close returned");
+    print(rc);
+
+    print("Driver.run() done — all token transitions were monotonic");
+    print("(Python AIPL would also flag any post-close `fh` reference)");
+  }
+}
+
+var fh_actor = new FileHandle();
+var d = new Driver();
+send d.run();

@@ -1,0 +1,107 @@
+// Phase 13 — CSP channels.
+//
+// Python AIPL ではビルトイン:
+//   var ch = channel(0, "int");
+//   channel_send(ch, 42);
+//   var v = channel_recv(ch);
+// で型付きチャネルが扱える.静的検査器が要素型を整合させる.
+//
+// OCaml 版にはチャネルビルトインが無いので,1 段の同期チャネルを
+// アクターとして実装する.send/recv/close を method として持つ
+// Channel actor が,要素を 1 個ずつ受け渡しする.
+//
+// パターン: Producer が channel.put(v) を now で行い,Consumer が
+// channel.take() を now で受け取る.両側ともブロッキング.
+
+class Channel {
+  // empty=1 -> ready to accept; 0 -> ready to deliver
+  var empty = 1;
+  var slot = 0;
+  var closed = 0;
+
+  method init() {
+    print("[Channel] ready");
+  }
+
+  // put(v) — 値を投入.スロットが埋まっていれば上書き
+  method put(v) {
+    slot = v;
+    empty = 0;
+    reply(0);
+  }
+
+  // take() — 値を取り出し.empty=1 なら -1 を返す
+  method take() {
+    if (empty == 1) {
+      reply(0 - 1);
+    } else {
+      empty = 1;
+      reply(slot);
+    }
+  }
+
+  // is_full() — 1 if a value is sitting in slot
+  method is_full() {
+    reply(0 - empty + 1);
+  }
+
+  method close() {
+    closed = 1;
+    reply(0);
+  }
+}
+
+class Producer {
+  method init() {
+    print("[Producer] ready");
+  }
+
+  method run() {
+    var i = 1;
+    while (i <= 3) do {
+      var sent = now ch.put(i * 10);
+      print("[Producer] put");
+      print(i * 10);
+      i = i + 1;
+    }
+    var c = now ch.close();
+    print("[Producer] done");
+  }
+}
+
+class Consumer {
+  method init() {
+    print("[Consumer] ready");
+  }
+
+  method run() {
+    var iters = 5;
+    while (iters > 0) do {
+      var full = now ch.is_full();
+      if (full == 1) {
+        var v = now ch.take();
+        print("[Consumer] got");
+        print(v);
+      }
+      iters = iters - 1;
+      wait(20);
+    }
+    print("[Consumer] done");
+  }
+}
+
+class Driver {
+  method init() {
+    print("=== Phase 13 — CSP-style channel ===");
+  }
+  method run() {
+    send producer.run();
+    send consumer.run();
+  }
+}
+
+var ch = new Channel();
+var producer = new Producer();
+var consumer = new Consumer();
+var d = new Driver();
+send d.run();
