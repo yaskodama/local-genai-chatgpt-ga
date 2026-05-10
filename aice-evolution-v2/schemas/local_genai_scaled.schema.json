@@ -1,0 +1,128 @@
+{
+  "name": "local_genai_scaled",
+  "axes": {
+    "model_family": [
+      "ngram_count",
+      "char_rnn",
+      "single_block_transformer",
+      "multi_block_transformer",
+      "multi_block_transformer_compact",
+      "self_evolving_compact"
+    ],
+    "positional": [
+      "none",
+      "implicit_recurrence",
+      "learned_absolute",
+      "rope",
+      "sinusoidal"
+    ],
+    "normalization": [
+      "none",
+      "layernorm",
+      "rmsnorm"
+    ],
+    "regularization": [
+      "none",
+      "dropout_005",
+      "dropout_010"
+    ],
+    "inference_optimization": [
+      "none",
+      "kv_cache",
+      "kv_cache_plus_int8"
+    ],
+    "training_paradigm": [
+      "count_normalize",
+      "maximum_likelihood_sgd",
+      "distillation",
+      "distillation_plus_dpo",
+      "self_proposed_mutation"
+    ],
+    "self_evolution": [
+      "none",
+      "local_llm_proposes_three_mutations",
+      "local_llm_writes_full_stage",
+      "local_llm_critiques_then_proposes"
+    ],
+    "engine": [
+      "stdlib_only",
+      "pytorch_cpu",
+      "pytorch_cpu_or_mps",
+      "pytorch_mps"
+    ],
+    "param_class": [
+      "32K",
+      "200K",
+      "500K",
+      "2M",
+      "3M",
+      "6M"
+    ],
+    "corpus_size_class": [
+      "10KB",
+      "100KB",
+      "500KB",
+      "1MB",
+      "10MB"
+    ],
+    "data_per_param_health": [
+      "below_50_overfit_warning",
+      "50_to_100_tight",
+      "100_to_200_healthy",
+      "above_200_underfit_room"
+    ]
+  },
+  "ordinal_axes": {
+    "param_class": ["32K", "200K", "500K", "2M", "3M", "6M"],
+    "corpus_size_class": ["10KB", "100KB", "500KB", "1MB", "10MB"],
+    "regularization": ["none", "dropout_005", "dropout_010"],
+    "inference_optimization": ["none", "kv_cache", "kv_cache_plus_int8"],
+    "training_paradigm": [
+      "count_normalize",
+      "maximum_likelihood_sgd",
+      "distillation",
+      "distillation_plus_dpo",
+      "self_proposed_mutation"
+    ],
+    "data_per_param_health": [
+      "below_50_overfit_warning",
+      "50_to_100_tight",
+      "100_to_200_healthy",
+      "above_200_underfit_room"
+    ]
+  },
+  "coherence": [
+    {"if": {"model_family": "ngram_count"},
+     "then": {"positional": "none", "normalization": "none",
+              "regularization": "none", "inference_optimization": "none",
+              "training_paradigm": "count_normalize",
+              "self_evolution": "none", "engine": "stdlib_only",
+              "param_class": "32K"}},
+    {"if": {"model_family": "char_rnn"},
+     "then": {"positional": "implicit_recurrence", "normalization": "none",
+              "training_paradigm": "maximum_likelihood_sgd"}},
+    {"if": {"model_family": "single_block_transformer"},
+     "then_in": {"positional": ["learned_absolute", "rope", "sinusoidal"],
+                 "normalization": ["layernorm", "rmsnorm"]}},
+    {"if": {"model_family": "multi_block_transformer"},
+     "then_in": {"positional": ["learned_absolute", "rope", "sinusoidal"],
+                 "normalization": ["layernorm", "rmsnorm"],
+                 "regularization": ["dropout_005", "dropout_010"]}},
+    {"if": {"model_family": "multi_block_transformer_compact"},
+     "then_in": {"training_paradigm": ["distillation", "distillation_plus_dpo"]}},
+    {"if": {"training_paradigm": "self_proposed_mutation"},
+     "then": {"model_family": "self_evolving_compact"},
+     "then_not": {"self_evolution": "none"}},
+    {"if": {"param_class": "32K"},
+     "then_in": {"corpus_size_class": ["10KB", "100KB"]}},
+    {"if": {"param_class": "200K"},
+     "then_in": {"corpus_size_class": ["10KB", "100KB", "500KB"]}},
+    {"if": {"param_class": "2M"},
+     "then_in": {"corpus_size_class": ["500KB", "1MB", "10MB"]}},
+    {"if": {"param_class": "3M"},
+     "then_in": {"corpus_size_class": ["1MB", "10MB"]}},
+    {"if": {"param_class": "6M"},
+     "then": {"corpus_size_class": "10MB"}}
+  ],
+  "open_axes": true
+}

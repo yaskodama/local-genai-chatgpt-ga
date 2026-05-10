@@ -1,0 +1,130 @@
+{
+  "name": "LocalGenAIScaledEvolutionJP",
+  "task": "ローカル MacBook (M2, MPS) で動く byte 単位生成 AI を、 (corpus_size, params) を 対 として MAP-Elites で並列探索する. cell は (model_family, training_paradigm, param_class, corpus_size_class) の 4 軸で、 各セル champion を 3 レビュアーで採点する. coherence ルールにより data_per_param が 50 byte/param を切る組合せ (例: 1M params x 10KB corpus) は schema 段で除外される. 終端目標は (multi_block_transformer_compact, distillation_plus_dpo, 2M, 1MB) と (self_evolving_compact, self_proposed_mutation, 2M, 1MB) の 2 セルが Pareto front を支配し、 ローカル LLM (Ollama) ベースの半自動進化ループが成立すること.",
+  "schema_ref": "schemas/local_genai_scaled.schema.json",
+  "search": {
+    "algorithm": "map_elites",
+    "cell_axes": [
+      "model_family",
+      "training_paradigm",
+      "param_class",
+      "corpus_size_class"
+    ],
+    "generations": 60,
+    "seed_count": 16,
+    "open_axes": true,
+    "rng_seed": 42
+  },
+  "operators": {
+    "mutations": [
+      {
+        "name": "axis_resample",
+        "kind": "single_axis",
+        "weight": 0.45
+      },
+      {
+        "name": "coherent_paradigm_shift",
+        "kind": "multi_axis_correlated",
+        "weight": 0.25
+      },
+      {
+        "name": "llm_proposal",
+        "kind": "llm_directed",
+        "weight": 0.25
+      },
+      {
+        "name": "llm_new_axis",
+        "kind": "llm_directed",
+        "weight": 0.05
+      }
+    ],
+    "crossovers": [
+      {
+        "name": "uniform",
+        "kind": "axis_uniform",
+        "weight": 0.5
+      },
+      {
+        "name": "one_point",
+        "kind": "schema_partition",
+        "weight": 0.5
+      },
+      {
+        "name": "llm_merge",
+        "kind": "llm_directed",
+        "weight": 0.0
+      }
+    ]
+  },
+  "evaluation": {
+    "tasks": [
+      "ByteShakespearePPL",
+      "DataPerParamHealth",
+      "TrainTimeUnder30min",
+      "ParamBudgetWithinClass",
+      "ReproducibilityChecklist",
+      "SelfEvolutionDryRun"
+    ],
+    "evaluator": "mock_v1",
+    "reviewers": [
+      {
+        "name": "Quality",
+        "persona": "あなたは言語品質レビュアーです. 候補ジェノムから (corpus_size_class, param_class) ペアを確認し、 holdout ppl 期待値が data_per_param 比に整合しているかを見ます. 期待 ppl レンジは (10KB,32K=15-17), (10KB,200K=4-5), (100KB,200K=3.5-4.0), (100KB,500K=2.9-3.4), (500KB,2M=2.4-2.8), (1MB,3M=2.0-2.4). 採点は 4 軸 [holdout_ppl が世代の expected レンジ内か / 学習 loss 推移の合理性 / 退化モード耐性 / data_per_param が健全] それぞれ 0-3 点、 計 0-12 点. 最後に最良候補番号を 1 行で返します.",
+        "weight": 0.3333333333333333
+      },
+      {
+        "name": "Efficiency",
+        "persona": "あなたは効率レビュアーです. data_per_param 比 (50-200 byte/param が健全, 200+ で underfit_room あり, 50 未満は overfit_warning) と train_time_estimate (M2 MPS 30 分以内) を最重視します. 採点は 4 軸 [data_per_param が 50-200 範囲 / params が世代上限内 / train_time<=30min / 推論最適化 (KV キャッシュ等)] それぞれ 0-3 点、 計 0-12 点. 最後に最良候補番号を 1 行で返します.",
+        "weight": 0.3333333333333333
+      },
+      {
+        "name": "Reproducibility",
+        "persona": "あなたは再現性レビュアーです. 採点は 6 軸 [seed 固定 / corpus が SHA-256 ロック / corpus が公知ソース (PG2700 等) / 外部 API 不使用 / 依存最小 (python+pytorch+numpy のみ) / 単一スクリプト + checkpoint 保存] それぞれ 0-2 点、 計 0-12 点. ローカル Ollama 利用は外部 API ではないので減点しない. 最後に最良候補番号を 1 行で返します.",
+        "weight": 0.3333333333333333
+      }
+    ]
+  },
+  "meta_fitness": {
+    "trend_alignment": 0.2,
+    "frontier_coverage": 0.2,
+    "novelty": 0.1,
+    "evolvability": 0.2,
+    "cross_task_generality": 0.15,
+    "implementability": 0.15
+  },
+  "ranking": {
+    "strategy": "pareto_then_pairwise",
+    "scenarios": [
+      "conservative",
+      "innovative",
+      "general_purpose"
+    ],
+    "scenario_weights": {
+      "conservative": {
+        "trend_alignment": 0.45,
+        "cross_task_generality": 0.2,
+        "implementability": 0.15,
+        "evolvability": 0.1,
+        "frontier_coverage": 0.05,
+        "novelty": 0.05
+      },
+      "innovative": {
+        "novelty": 0.35,
+        "frontier_coverage": 0.3,
+        "evolvability": 0.15,
+        "trend_alignment": 0.05,
+        "cross_task_generality": 0.1,
+        "implementability": 0.05
+      },
+      "general_purpose": {
+        "cross_task_generality": 0.4,
+        "implementability": 0.2,
+        "trend_alignment": 0.15,
+        "evolvability": 0.1,
+        "frontier_coverage": 0.1,
+        "novelty": 0.05
+      }
+    },
+    "top_k": 3
+  }
+}

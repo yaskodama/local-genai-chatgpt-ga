@@ -1,0 +1,75 @@
+// LocalGenAIScaledEvolutionJP — v2 (.ga.json IR を生成するための入力).
+//
+// aice-z-evolution/examples/LocalGenAIScaledEvolutionJP.aice の v2 翻訳.
+// (model_family x training_paradigm x param_class x corpus_size_class) の
+// 4 軸でセルを切り、 各セル champion を 3 レビュアーで採点する.
+// data_per_param_health 軸を schema に明示し、 過学習領域を MAP-Elites の
+// 非有効セルとして自然に淘汰する.
+//
+// Stage 1-2 (10KB / 32K-200K) は LocalGenAIEvolutionJP の既存実機を
+// 継承する parents. Stage 3 以降は corpus と params をペアで進める.
+
+aice LocalGenAIScaledEvolutionJP {
+  dialect = "aice_evolution_v2";
+
+  task = "ローカル MacBook (M2, MPS) で動く byte 単位生成 AI を、 (corpus_size, params) を 対 として MAP-Elites で並列探索する. cell は (model_family, training_paradigm, param_class, corpus_size_class) の 4 軸で、 各セル champion を 3 レビュアーで採点する. coherence ルールにより data_per_param が 50 byte/param を切る組合せ (例: 1M params x 10KB corpus) は schema 段で除外される. 終端目標は (multi_block_transformer_compact, distillation_plus_dpo, 2M, 1MB) と (self_evolving_compact, self_proposed_mutation, 2M, 1MB) の 2 セルが Pareto front を支配し、 ローカル LLM (Ollama) ベースの半自動進化ループが成立すること.";
+
+  gene_schema = "schemas/local_genai_scaled.schema.json";
+
+  evaluation_tasks {
+    task ByteShakespearePPL {
+      spec = "対応する corpus_size_class の TinyShakespeare 切片で byte-level perplexity を測る. 期待 ppl は (10KB,32K=15-17), (10KB,200K=4-5), (100KB,200K=3.5-4.0), (100KB,500K=2.9-3.4), (500KB,2M=2.4-2.8), (1MB,3M=2.0-2.4), (1MB,2M-distill=2.2-2.5).";
+    }
+    task DataPerParamHealth {
+      spec = "data_per_param 比 = corpus_bytes / param_count. 50-200 byte/param を健全とし、 50 未満は overfit_warning. axis 値が below_50_overfit_warning の候補は失格.";
+    }
+    task TrainTimeUnder30min {
+      spec = "M2 MPS で 30 分以内に train loop が終わる. データが大きい世代ほど step 数を減らして budget を守る.";
+    }
+    task ParamBudgetWithinClass {
+      spec = "param_class 軸の上限 (32K=64KB, 200K=300K, 500K=700K, 2M=2.5M, 3M=4M, 6M=8M params) を超えない.";
+    }
+    task ReproducibilityChecklist {
+      spec = "seed 固定 / corpus が SHA-256 ロック / corpus が公知ソース (PG2700 等) / 外部 API 不使用 (ローカル Ollama は OK) / 依存最小 / 単一スクリプトで train+eval+chat. 6 項目 0-2 点で計 0-12 点.";
+    }
+    task SelfEvolutionDryRun {
+      spec = "self_evolution!=none のとき、 .aice 履歴と reviewer 累積点を入力にローカル Ollama (gemma2:2b 等) が次の 3 mutation 候補を起草する. 既存 mutation 名重複ゼロ、 expected_delta 必須、 dry-run estimator で overfit_warning が出ない案だけを human に提示する.";
+    }
+  }
+
+  search {
+    algorithm   = "map_elites";
+    cell_axes   = "model_family, training_paradigm, param_class, corpus_size_class";
+    generations = 60;
+    seed_count  = 16;
+    open_axes   = true;
+    rng_seed    = 42;
+  }
+
+  meta_fitness {
+    trend_alignment       = 0.20;
+    frontier_coverage     = 0.20;
+    novelty               = 0.10;
+    evolvability          = 0.20;
+    cross_task_generality = 0.15;
+    implementability      = 0.15;
+  }
+
+  ranking {
+    strategy  = "pareto_then_pairwise";
+    scenarios = ["conservative", "innovative", "general_purpose"];
+    top_k     = 3;
+  }
+
+  reviewers {
+    reviewer Quality {
+      persona = "あなたは言語品質レビュアーです. 候補ジェノムから (corpus_size_class, param_class) ペアを確認し、 holdout ppl 期待値が data_per_param 比に整合しているかを見ます. 期待 ppl レンジは (10KB,32K=15-17), (10KB,200K=4-5), (100KB,200K=3.5-4.0), (100KB,500K=2.9-3.4), (500KB,2M=2.4-2.8), (1MB,3M=2.0-2.4). 採点は 4 軸 [holdout_ppl が世代の expected レンジ内か / 学習 loss 推移の合理性 / 退化モード耐性 / data_per_param が健全] それぞれ 0-3 点、 計 0-12 点. 最後に最良候補番号を 1 行で返します.";
+    }
+    reviewer Efficiency {
+      persona = "あなたは効率レビュアーです. data_per_param 比 (50-200 byte/param が健全, 200+ で underfit_room あり, 50 未満は overfit_warning) と train_time_estimate (M2 MPS 30 分以内) を最重視します. 採点は 4 軸 [data_per_param が 50-200 範囲 / params が世代上限内 / train_time<=30min / 推論最適化 (KV キャッシュ等)] それぞれ 0-3 点、 計 0-12 点. 最後に最良候補番号を 1 行で返します.";
+    }
+    reviewer Reproducibility {
+      persona = "あなたは再現性レビュアーです. 採点は 6 軸 [seed 固定 / corpus が SHA-256 ロック / corpus が公知ソース (PG2700 等) / 外部 API 不使用 / 依存最小 (python+pytorch+numpy のみ) / 単一スクリプト + checkpoint 保存] それぞれ 0-2 点、 計 0-12 点. ローカル Ollama 利用は外部 API ではないので減点しない. 最後に最良候補番号を 1 行で返します.";
+    }
+  }
+}
