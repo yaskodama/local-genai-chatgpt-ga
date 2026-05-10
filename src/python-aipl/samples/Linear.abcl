@@ -1,0 +1,91 @@
+// Phase 14 — linear / affine ownership.
+//
+// Annotation `linear T` declares a value that must be **used at most
+// once**. After being passed to a function whose corresponding parameter
+// is also `linear T`, the source variable is *moved* and any further
+// reference is a use-after-move error.
+//
+// Re-binding (`x = expr;`) refreshes the moved state, so the canonical
+// pattern is:
+//
+//     var fh: linear int = open();
+//     fh = write(fh, "hello");        // consume + rebind
+//     fh = write(fh, "world");
+//     close(fh);                       // final consumption
+
+// --- A tiny "file handle" API where the handle is linear ---
+
+function open(name: string) -> linear int { return 1; }
+
+function write(f: linear int, s: string) -> linear int {
+  // Pretend we wrote and produced a new handle.
+  return f;
+}
+
+function close(f: linear int) -> int { return 0; }
+
+// --- correct linear use ---
+
+function ok_pipeline(name: string) -> int {
+  var fh: linear int = open(name);
+  fh = write(fh, "hello");          // consume + rebind
+  fh = write(fh, "world");
+  return close(fh);                 // final consumption
+}
+
+// --- intentionally INCORRECT (each flagged) ---
+
+function bad_double_use(name: string) -> int {
+  var fh: linear int = open(name);
+  write(fh, "first");               // consumes fh
+  return close(fh);                 // ✗ use after move
+}
+
+function bad_double_close(name: string) -> int {
+  var fh: linear int = open(name);
+  close(fh);                        // consumes fh
+  return close(fh);                 // ✗ use after move
+}
+
+// `if` consumes in the then-branch but doesn't return. After the if,
+// fh is potentially moved → close(fh) below is flagged.
+function bad_branch(name: string, log: int) -> int {
+  var fh: linear int = open(name);
+  if (log == 1) {
+    write(fh, "log");           // consumes fh in then-branch (no return)
+  }
+  // moved set is unioned: fh might already be consumed.
+  return close(fh);              // ✗ use after move (over-approx)
+}
+
+// --- correct branching: each arm has its own linear-handling path ---
+
+function ok_branch(name: string, prefer_close: int) -> int {
+  var fh: linear int = open(name);
+  if (prefer_close == 1) {
+    return close(fh);             // then-branch terminates → not propagated
+  }
+  return close(fh);               // OK — each return path consumes exactly once
+}
+
+class Demo {
+  method run() {
+    print("=== Phase 14 — linear ownership ===");
+    var n = ok_pipeline("a.txt");
+    print("ok_pipeline = " + n);
+    var b = ok_branch("b.txt", 1);
+    print("ok_branch   = " + b);
+
+    var issues = type_check();
+    print("");
+    print("type_check() found " + array_len(issues) + " issue(s):");
+    var i = 0;
+    while (i < array_len(issues)) do {
+      print("  " + array_get(issues, i));
+      i = i + 1;
+    }
+  }
+}
+
+var d = new Demo();
+send d.run();

@@ -182,7 +182,33 @@ def _return_of(sig: str) -> str:
 # ---------------------------------------------------------------------------
 # Type compatibility. Gradual: `any` matches anything.
 
+def _stmt_terminates(s) -> bool:
+    """Return True if this statement always transfers control out of the
+    enclosing function (i.e. ends in `return`). Used by Phase 14 branch
+    analysis: branches that terminate don't influence post-if moved state."""
+    if isinstance(s, Return):
+        return True
+    if isinstance(s, Block):
+        return any(_stmt_terminates(x) for x in s.stmts)
+    if isinstance(s, If):
+        if s.else_body is None:
+            return False
+        return _stmt_terminates(s.then_body) and _stmt_terminates(s.else_body)
+    return False
+
+
+def _strip_linear(t: str) -> tuple:
+    """Strip a leading `linear ` modifier and return (is_linear, base_type)."""
+    if t.startswith("linear "):
+        return True, t[len("linear "):].strip()
+    return False, t
+
+
 def _compatible(expected: str, actual: str) -> bool:
+    # Phase 14: linearity is a separate dimension from element type.
+    # Strip both sides so `linear int` matches `int` for compat purposes.
+    _, expected = _strip_linear(expected)
+    _, actual = _strip_linear(actual)
     if expected == "any" or actual == "any":
         return True
     if expected == actual:
@@ -315,6 +341,9 @@ class TypeChecker:
         self.fn_decl_effects: "dict[str, set]" = {}
         self.fn_observed_effects: "dict[str, set]" = {}
         self._current_observed_key: Optional[str] = None
+        # Phase 14: linear / affine ownership tracking. `_moved` is the
+        # set of var names that have been consumed in the current scope.
+        self._moved: set = set()
 
     # ----- signatures ---------------------------------------------------
     def _build_user_sigs(self):
@@ -376,9 +405,12 @@ class TypeChecker:
 
     def _check_function(self, fn, where: str, observed_key: Optional[str] = None):
         prev_key = self._current_observed_key
+        prev_moved = self._moved
         if observed_key is not None:
             self._current_observed_key = observed_key
             self.fn_observed_effects.setdefault(observed_key, set())
+        # Phase 14: each function has its own moved set, isolated from caller.
+        self._moved = set()
         env = {p: (a or "any") for p, a in zip(fn.params, fn.param_annotations or [])}
         # Seed in-class methods/functions with the actor's field types so
         # `field = expr;` and `field` reads inside method bodies type-check
@@ -396,6 +428,7 @@ class TypeChecker:
                         env[f.name] = self._infer(f.expr, {}, where=where)
         self._check_block(fn.body, env, fn.return_annotation, where)
         self._current_observed_key = prev_key
+        self._moved = prev_moved
 
     @staticmethod
     def _owning_class(where: str) -> Optional[str]:
@@ -428,13 +461,38 @@ class TypeChecker:
             expected = env.get(s.name, "any")
             if expected != "any" and not _compatible(expected, actual):
                 self._issue(where, f"`{s.name} = ...` mismatch", expected, actual)
+            # Phase 14: rebinding clears the moved state — the name now
+            # refers to a fresh value.
+            self._moved.discard(s.name)
         elif kind is If:
             self._infer(s.cond, env, where=where)
             # Phase 11d: flow-sensitive narrowing via typeof(x) == "T" guards.
             then_env, else_env = self._narrow(s.cond, env)
+            # Phase 14: branch the moved set so each arm sees a fresh
+            # consumption record; merge afterwards. Branches that always
+            # `return` don't contribute to the post-if moved set since
+            # control never reaches code below.
+            saved_moved = set(self._moved)
             self._check_stmt(s.then_body, then_env, where, ret_ann)
+            then_moved = self._moved
+            then_terminates = _stmt_terminates(s.then_body)
+            self._moved = saved_moved
+            else_moved = saved_moved
+            else_terminates = False
             if s.else_body is not None:
                 self._check_stmt(s.else_body, else_env, where, ret_ann)
+                else_moved = self._moved
+                else_terminates = _stmt_terminates(s.else_body)
+            # If a branch always returns, the *other* branch (or the
+            # pre-if state) governs the post-if moved set.
+            if then_terminates and else_terminates:
+                self._moved = saved_moved   # unreachable below
+            elif then_terminates:
+                self._moved = else_moved
+            elif else_terminates:
+                self._moved = then_moved
+            else:
+                self._moved = then_moved | else_moved
         elif kind is While:
             self._infer(s.cond, env, where=where)
             self._check_stmt(s.body, env, where, ret_ann)
@@ -560,6 +618,12 @@ class TypeChecker:
     def _check_arg(self, arg, spec: ParamSpec, env: dict,
                    where: str, label: str, bindings: dict):
         actual = self._infer(arg, env, where=where)
+        # Phase 14: if the parameter is `linear T` and the argument is a
+        # plain variable reference, the variable is consumed (moved into
+        # the callee). We mark it on the way out so subsequent uses error.
+        is_linear_param, _ = _strip_linear(spec.type)
+        if is_linear_param and isinstance(arg, Var):
+            self._moved.add(arg.name)
         # If the param type contains a type-variable (e.g. T), bind/check it
         # against the actual type rather than failing on `T` not matching.
         tvars = _typevars_in(spec.type)
@@ -597,7 +661,13 @@ class TypeChecker:
         if kind is FloatLit:  return "float"
         if kind is StringLit: return "string"
         if kind is Var:
-            return env.get(e.name, "any")
+            t = env.get(e.name, "any")
+            # Phase 14: read of a moved (consumed) linear variable is a use-
+            # after-move error. We surface it once per offending name.
+            if e.name in self._moved:
+                self._issue(where,
+                            f"use of moved linear variable `{e.name}`")
+            return t
         if kind is Neg:
             return self._infer(e.inner, env, where=where)
         if kind is Binop:

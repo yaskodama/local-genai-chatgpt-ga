@@ -1,0 +1,98 @@
+// Phase 14 — practical: database transaction with linear handle.
+//
+// A `Tx` value (modeled as `linear int`) MUST be terminated by exactly
+// one of `commit` / `rollback`. The static checker prevents:
+//   - forgetting to terminate (Tx leaked — caught by linearity if you
+//     try to use it twice or if you re-bind without consuming)
+//   - double-commit / double-rollback (use-after-move)
+//   - using a Tx after commit (use-after-move)
+//
+// Each operation that modifies the transaction takes the old Tx and
+// returns a new Tx — the canonical linear-rebind pattern.
+
+function tx_begin() -> linear int { return 100; }
+
+function tx_insert(t: linear int, row: string) -> linear int {
+  return t;          // pretend we recorded the row, returning the same logical Tx
+}
+
+function tx_update(t: linear int, key: int, val: string) -> linear int {
+  return t;
+}
+
+function tx_commit(t: linear int) -> int { return 1; }
+function tx_rollback(t: linear int) -> int { return 0; }
+
+// --- correct uses ---
+
+function ok_simple_commit(name: string) -> int {
+  var t: linear int = tx_begin();
+  t = tx_insert(t, "row1");
+  t = tx_insert(t, "row2");
+  return tx_commit(t);
+}
+
+function ok_branch_rollback(condition: int) -> int {
+  var t: linear int = tx_begin();
+  t = tx_insert(t, "tentative");
+  if (condition == 1) {
+    return tx_commit(t);     // then-branch terminates → not propagated
+  }
+  return tx_rollback(t);     // else-path consumes
+}
+
+// --- intentionally INCORRECT ---
+
+// (1) Double commit
+function bad_double_commit() -> int {
+  var t: linear int = tx_begin();
+  tx_commit(t);
+  return tx_commit(t);             // ✗ use-after-move
+}
+
+// (2) Use after rollback
+function bad_use_after_rollback() -> int {
+  var t: linear int = tx_begin();
+  tx_rollback(t);
+  return tx_insert(t, "ghost");    // ✗ use-after-move
+}
+
+// (3) Forgot to rebind after insert (just calls the side effect)
+function bad_forgot_rebind() -> int {
+  var t: linear int = tx_begin();
+  tx_insert(t, "row");              // consumes t (no rebind)
+  return tx_commit(t);              // ✗ use-after-move
+}
+
+// (4) Conditional commit but unconditional re-use
+function bad_conditional_then_use(c: int) -> int {
+  var t: linear int = tx_begin();
+  if (c == 1) {
+    tx_commit(t);                   // consumes t in then-branch (no return)
+  }
+  return tx_rollback(t);            // ✗ might have been moved
+}
+
+class Demo {
+  method run() {
+    print("=== Phase 14 — DB transaction with linear handle ===");
+    var a = ok_simple_commit("a.db");
+    var b = ok_branch_rollback(1);
+    var c = ok_branch_rollback(0);
+    print("ok_simple_commit       = " + a);
+    print("ok_branch_rollback(1)  = " + b);
+    print("ok_branch_rollback(0)  = " + c);
+
+    var issues = type_check();
+    print("");
+    print("type_check() found " + array_len(issues) + " issue(s):");
+    var i = 0;
+    while (i < array_len(issues)) do {
+      print("  " + array_get(issues, i));
+      i = i + 1;
+    }
+  }
+}
+
+var d = new Demo();
+send d.run();

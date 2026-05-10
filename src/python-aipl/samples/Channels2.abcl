@@ -1,0 +1,129 @@
+// Phase 13 — practical: worker pool with request / result channels.
+//
+// One Coordinator, three Workers. Coordinator pushes integer jobs onto
+// `req`, each Worker pulls a job, computes (n*n+1), pushes (job_id, result)
+// onto `res`. Coordinator drains `res` and prints each result.
+//
+// Demonstrates:
+//   - One channel for work, one for results (unidirectional pipelines)
+//   - Multiple actors competing for messages on the same channel
+//   - Proper shutdown via close + try_recv loop
+
+class Worker {
+  var id = 0;
+  var req = 0;
+  var res = 0;
+
+  method init(my_id, request_ch, result_ch) {
+    id = my_id;
+    req = request_ch;
+    res = result_ch;
+  }
+
+  method run() {
+    var done = 0;
+    while (done == 0) do {
+      var pair = channel_try_recv(req);
+      var ok = pair[0];
+      if (ok == 1) {
+        var job = pair[1];
+        var answer = job * job + 1;
+        // Send tuple back: (worker_id, job, answer).
+        channel_send(res, (id, job, answer));
+        print("  [worker " + id + "] job " + job + " -> " + answer);
+      } else {
+        done = 1;
+      }
+    }
+    reply(0);
+  }
+}
+
+class Coordinator {
+  var req = 0;
+  var res = 0;
+  var workers = [];
+
+  method init(request_ch, result_ch) {
+    req = request_ch;
+    res = result_ch;
+  }
+
+  method spawn_pool(n) {
+    var i = 0;
+    while (i < n) do {
+      var w = new Worker(i, req, res);
+      array_push(workers, w);
+      i = i + 1;
+    }
+    reply(n);
+  }
+
+  method dispatch(jobs) {
+    var i = 0;
+    while (i < array_len(jobs)) do {
+      channel_send(req, array_get(jobs, i));
+      i = i + 1;
+    }
+    channel_close(req);
+    reply(array_len(jobs));
+  }
+
+  method drain_results(n_jobs) {
+    var collected = [];
+    var got = 0;
+    var deadline_polls = 50;
+    while (got < n_jobs) do {
+      if (deadline_polls < 0) { got = n_jobs; }
+      var pair = channel_try_recv(res);
+      if (pair[0] == 1) {
+        array_push(collected, pair[1]);
+        got = got + 1;
+      } else {
+        wait(10);
+        deadline_polls = deadline_polls - 1;
+      }
+    }
+    reply(collected);
+  }
+}
+
+class Demo {
+  method run() {
+    print("=== Phase 13 — practical worker pool ===");
+    var req = channel(0, "int");
+    var res = channel(0, "tuple(int, int, int)");
+
+    var coord = new Coordinator(req, res);
+    var n_workers = now coord.spawn_pool(3);
+    print("spawned " + n_workers + " workers");
+
+    var jobs = [3, 5, 7, 11, 13, 17, 19];
+    var n_jobs = now coord.dispatch(jobs);
+    print("dispatched " + n_jobs + " jobs");
+
+    // Run each worker concurrently.
+    var i = 0;
+    while (i < n_workers) do {
+      var w = array_get(coord.workers, i);
+      send w.run();
+      i = i + 1;
+    }
+
+    var results = now coord.drain_results(n_jobs);
+    print("collected " + array_len(results) + " results:");
+    var k = 0;
+    while (k < array_len(results)) do {
+      var r = array_get(results, k);
+      print("  worker=" + r[0] + "  job=" + r[1] + "  -> " + r[2]);
+      k = k + 1;
+    }
+
+    print("");
+    print("typeof(req) = " + typeof(req));
+    print("typeof(res) = " + typeof(res));
+  }
+}
+
+var d = new Demo();
+send d.run();

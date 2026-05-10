@@ -1,0 +1,141 @@
+// Phase 13 — CSP-style channels in AIPL.
+//
+//   var ch = channel(capacity[, "type_hint"]);
+//   channel_send(ch, value);                   // blocks if full
+//   var v = channel_recv(ch[, timeout_ms]);    // blocks if empty
+//   var pair = channel_try_recv(ch);           // tuple(bool, value)
+//   channel_close(ch);
+//   var pick = select_recv([ch1, ch2], 100);   // tuple(idx, value)
+//
+// Channels coordinate independent actors at message boundaries.
+// Producer and consumer can run on separate actor threads; sends and
+// receives synchronise through the underlying queue.
+
+class Producer {
+  var ch = 0;
+  var label = "p";
+
+  method init(c, l) {
+    ch = c;
+    label = l;
+  }
+
+  method run(n) {
+    var i = 0;
+    while (i < n) do {
+      var msg = label + "/" + i;
+      channel_send(ch, msg);
+      print("[producer " + label + "] sent: " + msg);
+      i = i + 1;
+    }
+    channel_close(ch);
+  }
+}
+
+class Consumer {
+  var ch = 0;
+
+  method init(c) {
+    ch = c;
+  }
+
+  method drain() {
+    var done = 0;
+    var count = 0;
+    while (done == 0) do {
+      var pair = channel_try_recv(ch);
+      var ok = pair[0];
+      var v = pair[1];
+      if (ok == 1) {
+        print("  [consumer] got: " + v);
+        count = count + 1;
+      } else {
+        done = 1;
+      }
+    }
+    reply(count);
+  }
+}
+
+class Demo {
+  method run() {
+    print("=== Phase 13 — CSP channels ===");
+
+    // 1) Buffered channel + producer/consumer pattern.
+    var ch1 = channel(4, "string");
+    print("typeof(ch1) = " + typeof(ch1));
+
+    var prod = new Producer(ch1, "alpha");
+    send prod.run(5);                  // 5 messages enqueued asynchronously
+
+    // Wait briefly for producer to finish, then drain.
+    wait(100);
+    var cons = new Consumer(ch1);
+    var n = now cons.drain();
+    print("drained " + n + " messages");
+    print("");
+
+    // 2) select_recv across two channels — first ready wins.
+    var fast = channel(1, "int");
+    var slow = channel(1, "int");
+    channel_send(slow, 999);                 // pre-load slow
+    var pick = select_recv([fast, slow], 50);
+    print("select pick = idx " + pick[0] + " value " + pick[1]);
+
+    // 3) select_recv with timeout (both channels empty).
+    var c2 = channel(1);
+    var c3 = channel(1);
+    var to = select_recv([c2, c3], 30);
+    print("timeout pick = idx " + to[0] + " value " + to[1]);
+
+    // 4) Pipeline: stage1 -> mid -> stage2 (each stage is an actor +
+    //    a channel between them). Squares a stream of ints.
+    var src  = channel(8, "int");
+    var sqd  = channel(8, "int");
+
+    var stage1_src = "class S1 {\n" +
+                     "  var src = 0; var sqd = 0;\n" +
+                     "  method init(s, q) { src = s; sqd = q; }\n" +
+                     "  method run(n) {\n" +
+                     "    var i = 1;\n" +
+                     "    while (i <= n) do { channel_send(src, i); i = i + 1; }\n" +
+                     "    channel_close(src);\n" +
+                     "  }\n" +
+                     "}\n";
+    var stage2_src = "class S2 {\n" +
+                     "  var src = 0; var sqd = 0;\n" +
+                     "  method init(s, q) { src = s; sqd = q; }\n" +
+                     "  method run() {\n" +
+                     "    var done = 0;\n" +
+                     "    while (done == 0) do {\n" +
+                     "      var p = channel_try_recv(src);\n" +
+                     "      if (p[0] == 1) {\n" +
+                     "        var v = p[1];\n" +
+                     "        channel_send(sqd, v * v);\n" +
+                     "      } else { done = 1; }\n" +
+                     "    }\n" +
+                     "    channel_close(sqd);\n" +
+                     "  }\n" +
+                     "}\n";
+    compile(stage1_src);
+    compile(stage2_src);
+    var s1 = spawn("S1", src, sqd);
+    var s2 = spawn("S2", src, sqd);
+    send s1.run(5);
+    wait(50);
+    send s2.run();
+    wait(50);
+
+    // Drain the result channel.
+    print("pipeline output:");
+    var d2 = 0;
+    while (d2 == 0) do {
+      var pp = channel_try_recv(sqd);
+      if (pp[0] == 1) { print("  squared: " + pp[1]); }
+      else { d2 = 1; }
+    }
+  }
+}
+
+var d = new Demo();
+send d.run();

@@ -46,7 +46,8 @@ param: NAME type_anno?
 ?type_expr: type_term ("|" type_term)+                           -> type_union
           | type_term
 
-?type_term: type_atom_kw                                         -> type_atom_kw_pass
+?type_term: "linear" type_term                                   -> type_linear
+          | type_atom_kw                                         -> type_atom_kw_pass
           | type_atom_kw "[" type_arg ("," type_arg)* "]"        -> type_param_kw
           | NAME                                                 -> type_atom
           | NAME "[" type_arg ("," type_arg)* "]"                -> type_param

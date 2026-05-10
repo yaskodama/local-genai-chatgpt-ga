@@ -240,6 +240,14 @@ BUILTIN_SIGNATURES: "dict[str, str]" = {
     "ai_usage":                      "function() -> string",
     "ai_remaining":                  "function() -> int",
     "ai_cost":                       "function() -> float",
+    # CSP-style channels (Phase 13)
+    "channel":           "function(capacity:int [, element_type:string]) -> channel",
+    "channel_send":      "function(ch:channel, value:any) -> int",
+    "channel_recv":      "function(ch:channel [, timeout_ms:int]) -> any",
+    "channel_try_recv":  "function(ch:channel) -> tuple(bool, any)",
+    "channel_close":     "function(ch:channel) -> int",
+    "channel_size":      "function(ch:channel) -> int",
+    "select_recv":       "function(chs:array[channel] [, timeout_ms:int]) -> tuple(int, any)",
     # Image ops (Pillow-backed)
     "image_load":      "function(path:string) -> image",
     "image_save":      "function(image, path:string) -> int",
@@ -1610,6 +1618,120 @@ def _b_append_bytes(args, frame, interp):
 
 
 # ---------------------------------------------------------------------------
+# Phase 13 — CSP-style channels.
+#
+#   var ch = channel(capacity);             // capacity 0 = unbounded
+#   var ch = channel(capacity, "int");      // typed (advisory)
+#   channel_send(ch, value);                // blocks if full
+#   var v = channel_recv(ch);               // blocks if empty
+#   var pair = channel_try_recv(ch);        // tuple(ok, value)
+#   channel_close(ch);
+#   var pick = select_recv([ch1, ch2], 100); // tuple(idx, value); idx=-1 timeout
+#
+# Channels are passed by reference between actors; producers and
+# consumers can be on different actor threads. Each channel is backed
+# by a thread-safe queue.Queue, so `channel_send` and `channel_recv`
+# coordinate cleanly with the existing `now`/`future`/`await` model.
+
+class _AiplChannel:
+    """Bounded synchronous channel. Capacity 0 = unbounded (Python's
+    queue.Queue(maxsize=0) interprets that as no upper limit). Element
+    type is advisory — used by typeof and (later) by the static checker."""
+    _counter = 0
+
+    def __init__(self, capacity: int = 0, element_type: Optional[str] = None):
+        import queue as _q
+        self.capacity = max(0, int(capacity))
+        self.element_type = element_type or "any"
+        self.q = _q.Queue(maxsize=self.capacity)
+        self.closed = False
+        type(self)._counter += 1
+        self.id = type(self)._counter
+
+    def send(self, v) -> bool:
+        if self.closed:
+            return False
+        self.q.put(v)
+        return True
+
+    def recv(self, timeout: Optional[float] = None):
+        import queue as _q
+        try:
+            return self.q.get(timeout=timeout)
+        except _q.Empty:
+            return None
+
+    def try_recv(self):
+        import queue as _q
+        try:
+            return (True, self.q.get_nowait())
+        except _q.Empty:
+            return (False, None)
+
+    def __repr__(self):
+        return f"<channel#{self.id} cap={self.capacity} type={self.element_type}>"
+
+
+def _b_channel(args, frame, interp):
+    capacity = int(args[0]) if args else 0
+    element_type = _to_str(args[1]) if len(args) > 1 else None
+    return _AiplChannel(capacity, element_type)
+
+
+def _b_channel_send(args, frame, interp):
+    if len(args) < 2 or not isinstance(args[0], _AiplChannel):
+        return 0
+    return 1 if args[0].send(args[1]) else 0
+
+
+def _b_channel_recv(args, frame, interp):
+    if not args or not isinstance(args[0], _AiplChannel):
+        return None
+    timeout = float(args[1]) / 1000.0 if len(args) > 1 else None
+    return args[0].recv(timeout=timeout)
+
+
+def _b_channel_try_recv(args, frame, interp):
+    if not args or not isinstance(args[0], _AiplChannel):
+        return (False, None)
+    return args[0].try_recv()
+
+
+def _b_channel_close(args, frame, interp):
+    if not args or not isinstance(args[0], _AiplChannel):
+        return 0
+    args[0].closed = True
+    return 1
+
+
+def _b_channel_size(args, frame, interp):
+    if not args or not isinstance(args[0], _AiplChannel):
+        return 0
+    return args[0].q.qsize()
+
+
+def _b_select_recv(args, frame, interp):
+    """select_recv(channels, timeout_ms=None) — wait for the first ready
+    channel and return (idx, value). On timeout returns (-1, None)."""
+    import time as _time
+    if not args or not isinstance(args[0], list):
+        return (-1, None)
+    chs = args[0]
+    timeout_ms = int(args[1]) if len(args) > 1 else None
+    deadline = (_time.monotonic() + timeout_ms / 1000.0) if timeout_ms is not None else None
+    while True:
+        for i, ch in enumerate(chs):
+            if not isinstance(ch, _AiplChannel):
+                continue
+            ok, v = ch.try_recv()
+            if ok:
+                return (i, v)
+        if deadline is not None and _time.monotonic() >= deadline:
+            return (-1, None)
+        _time.sleep(0.001)
+
+
+# ---------------------------------------------------------------------------
 # Image I/O — wraps Pillow. Images are exposed as a small record-like
 # wrapper carrying width/height/mode + the underlying PIL image.
 
@@ -2182,6 +2304,9 @@ def _infer_type(v) -> str:
         return "float"
     if isinstance(v, str):
         return "string"
+    if isinstance(v, _AiplChannel):
+        cap = "∞" if v.capacity == 0 else str(v.capacity)
+        return f"channel[{v.element_type}, cap={cap}]"
     if isinstance(v, _AiplImage):
         # Image is a dict subclass — must check before plain dict.
         return f"image({v['width']}x{v['height']}, {v['mode']})"
@@ -2286,6 +2411,14 @@ _BUILTINS = {
     "read_bytes":    _b_read_bytes,
     "write_bytes":   _b_write_bytes,
     "append_bytes":  _b_append_bytes,
+    # CSP-style channels (Phase 13).
+    "channel":           _b_channel,
+    "channel_send":      _b_channel_send,
+    "channel_recv":      _b_channel_recv,
+    "channel_try_recv":  _b_channel_try_recv,
+    "channel_close":     _b_channel_close,
+    "channel_size":      _b_channel_size,
+    "select_recv":       _b_select_recv,
     # Image read / write / pixel ops (Pillow-backed).
     "image_load":      _b_image_load,
     "image_save":      _b_image_save,

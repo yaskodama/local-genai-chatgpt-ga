@@ -265,6 +265,11 @@ class _Builder(Transformer):
         return str(items[0])
 
     @v_args(inline=False)
+    def type_linear(self, items):
+        # `linear T` modifier (Phase 14). Stored as "linear T" string.
+        return "linear " + str(items[0])
+
+    @v_args(inline=False)
     def method_decl(self, items):
         # items: [NAME, params, return_anno?, effect_anno?, *body_stmts]
         name = str(items[0])

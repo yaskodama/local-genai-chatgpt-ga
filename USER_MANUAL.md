@@ -538,6 +538,86 @@ class Demo {
 
 サンプル: `src/python-aipl/samples/Typecheck11de.abcl`
 
+### 4.7n Phase 14 — Linear / 借用型 (use-after-move 検出)
+
+`linear T` プレフィックスで **「最大 1 回しか使えない」値** を宣言できる:
+
+```
+function open(name: string) -> linear int { ... }
+function write(f: linear int, s: string) -> linear int { ... }
+function close(f: linear int) -> int { ... }
+```
+
+`linear` パラメータを取る関数に変数を渡すと、その変数は **moved** マーク
+され、以降の参照は **use-after-move エラー**:
+
+```
+var fh: linear int = open("x");
+write(fh, "hello");        // consumes fh
+close(fh);                 // ✗ use-after-move
+```
+
+正しいパターンは **rebind**: 関数が新しい linear 値を返し、それを再代入:
+
+```
+var fh: linear int = open("x");
+fh = write(fh, "hello");   // 旧 fh は moved、新 fh が返る
+fh = write(fh, "world");
+close(fh);                 // 最終消費
+```
+
+**制御フロー認識**: `if` の then-branch が `return` で終了すれば、
+post-if の moved 状態には影響しない。両 branch を unioning する
+従来の保守的振る舞いから精緻化されている:
+
+```
+function ok_branch(name: string, prefer_close: int) -> int {
+  var fh: linear int = open(name);
+  if (prefer_close == 1) {
+    return close(fh);     // then-branch が return で終わる
+  }
+  return close(fh);       // OK: 各 return 経路で 1 回だけ消費
+}
+```
+
+`linear T` の **互換性** は基底型 T と同等 (linearity は別軸の制約)。
+`var x: int = some_linear_int_var;` は型としては OK だが、
+moved 検査でエラーになる場合あり。
+
+サンプル: `src/python-aipl/samples/Linear.abcl`
+
+### 4.7m Phase 13 — CSP チャネル
+
+アクター間メッセージとは別の **synchronous channel** を導入。プロデューサ
+/コンシューマ、パイプライン、`select`-style の多 channel 待機などに使う。
+
+```
+var ch = channel(capacity);                        // capacity 0 = 無制限
+var ch = channel(capacity, "int");                 // 型ヒント (advisory)
+
+channel_send(ch, value);                           // 満杯ならブロック
+var v = channel_recv(ch);                          // 空ならブロック
+var v = channel_recv(ch, 100);                     // タイムアウト 100ms
+var pair = channel_try_recv(ch);                   // (bool ok, any v)
+channel_close(ch);
+var n = channel_size(ch);
+
+// 複数チャネルの先着待ち + タイムアウト
+var pick = select_recv([ch1, ch2, ch3], 50);       // tuple(int idx, any v)
+                                                    // idx=-1 ならタイムアウト
+```
+
+`typeof(ch)` は `channel[<element_type>, cap=N]` 形式で表示される
+(無制限なら `cap=∞`)。
+
+**実装上の注意**: 内部は Python の `queue.Queue` でスレッドセーフ。
+アクター間で channel 参照を渡し合えば、複数アクターが同じ channel に
+読み書きできる (CSP の中心モデル)。`channel_send` と `channel_recv` は
+受け取り側の actor が処理を進める間も待機する。
+
+サンプル: `src/python-aipl/samples/Channels.abcl`
+(producer/consumer + select + コンパイル時生成パイプライン)
+
 ### 4.7l Phase 12 — Capability ベース効果系
 
 関数 / メソッドの宣言末尾に `!{...}` を書くと、その関数が出してよい
