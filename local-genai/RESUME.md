@@ -22,17 +22,18 @@ origin/main と同期済み (push 済み)。
 
 ## チャンピオン (現状最強モデル)
 
-**Stage-4e Transformer (1MB 学習, 4c サイズ + 4d-orth 正則化)** —
-共通 1MB tail holdout 上で ppl **5.302** (Stage-4d-orth と統計的同点、 params 半減)
+**Stage-4f-extend Transformer (181K params, 20000 step + 深 LR 減衰)** —
+共通 1MB tail holdout 上で ppl **5.200**
 
 ```
-local-genai/out/transformer_stage4e.pt
-  TinyTransformer depth=3, d_model=96, n_heads=4, ctx=256, bptt=256
+local-genai/out/transformer_stage4f_extend.pt
+  TinyTransformer depth=3, d_model=64, n_heads=4, ctx=256, bptt=256
   ffn_mult=4, RMSNorm, learned positional
   dropout 0.1, label_smoothing 0.05, weight_decay 0.05
-  TinyShakespeare-1MB 学習, 383,040 params
-  best ppl 5.302 @ step 10000 (= 走破直前; さらに延長で伸びる可能性)
-  訓練時間 439s (M2 MPS, ≈ 7.3 分)
+  warmup 1500, cosine 終端 LR=1e-5 (min_lr_frac=0.005)
+  TinyShakespeare-1MB 学習, 181,632 params
+  best ppl 5.200 @ step 19000 (20000 step 走破、ほぼ収束: 5.200 → 5.201)
+  訓練時間 697s (M2 MPS, ≈ 11.6 分)
 ```
 
 歴代 (1MB tail で評価):
@@ -53,16 +54,18 @@ ppl
 6.0 |
 5.7 |                      ● Stage4b (855K)
 5.5 |     ● Stage4f-mini   ● Stage4c (383K)
-    |       (181K, 同点)
-5.3 |              ★ Stage4e (383K) ● Stage4d-orth (855K)
+    |       (181K)
+5.3 |              ● Stage4e (383K) ● Stage4d-orth (855K)
+5.2 |     ★ Stage4f-extend
+    |       (181K)
     +---------------------------------------------------- params (log)
        100K   200K     400K     800K    1.6M
 ```
-- Stage-4e (383K, ppl 5.30) が **絶対 ppl champion**
-- Stage-4f-mini (181K, ppl 5.52) が **新 Pareto 点**: 4c と同 ppl を半分の params で。
-  step 10000 で未収束 → 延長で 5.4 切れる可能性。
-- LSTM 1MB (131K, ppl 6.17) はもはや transformer に完敗 (4f-mini 181K で
-  -0.66 ppl, params も近い)。 params/ppl 効率は **transformer 領域に陥落**。
+- **Stage-4f-extend (181K, ppl 5.20)** が絶対 champion かつ Pareto 左下を
+  完全制圧。 4f-mini と同サイズで 20000 step + 深 LR 減衰のみで -0.32 ppl。
+- 学習スケジュールが ppl にもたらす効果は容量 2× や正則化変更と同等以上。
+- LSTM 1MB (131K, ppl 6.17) は 0.97 ppl 差で完敗。 transformer が char-level
+  1MB の **全帯域を制覇**。
 
 **3 種の正則化 (noise / target-dist / magnitude) を薄く重ねる戦略**は、
 1MB scale で堅牢:
@@ -174,7 +177,8 @@ cd aice-evolution-v2 && /opt/homebrew/bin/python3.13 -m src.cli \
 | 4c (1MB) | Tx d=96 d3 ctx=256 dropout 0.2 | 1MB | 383K | 5.52 | 5.52 |
 | 4d-orth (1MB) | Tx d=128 d4 + dropout 0.1 + ls 0.05 + wd 0.05 | 1MB | 855K | 5.30 | 5.30 |
 | **4e (1MB)** | **Tx d=96 d3 + dropout 0.1 + ls 0.05 + wd 0.05** | **1MB** | **383K** | **5.30** | **5.30 (champion)** |
-| 4f-mini (1MB) | Tx d=64 d3 + 直交正則化 (同上) | 1MB | 181K | 5.52 | 5.52 (Pareto: 4c と同 ppl で半分) |
+| 4f-mini (1MB) | Tx d=64 d3 + 直交正則化 (同上) | 1MB | 181K | 5.52 | 5.52 |
+| **4f-extend (1MB)** | **4f-mini + 20000 step + min_lr_frac=0.005** | **1MB** | **181K** | **5.20** | **5.20 (champion)** |
 
 教訓:
 - Stage-3 の transformer 敗北は ctx だけの問題ではなかった: BPTT < ctx
@@ -202,10 +206,13 @@ cd aice-evolution-v2 && /opt/homebrew/bin/python3.13 -m src.cli \
 
 ## 続行候補
 
-1. ~~**Stage-4f-mini**~~ — 完了 (181K params, ppl 5.52, LSTM を圧倒)。
-2. **Stage-4f-extend: 4f-mini を延長** (step 10000 で未収束)
-   - 同設定で steps=20000 + cosine 終端 LR=1e-5 → 5.4 切り狙い
-3. **Stage-4g-long: 4e を延長**
+1. ~~**Stage-4f-mini**~~ — 完了 (181K, ppl 5.52)。
+2. ~~**Stage-4f-extend**~~ — 完了 (181K, ppl **5.20**, 絶対 champion)。
+3. **Stage-4g-long: 4e を延長** (4e も step 10000 で未収束だった)
+   - 同設定 (d=96, depth=3) で steps=20000 + min_lr_frac=0.005 → 5.0 切り狙い
+4. **Stage-4h-mini-extend: 4f-extend を更に延長**
+   - 4f-extend は step 19000 でほぼ収束したが、5.0 切りを狙うなら
+     d=64 → d=80 に微増 + steps=25000 が次の枝
    - 同設定で steps=20000 + warmup=1500 + cosine 終端 LR=1e-5 で 5.0 切り狙い
 3. **Stage-5-RoPE: 位置埋め込みを刷新**
    - 4e サイズ + RoPE で learned pos を排除 → 汎化向上を期待
@@ -229,7 +236,21 @@ local-genai/.venv/bin/python local-genai/train_stage4.py \
 # 約 7 分 (M2 MPS), best ppl 5.302 @ step 10000 (収束未達)
 ```
 
-## Stage-4f-mini (Pareto 左下) を回す手順
+## Stage-4f-extend (現 absolute champion) を回す手順
+
+```sh
+local-genai/.venv/bin/python local-genai/train_stage4.py \
+  --steps 20000 --eval-every 500 --warmup 1500 \
+  --batch 24 --bptt 256 --ctx 256 \
+  --depth 3 --d-model 64 --n-heads 4 \
+  --lr 2e-3 --dropout 0.1 \
+  --label-smoothing 0.05 --weight-decay 0.05 \
+  --min-lr-frac 0.005 \
+  --out-name transformer_stage4f_extend.pt
+# 約 12 分 (M2 MPS, 697s), 181K params, best ppl 5.200 @ step 19000 (収束)
+```
+
+## Stage-4f-mini (歴史的: 10000 step 短縮版)
 
 ```sh
 local-genai/.venv/bin/python local-genai/train_stage4.py \

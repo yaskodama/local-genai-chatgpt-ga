@@ -44,6 +44,8 @@ def main():
     p.add_argument("--warmup", type=int, default=600)
     p.add_argument("--weight-decay", type=float, default=0.01)
     p.add_argument("--label-smoothing", type=float, default=0.0)
+    p.add_argument("--min-lr-frac", type=float, default=0.1,
+                   help="cosine final LR as fraction of base lr (default 0.1 = lr/10)")
     p.add_argument("--out-name", default="transformer_stage4.pt")
     args = p.parse_args()
 
@@ -74,6 +76,7 @@ def main():
         eval_every=args.eval_every, warmup=args.warmup,
         weight_decay=args.weight_decay,
         label_smoothing=args.label_smoothing,
+        min_lr_frac=args.min_lr_frac,
         verbose=True,
     )
 

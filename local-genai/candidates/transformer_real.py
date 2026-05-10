@@ -134,6 +134,7 @@ def train_and_eval(d_model: int, n_heads: int, ctx: int,
                    warmup: int | None = None,
                    weight_decay: float | None = None,
                    label_smoothing: float = 0.0,
+                   min_lr_frac: float | None = None,
                    verbose: bool = False) -> dict:
     bptt = bptt or BPTT
     batch = batch or BATCH
@@ -141,6 +142,7 @@ def train_and_eval(d_model: int, n_heads: int, ctx: int,
     eval_every = eval_every or EVAL_EVERY
     warmup = warmup if warmup is not None else WARMUP
     wd = weight_decay if weight_decay is not None else WD
+    min_lr_frac = min_lr_frac if min_lr_frac is not None else LR_MIN_FRAC
     if bptt > ctx:
         raise ValueError(f"bptt ({bptt}) must be <= ctx ({ctx}) since pos embedding is sized to ctx")
 
@@ -201,7 +203,7 @@ def train_and_eval(d_model: int, n_heads: int, ctx: int,
             cur_lr = lr * (step + 1) / warmup
         else:
             progress = (step - warmup) / max(1, steps - warmup)
-            cur_lr = lr * (LR_MIN_FRAC + (1 - LR_MIN_FRAC) * 0.5 * (1 + math.cos(math.pi * progress)))
+            cur_lr = lr * (min_lr_frac + (1 - min_lr_frac) * 0.5 * (1 + math.cos(math.pi * progress)))
         for g in opt.param_groups:
             g["lr"] = cur_lr
         opt.step()
@@ -227,7 +229,8 @@ def train_and_eval(d_model: int, n_heads: int, ctx: int,
                    "depth": depth, "dropout": dropout,
                    "bptt": bptt, "batch": batch, "lr": lr,
                    "steps": steps, "warmup": warmup,
-                   "weight_decay": wd, "label_smoothing": label_smoothing},
+                   "weight_decay": wd, "label_smoothing": label_smoothing,
+                   "min_lr_frac": min_lr_frac},
     }
 
 

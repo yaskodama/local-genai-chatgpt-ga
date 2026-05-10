@@ -105,13 +105,14 @@ def main():
             "ppl_on_1MB_tail": ppl_1mb,
         })
 
-    # Stage 4 / 4b / 4c / 4d-orth / 4e / 4f-mini — full-context transformers on 1MB
+    # Stage 4 / 4b / 4c / 4d-orth / 4e / 4f-mini / 4f-extend — full-context transformers on 1MB
     for fname, label in [("transformer_stage4.pt", "Stage4"),
                           ("transformer_stage4b.pt", "Stage4b"),
                           ("transformer_stage4c.pt", "Stage4c"),
                           ("transformer_stage4d_orth.pt", "Stage4d_orth"),
                           ("transformer_stage4e.pt", "Stage4e"),
-                          ("transformer_stage4f_mini.pt", "Stage4f_mini")]:
+                          ("transformer_stage4f_mini.pt", "Stage4f_mini"),
+                          ("transformer_stage4f_extend.pt", "Stage4f_extend")]:
         path = HERE / "out" / fname
         if not path.exists():
             continue
