@@ -22,21 +22,23 @@ origin/main と同期済み (push 済み)。
 
 ## チャンピオン (現状最強モデル)
 
-**Stage-4 Transformer (1MB 学習)** — 共通 1MB tail holdout 上で ppl **5.929**
+**Stage-4b Transformer (1MB 学習, dropout=0.2)** — 共通 1MB tail holdout 上で ppl **5.731**
 
 ```
-local-genai/out/transformer_stage4.pt
-  TinyTransformer depth=4, d_model=192, n_heads=6, ctx=256, bptt=256
-  ffn_mult=4, RMSNorm, learned positional, dropout 0.1
-  TinyShakespeare-1MB 学習, 1.87M params
-  best ppl 5.929 @ step 3500 (10000 step 走破中、3500 で peak)
+local-genai/out/transformer_stage4b.pt
+  TinyTransformer depth=4, d_model=128, n_heads=4, ctx=256, bptt=256
+  ffn_mult=4, RMSNorm, learned positional, dropout 0.2
+  TinyShakespeare-1MB 学習, 855,680 params
+  best ppl 5.731 @ step 6500 (10000 step 走破)
   早期停止 (best snapshot retention) で過学習区間を切り捨て
+  訓練時間: 716s (M2 MPS)
 ```
 
-旧 champion `charrnn_winner.pt` (R1 GRU tied, 100KB 学習, 131K params) は
-1MB tail 上では ppl 14.53 (out-of-distribution 評価のため)。
-1MB で再学習した GRU (`charrnn_1MB.pt`) ですら ppl 6.17 で Stage-4 に劣る
-(-0.24 ppl, ≈ 4%、ただし params は Stage-4 が 14×)。
+歴代:
+- Stage-4 (`transformer_stage4.pt`, 1.87M params): ppl 5.929 — overfit 早い (peak step 3500)
+- Stage-4b (現 champion, 855K params): ppl 5.731 — params 半減 + dropout 倍 で勝利
+- 旧 winner `charrnn_winner.pt` (R1 GRU tied, 100KB 学習, 131K params): 1MB tail 上で ppl 14.53 (OOD)
+- 1MB 再学習 GRU (`charrnn_1MB.pt`): ppl 6.17 — params/ppl 効率では transformer に肉薄
 
 ## 起動手順
 
@@ -133,23 +135,27 @@ cd aice-evolution-v2 && /opt/homebrew/bin/python3.13 -m src.cli \
 | 2 (10KB) | LSTM untied (R2) | 9.5KB | 198K | 4.48 | — |
 | 2 (100KB) | LSTM untied (R2) | 100KB | 198K | 5.23 | — |
 | 2 (100KB) | GRU tied (R1) | 100KB | 131K | 5.68 | 14.53 |
-| 2c (1MB) | GRU tied (R1) | 1MB | 131K | 6.17 | **6.17** |
+| 2c (1MB) | GRU tied (R1) | 1MB | 131K | 6.17 | 6.17 |
 | 3 (試) | Transformer 1-block | 100KB | 247K | 14.96 | — |
 | 3 (試) | Transformer 4-block | 100KB | 839K | 14.18 | 24.15 |
-| **4 (1MB)** | **Tx d=192 d4 ctx=256** | **1MB** | **1.87M** | **5.93** | **5.93 (champion)** |
+| 4 (1MB) | Tx d=192 d4 ctx=256 dropout 0.1 | 1MB | 1.87M | 5.93 | 5.93 |
+| **4b (1MB)** | **Tx d=128 d4 ctx=256 dropout 0.2** | **1MB** | **855K** | **5.73** | **5.73 (champion)** |
 
 教訓:
 - Stage-3 の transformer 敗北は ctx だけの問題ではなかった: BPTT < ctx
   にしていたため位置埋め込みが過学習し、コーパスも狭すぎた。
 - BPTT == ctx (=256) + 1MB コーパスにすると 4-block transformer は
-  step 3500 で ppl 5.93 にピークを打ち、その後 overfit。 best-snapshot
-  retention で確保。
+  step 3500 で ppl 5.93 にピークを打ち、その後 overfit。
+- Stage-4b で d_model を 192→128 に縮小 + dropout を 0.1→0.2 に強化
+  すると、params が半分以下 (855K) でありながら ppl 5.73 で Stage-4
+  を 0.20 ppl 上回り、ピークも step 6500 まで遅延 (= 過学習体質が改善)。
+  「正則化を効かせれば容量はむしろ減らせる」が確認できた。
 - 同じ 1MB を見せた GRU (131K params) は ppl 6.17 で transformer に
-  0.24 ppl 負け。ただし params は transformer が 14× なので、
-  params/ppl 効率では LSTM の勝ち。
-- 残課題: (a) Stage-4b で正則化強化 or 容量縮小して transformer を
-  更に押し下げ、 (b) Stage-2 LSTM を 1MB で深く回す、 (c) コーパス
-  を 10MB に拡大して params を活かす空間を作る。
+  0.44 ppl 負け。params/ppl 効率では LSTM が依然強い (855K transformer
+  と 131K GRU で 0.44 ppl 差)。
+- 残課題: (a) Stage-4c で d_model=96 / depth=3 など更に縮小、
+  (b) Stage-2 LSTM を 1MB で深く (hidden=192, 2-layer) 回す、
+  (c) コーパスを 10MB に拡大して params を活かす空間を作る。
 
 ## 環境前提
 
@@ -161,19 +167,31 @@ cd aice-evolution-v2 && /opt/homebrew/bin/python3.13 -m src.cli \
 
 ## 続行候補
 
-1. **Stage-4b: 正則化強化 / 容量縮小** (transformer の params 効率を改善)
-   - d_model=128 depth=4 dropout=0.2 → ~830K params で 5.93 を破れるか
-   - もしくは Stage-4 と同じサイズで dropout 0.2 + label smoothing 0.05
-2. **Stage-2c': LSTM を 1MB で深く回す**
+1. **Stage-4c: 更なる容量縮小** (Pareto を押し進める)
+   - d_model=96 depth=3 dropout=0.2 → ~400K params で 5.73 を破れるか
+   - もしくは d_model=128 depth=3 dropout=0.2 (≈ 640K params)
+2. **Stage-4d: label smoothing / weight decay sweep** (Stage-4b と同サイズで)
+   - label_smoothing=0.05, wd=0.05 を試して dropout 単独より良いか
+3. **Stage-2c': LSTM を 1MB で深く回す**
    - hidden=192, 2-layer LSTM, steps=4000 で 6.17 を切れるか確認
-3. **コーパス 10MB 化**: 1.87M params を活かす空間を確保。1MB は
-   3 epoch しか回せず params/data 比が崩れている。
-4. **SemiAutoEvolve**: Ollama (gemma2:2b) で次世代 mutation を
+4. **コーパス 10MB 化**: transformer に params を活かす空間を作る。
+   1MB は 3 epoch しか回せず params/data 比が崩れている。
+5. **SemiAutoEvolve**: Ollama (gemma2:2b) で次世代 mutation を
    3 案起草 (`LocalGenAIScaledEvolutionJP.aice` の Stage 7 仕様あり)。
-5. **fair_compare.py のスナップショット化**: 全候補を 1MB tail で
-   再評価する benchmark をリリースゲートにする。
 
-## Stage-4 を回す手順 (次回再現用)
+## Stage-4b (現 champion) を回す手順 (次回再現用)
+
+```sh
+local-genai/.venv/bin/python local-genai/train_stage4.py \
+  --steps 10000 --eval-every 500 --warmup 800 \
+  --batch 24 --bptt 256 --ctx 256 \
+  --depth 4 --d-model 128 --n-heads 4 \
+  --lr 2e-3 --dropout 0.2 \
+  --out-name transformer_stage4b.pt
+# 約 12 分 (M2 MPS), best ppl 5.731 @ step 6500
+```
+
+## Stage-4 を回す手順 (歴史的、現 champion ではない)
 
 ```sh
 local-genai/.venv/bin/python local-genai/train_stage4.py \
@@ -182,7 +200,7 @@ local-genai/.venv/bin/python local-genai/train_stage4.py \
   --depth 4 --d-model 192 --n-heads 6 \
   --lr 2e-3 --dropout 0.1 \
   --out-name transformer_stage4.pt
-# 約 19 分 (M2 MPS), best ppl ~5.93 @ step 3500
+# 約 19 分 (M2 MPS), best ppl 5.929 @ step 3500
 ```
 
 ## fair_compare 再走

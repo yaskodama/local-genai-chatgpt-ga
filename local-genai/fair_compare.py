@@ -105,10 +105,13 @@ def main():
             "ppl_on_1MB_tail": ppl_1mb,
         })
 
-    # Stage 4 — full-context transformer on 1MB
-    s4_path = HERE / "out" / "transformer_stage4.pt"
-    if s4_path.exists():
-        ckpt = torch.load(s4_path, weights_only=False, map_location="cpu")
+    # Stage 4 / 4b — full-context transformers on 1MB
+    for fname, label in [("transformer_stage4.pt", "Stage4"),
+                          ("transformer_stage4b.pt", "Stage4b")]:
+        path = HERE / "out" / fname
+        if not path.exists():
+            continue
+        ckpt = torch.load(path, weights_only=False, map_location="cpu")
         cfg = ckpt["config"]
         model = TinyTransformer(d_model=cfg["d_model"], n_heads=cfg["n_heads"],
                                 ffn_mult=cfg.get("ffn_mult", 4),
@@ -117,7 +120,7 @@ def main():
         model.load_state_dict(ckpt["state_dict"])
         ppl_1mb = _eval_transformer(model, hold_t, ctx=cfg["ctx"])
         rows.append({
-            "name": ckpt["name"],
+            "name": f"{label}_{ckpt['name']}",
             "params": ckpt["params"],
             "trained_on": ckpt.get("corpus", "?"),
             "ppl_reported": ckpt["holdout_ppl"],

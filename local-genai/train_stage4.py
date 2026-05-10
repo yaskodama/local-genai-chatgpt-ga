@@ -91,8 +91,10 @@ def main():
     }, ckpt)
     print(f"saved → {ckpt}")
 
-    # Save metrics JSON for evolve.py / scorers
-    metrics_path = out_dir / "stage_Stage4_real.json"
+    # Save metrics JSON for evolve.py / scorers — derive name from out_name
+    stem = Path(args.out_name).stem
+    suffix = stem.replace("transformer_", "").replace("_smoke", "")
+    metrics_path = out_dir / f"stage_{suffix}_real.json"
     metrics = {
         "name": "Stage4_FullCtx_Transformer",
         "corpus": args.corpus,
