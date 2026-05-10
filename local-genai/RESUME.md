@@ -22,12 +22,21 @@ origin/main と同期済み (push 済み)。
 
 ## チャンピオン (現状最強モデル)
 
+**Stage-4 Transformer (1MB 学習)** — 共通 1MB tail holdout 上で ppl **5.929**
+
 ```
-local-genai/out/charrnn_winner.pt
-  R2 LSTM untied, hidden=128, 197K params
-  TinyShakespeare-100KB 上で holdout ppl 5.23
-  早期停止 (best snapshot retention)
+local-genai/out/transformer_stage4.pt
+  TinyTransformer depth=4, d_model=192, n_heads=6, ctx=256, bptt=256
+  ffn_mult=4, RMSNorm, learned positional, dropout 0.1
+  TinyShakespeare-1MB 学習, 1.87M params
+  best ppl 5.929 @ step 3500 (10000 step 走破中、3500 で peak)
+  早期停止 (best snapshot retention) で過学習区間を切り捨て
 ```
+
+旧 champion `charrnn_winner.pt` (R1 GRU tied, 100KB 学習, 131K params) は
+1MB tail 上では ppl 14.53 (out-of-distribution 評価のため)。
+1MB で再学習した GRU (`charrnn_1MB.pt`) ですら ppl 6.17 で Stage-4 に劣る
+(-0.24 ppl, ≈ 4%、ただし params は Stage-4 が 14×)。
 
 ## 起動手順
 
@@ -114,21 +123,33 @@ cd aice-evolution-v2 && /opt/homebrew/bin/python3.13 -m src.cli \
 |---|---:|---|
 | `local-genai/corpus/tiny_corpus.txt` | 9,557 | `9614a5a4...48593e` |
 | `local-genai/corpus/tinyshake_100KB.txt` | 100,000 | `caad989a...0f8839` |
+| `local-genai/corpus/tinyshake_1MB.txt` | 1,115,394 | `86c4e6aa...c565ed` |
 
 ## 進化の到達点 (実測)
 
-| stage | model | corpus | params | holdout ppl |
-|---|---|---:|---:|---:|
-| 1 | bigram + Laplace | 9.5KB | 357 | 15.52 |
-| 2 (10KB) | LSTM untied (R2) | 9.5KB | 198K | 4.48 |
-| 2 (100KB) | LSTM untied (R2) | 100KB | 198K | **5.23 (champion)** |
-| 3 (試) | Transformer 1-block | 100KB | 247K | 14.96 |
-| 3 (試) | Transformer 4-block | 100KB | 839K | 14.18 |
+| stage | model | corpus | params | holdout ppl (own) | 1MB tail ppl (fair) |
+|---|---|---:|---:|---:|---:|
+| 1 | bigram + Laplace | 9.5KB | 357 | 15.52 | — |
+| 2 (10KB) | LSTM untied (R2) | 9.5KB | 198K | 4.48 | — |
+| 2 (100KB) | LSTM untied (R2) | 100KB | 198K | 5.23 | — |
+| 2 (100KB) | GRU tied (R1) | 100KB | 131K | 5.68 | 14.53 |
+| 2c (1MB) | GRU tied (R1) | 1MB | 131K | 6.17 | **6.17** |
+| 3 (試) | Transformer 1-block | 100KB | 247K | 14.96 | — |
+| 3 (試) | Transformer 4-block | 100KB | 839K | 14.18 | 24.15 |
+| **4 (1MB)** | **Tx d=192 d4 ctx=256** | **1MB** | **1.87M** | **5.93** | **5.93 (champion)** |
 
-教訓: byte-level / ctx=128 の固定窓 attention は LSTM の eval-time
-無制限文脈に勝てない。 .aice の expected_holdout_ppl ルックアップは
-楽観的すぎた。 改善には (a) ctx を伸ばす、 (b) コーパスを 1MB+ に
-拡大、 (c) depth>=8 + より高度なレシピ、 が必要。
+教訓:
+- Stage-3 の transformer 敗北は ctx だけの問題ではなかった: BPTT < ctx
+  にしていたため位置埋め込みが過学習し、コーパスも狭すぎた。
+- BPTT == ctx (=256) + 1MB コーパスにすると 4-block transformer は
+  step 3500 で ppl 5.93 にピークを打ち、その後 overfit。 best-snapshot
+  retention で確保。
+- 同じ 1MB を見せた GRU (131K params) は ppl 6.17 で transformer に
+  0.24 ppl 負け。ただし params は transformer が 14× なので、
+  params/ppl 効率では LSTM の勝ち。
+- 残課題: (a) Stage-4b で正則化強化 or 容量縮小して transformer を
+  更に押し下げ、 (b) Stage-2 LSTM を 1MB で深く回す、 (c) コーパス
+  を 10MB に拡大して params を活かす空間を作る。
 
 ## 環境前提
 
@@ -140,12 +161,36 @@ cd aice-evolution-v2 && /opt/homebrew/bin/python3.13 -m src.cli \
 
 ## 続行候補
 
-1. **コーパス 1MB 化**: `/tmp/tinyshake.txt` (1.1MB) を `corpus/` に固定し、
-   Stage 4-5 (depth=4-6 transformer) を実機学習。 ctx=256 + bf16 で 25 分以内。
-2. **SemiAutoEvolve**: Ollama (gemma2:2b 等) をローカル起動し、
-   過去 reviewer 採点と .aice 履歴を渡して次の mutation を 3 案起草させる。
-   `aice-z-evolution/examples/LocalGenAIScaledEvolutionJP.aice` の Stage 7 仕様あり。
-3. **Stage 2 を最終形と認め完了宣言**。
+1. **Stage-4b: 正則化強化 / 容量縮小** (transformer の params 効率を改善)
+   - d_model=128 depth=4 dropout=0.2 → ~830K params で 5.93 を破れるか
+   - もしくは Stage-4 と同じサイズで dropout 0.2 + label smoothing 0.05
+2. **Stage-2c': LSTM を 1MB で深く回す**
+   - hidden=192, 2-layer LSTM, steps=4000 で 6.17 を切れるか確認
+3. **コーパス 10MB 化**: 1.87M params を活かす空間を確保。1MB は
+   3 epoch しか回せず params/data 比が崩れている。
+4. **SemiAutoEvolve**: Ollama (gemma2:2b) で次世代 mutation を
+   3 案起草 (`LocalGenAIScaledEvolutionJP.aice` の Stage 7 仕様あり)。
+5. **fair_compare.py のスナップショット化**: 全候補を 1MB tail で
+   再評価する benchmark をリリースゲートにする。
+
+## Stage-4 を回す手順 (次回再現用)
+
+```sh
+local-genai/.venv/bin/python local-genai/train_stage4.py \
+  --steps 10000 --eval-every 500 --warmup 800 \
+  --batch 24 --bptt 256 --ctx 256 \
+  --depth 4 --d-model 192 --n-heads 6 \
+  --lr 2e-3 --dropout 0.1 \
+  --out-name transformer_stage4.pt
+# 約 19 分 (M2 MPS), best ppl ~5.93 @ step 3500
+```
+
+## fair_compare 再走
+
+```sh
+local-genai/.venv/bin/python local-genai/fair_compare.py
+# 全 .pt を 1MB tail (55,770 bytes) で再評価し champion を決定
+```
 
 ## デバッグ用クイックチェック
 

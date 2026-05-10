@@ -32,12 +32,12 @@
       "param_class": "100K",
       "param_budget": 200000,
       "over_budget": false,
-      "expected_holdout_ppl": 5.684,
+      "expected_holdout_ppl": 6.173,
       "flops_per_token": 263680,
-      "train_time_min_estimate": 0.24,
+      "train_time_min_estimate": 1.55,
       "inference_throughput_factor": 1.0,
       "coherence_violations": [],
-      "measurement_kind": "real_pytorch_training_on_cpu"
+      "measurement_kind": "real_pytorch_training_on_mps"
     },
     "review": {
       "quality": {
@@ -117,12 +117,12 @@
       "param_class": "100K",
       "param_budget": 200000,
       "over_budget": false,
-      "expected_holdout_ppl": 5.231,
+      "expected_holdout_ppl": 6.195,
       "flops_per_token": 395776,
-      "train_time_min_estimate": 0.27,
+      "train_time_min_estimate": 0.22,
       "inference_throughput_factor": 1.0,
       "coherence_violations": [],
-      "measurement_kind": "real_pytorch_training_on_cpu"
+      "measurement_kind": "real_pytorch_training_on_mps"
     },
     "review": {
       "quality": {
@@ -202,12 +202,12 @@
       "param_class": "100K",
       "param_budget": 200000,
       "over_budget": false,
-      "expected_holdout_ppl": 5.447,
+      "expected_holdout_ppl": 6.263,
       "flops_per_token": 263680,
-      "train_time_min_estimate": 0.25,
+      "train_time_min_estimate": 1.47,
       "inference_throughput_factor": 1.0,
       "coherence_violations": [],
-      "measurement_kind": "real_pytorch_training_on_cpu"
+      "measurement_kind": "real_pytorch_training_on_mps"
     },
     "review": {
       "quality": {

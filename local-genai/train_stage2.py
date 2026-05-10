@@ -28,7 +28,9 @@ def parse_args():
     p = argparse.ArgumentParser()
     p.add_argument("--device", default="cpu",
                    choices=["cpu", "mps"])
-    p.add_argument("--corpus", default="10KB", choices=["10KB", "100KB"])
+    p.add_argument("--corpus", default="10KB", choices=["10KB", "100KB", "1MB"])
+    p.add_argument("--out-name", default="charrnn_winner.pt",
+                   help="checkpoint filename (use a unique name to avoid clobbering older winners)")
     return p.parse_args()
 
 
@@ -98,7 +100,7 @@ def main():
 
     out_dir = HERE / "out"
     out_dir.mkdir(parents=True, exist_ok=True)
-    ckpt_path = out_dir / "charrnn_winner.pt"
+    ckpt_path = out_dir / args.out_name
     torch.save({
         "name": pick["genome"]["name"],
         "style": pick["genome"]["style"],
@@ -106,6 +108,7 @@ def main():
         "state_dict": pick["model_state"],
         "holdout_ppl": pick["estimate"]["expected_holdout_ppl"],
         "params": pick["estimate"]["params"],
+        "corpus": args.corpus,
     }, ckpt_path)
     print(f"saved winner checkpoint → {ckpt_path}")
 

@@ -126,18 +126,32 @@ def train_and_eval(d_model: int, n_heads: int, ctx: int,
                    train_bytes: bytes, holdout_bytes: bytes,
                    depth: int = 1, dropout: float = 0.0,
                    steps: int = STEPS,
-                   device: str = "cpu") -> dict:
+                   device: str = "cpu",
+                   bptt: int | None = None,
+                   batch: int | None = None,
+                   lr: float | None = None,
+                   eval_every: int | None = None,
+                   warmup: int | None = None,
+                   verbose: bool = False) -> dict:
+    bptt = bptt or BPTT
+    batch = batch or BATCH
+    lr = lr if lr is not None else LR
+    eval_every = eval_every or EVAL_EVERY
+    warmup = warmup if warmup is not None else WARMUP
+    if bptt > ctx:
+        raise ValueError(f"bptt ({bptt}) must be <= ctx ({ctx}) since pos embedding is sized to ctx")
+
     torch.manual_seed(SEED)
     train_t = torch.tensor(list(train_bytes), dtype=torch.long, device=device)
     hold_t = torch.tensor(list(holdout_bytes), dtype=torch.long, device=device)
-    train_buf = _make_batches(train_t, BATCH, BPTT)
+    train_buf = _make_batches(train_t, batch, bptt)
     seq_len = train_buf.size(1)
 
     model = TinyTransformer(d_model=d_model, n_heads=n_heads,
                              ffn_mult=4, ctx=ctx, depth=depth,
                              dropout=dropout).to(device)
     n_params = count_params(model)
-    opt = torch.optim.AdamW(model.parameters(), lr=LR, weight_decay=WD)
+    opt = torch.optim.AdamW(model.parameters(), lr=lr, weight_decay=WD)
 
     def _eval_holdout() -> float:
         model.eval()
@@ -165,12 +179,12 @@ def train_and_eval(d_model: int, n_heads: int, ctx: int,
     best_state = None
     best_step = 0
     for step in range(steps):
-        if cursor + BPTT + 1 > seq_len:
+        if cursor + bptt + 1 > seq_len:
             cursor = 0
-        x = train_buf[:, cursor : cursor + BPTT]
-        y = train_buf[:, cursor + 1 : cursor + BPTT + 1]
-        cursor += BPTT
-        if y.size(1) < BPTT:
+        x = train_buf[:, cursor : cursor + bptt]
+        y = train_buf[:, cursor + 1 : cursor + bptt + 1]
+        cursor += bptt
+        if y.size(1) < bptt:
             cursor = 0
             continue
         logits = model(x)
@@ -179,20 +193,22 @@ def train_and_eval(d_model: int, n_heads: int, ctx: int,
         loss.backward()
         torch.nn.utils.clip_grad_norm_(model.parameters(), GRAD_CLIP)
         # warmup + cosine decay
-        if step < WARMUP:
-            lr = LR * (step + 1) / WARMUP
+        if step < warmup:
+            cur_lr = lr * (step + 1) / warmup
         else:
-            progress = (step - WARMUP) / max(1, steps - WARMUP)
-            lr = LR * (LR_MIN_FRAC + (1 - LR_MIN_FRAC) * 0.5 * (1 + math.cos(math.pi * progress)))
+            progress = (step - warmup) / max(1, steps - warmup)
+            cur_lr = lr * (LR_MIN_FRAC + (1 - LR_MIN_FRAC) * 0.5 * (1 + math.cos(math.pi * progress)))
         for g in opt.param_groups:
-            g["lr"] = lr
+            g["lr"] = cur_lr
         opt.step()
-        if (step + 1) % EVAL_EVERY == 0:
+        if (step + 1) % eval_every == 0:
             ppl = _eval_holdout()
             if ppl < best_ppl:
                 best_ppl = ppl
                 best_state = {k: v.detach().clone() for k, v in model.state_dict().items()}
                 best_step = step + 1
+            if verbose:
+                print(f"  step {step+1:>5}  loss {loss.item():.3f}  holdout ppl {ppl:.3f}  best {best_ppl:.3f}@{best_step}", flush=True)
     train_time = time.time() - t0
     if best_state is not None:
         model.load_state_dict(best_state)
@@ -204,7 +220,9 @@ def train_and_eval(d_model: int, n_heads: int, ctx: int,
         "model_state": model.state_dict(),
         "config": {"d_model": d_model, "n_heads": n_heads,
                    "ctx": ctx, "ffn_mult": 4,
-                   "depth": depth, "dropout": dropout},
+                   "depth": depth, "dropout": dropout,
+                   "bptt": bptt, "batch": batch, "lr": lr,
+                   "steps": steps, "warmup": warmup},
     }
 
 
