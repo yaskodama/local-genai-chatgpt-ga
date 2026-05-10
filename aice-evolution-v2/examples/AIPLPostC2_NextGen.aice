@@ -1,0 +1,72 @@
+// AIPL Post-Level-C2 — Next-Generation Language Prediction.
+//
+// Phase 9 が予測した 5 軸 (type_safety / effect_handling /
+// concurrency_model / ownership_model / state_representation) は
+// すべて Phase 11-15 で実装済み, さらに Phase 16 transient cast +
+// Level A〜C-2 自己ホストまで完了.
+//
+// ここから次に進むべき軸は何か? を MAP-Elites で再探索する.
+// `open_axes = true` なので GA が schema の既存軸組合せに加え
+// 新軸 (verification_model, evolution_model, distribution_model
+// など) を提案する余地がある.
+//
+// 評価タスクは「Phase 16 + C-2 で扱えない設計課題」を集める:
+//   - 検証付き並行 (デッドロックフリーが構文で保証される)
+//   - AI 駆動の自己改修 (LLM フィードバックでプログラムが書き換わる)
+//   - 分散 CRDT 状態 (ノード越しの可用性が型で表現される)
+//   - リアルタイム保証 (遅延上限が型で割り当てられる)
+//   - セッション型プロトコル (多段プロトコルが構文で強制される)
+
+aice AIPLPostC2_NextGen {
+  dialect = "aice_evolution_v2";
+
+  task = "Phase 11-16 + 自己ホスト Level A〜C-2 までを実装した AIPL の上に, 次に取るべき言語軸を MAP-Elites で予測する. 5 つの新タスク (verified concurrency / AI-driven self-modification / distributed CRDT / real-time bounds / session-typed protocols) で elite を選び, 最も普遍的な軸を Phase 17 候補として提示する.";
+
+  gene_schema = "schemas/programming_paradigm.schema.json";
+
+  evaluation_tasks {
+    task VerifiedConcurrency  { spec = "デッドロック・データレースが型システムで構文的に排除される並行性プリミティブの設計"; }
+    task SelfModifying        { spec = "AI フィードバックを根拠にプログラム自体の型ルールやメソッド集合が実行時に書き換わる仕組み"; }
+    task DistributedCRDT      { spec = "ノード越しに分散した状態の merge / eventual consistency が型レベルで表現される"; }
+    task RealTimeBounds       { spec = "メソッドや actor 単位で実行時間上限が型として割り当てられ, スケジューラが守る"; }
+    task SessionTyped         { spec = "多段プロトコル (auth -> request -> ack -> close など) が session type として静的検査される"; }
+    task SelfEvolution        { spec = "言語処理系が自身の AST スキーマや型検査ルールを実行中に拡張する (Level C-2 + reflection)"; }
+  }
+
+  search {
+    algorithm   = "map_elites";
+    cell_axes   = "paradigm, state_representation, concurrency_model, type_safety, effect_handling, ownership_model";
+    generations = 50;
+    seed_count  = 14;
+    open_axes   = true;
+    rng_seed    = 1717;
+  }
+
+  meta_fitness {
+    // 「現状から無理なく 1 軸進化」を望むので trend_alignment 重視
+    trend_alignment       = 0.30;
+    frontier_coverage     = 0.15;
+    novelty               = 0.20;     // 新軸提案を歓迎
+    evolvability          = 0.10;
+    cross_task_generality = 0.20;     // 6 タスク横断で機能するか
+    implementability      = 0.05;     // 実装の容易さは重視しない (予測問題)
+  }
+
+  ranking {
+    strategy  = "pareto_then_pairwise";
+    scenarios = ["conservative", "innovative", "general_purpose"];
+    top_k     = 5;
+  }
+
+  reviewers {
+    reviewer Plausibility {
+      persona = "あなたは将来予測レビュアーです。各候補が 5 年以内に実装可能で, かつ Phase 11-16 の上に自然に積めるかを 1 文で評価してください。";
+    }
+    reviewer Universality {
+      persona = "あなたは普遍方向レビュアーです。6 タスクのうち何個でこの設計が機能するかを 1 文で評価し, 'OK: <横断タスク数>' / 'NG: <欠けているドメイン>' で答えてください。";
+    }
+    reviewer NoveltyOverPhase16 {
+      persona = "あなたは新規性レビュアーです。Phase 11-16 + Level C-2 で既に実装済みの能力と, この候補の追加価値を 1 文で対比してください。";
+    }
+  }
+}
