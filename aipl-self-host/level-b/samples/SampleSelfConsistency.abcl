@@ -1,0 +1,195 @@
+// Sample 6 — Self-consistency of the typeck.
+//
+// We hand-encode the type signatures of typeck.abcl's own functions
+// (tc_compatible, tc_infer_expr, tc_check_stmt, tc_check_program …)
+// as a typeck-AST and feed it to tc_check_program itself.  If the
+// typeck's surface is internally type-coherent, the result must be 0
+// issues — that is the minimum statement of "Level B-1 is consistent
+// under its own rules".
+//
+// We do NOT hand-encode every body statement (that would be hundreds
+// of AST records).  We encode just enough body to exercise
+//
+//   - Calls between typeck functions (tc_check_program -> tc_check_function ->
+//     tc_check_stmt_list -> tc_check_stmt -> tc_infer_expr -> tc_compatible)
+//   - That every Call passes the right arity + types
+//   - That return types match the declared return_type
+//
+// Each stub body is one Return whose expression is a Call into a
+// sibling typeck function, with arguments that are int/string literals
+// of the declared param types.  Any mismatch in arity/types or in the
+// returned type would surface as an issue.
+
+class Driver {
+  method run() {
+    print("=== Level B-1 — SampleSelfConsistency ===");
+
+    // --- Stub function decls ---------------------------------------
+    // We declare these in dependency order so each stub's body can
+    // reference earlier stubs.  Most params are `any` because the
+    // real implementation manipulates AST records / env arrays whose
+    // structural types aren't expressible in B-1's compat lattice.
+
+    var tc_compat = {
+      name: "tc_compatible",
+      params: [{name: "expected", type: "string"},
+               {name: "actual",   type: "string"}],
+      return_type: "int",
+      body: [
+        // Self-recursion: tc_compatible(expected, actual)
+        // (the real implementation does this on union expansion.)
+        {tag: "Return",
+         expr: {tag: "Call", name: "tc_compatible",
+                args: [{tag: "Var", name: "expected"},
+                       {tag: "Var", name: "actual"}]}}
+      ]
+    };
+
+    var infer_expr = {
+      name: "tc_infer_expr",
+      params: [{name: "ast",    type: "any"},
+               {name: "tenv",   type: "any"},
+               {name: "fns",    type: "any"},
+               {name: "issues", type: "any"}],
+      return_type: "string",
+      body: [
+        // Returns a type-string.  In the real implementation
+        // tc_infer_expr calls tc_compatible internally — model that
+        // here too with valid string args.
+        {tag: "VarDecl", name: "_chk", type: "int",
+         expr: {tag: "Call", name: "tc_compatible",
+                args: [{tag: "Str", val: "int"},
+                       {tag: "Str", val: "int"}]}},
+        {tag: "Return", expr: {tag: "Str", val: "int"}}
+      ]
+    };
+
+    var check_stmt = {
+      name: "tc_check_stmt",
+      params: [{name: "s",            type: "any"},
+               {name: "tenv",         type: "any"},
+               {name: "fns",          type: "any"},
+               {name: "expected_ret", type: "string"},
+               {name: "issues",       type: "any"}],
+      return_type: "int",
+      body: [
+        // tc_check_stmt -> tc_infer_expr (real linkage)
+        {tag: "VarDecl", name: "_t", type: "string",
+         expr: {tag: "Call", name: "tc_infer_expr",
+                args: [{tag: "Var", name: "s"},
+                       {tag: "Var", name: "tenv"},
+                       {tag: "Var", name: "fns"},
+                       {tag: "Var", name: "issues"}]}},
+        {tag: "Return", expr: {tag: "Int", val: 0}}
+      ]
+    };
+
+    var check_list = {
+      name: "tc_check_stmt_list",
+      params: [{name: "stmts",        type: "any"},
+               {name: "tenv",         type: "any"},
+               {name: "fns",          type: "any"},
+               {name: "expected_ret", type: "string"},
+               {name: "issues",       type: "any"}],
+      return_type: "int",
+      body: [
+        // tc_check_stmt_list -> tc_check_stmt
+        {tag: "VarDecl", name: "_x", type: "int",
+         expr: {tag: "Call", name: "tc_check_stmt",
+                args: [{tag: "Var", name: "stmts"},
+                       {tag: "Var", name: "tenv"},
+                       {tag: "Var", name: "fns"},
+                       {tag: "Var", name: "expected_ret"},
+                       {tag: "Var", name: "issues"}]}},
+        {tag: "Return", expr: {tag: "Int", val: 0}}
+      ]
+    };
+
+    var check_fn = {
+      name: "tc_check_function",
+      params: [{name: "fn_decl", type: "any"},
+               {name: "fns",     type: "any"},
+               {name: "issues",  type: "any"}],
+      return_type: "int",
+      body: [
+        // tc_check_function -> tc_check_stmt_list
+        {tag: "VarDecl", name: "_y", type: "int",
+         expr: {tag: "Call", name: "tc_check_stmt_list",
+                args: [{tag: "Var", name: "fn_decl"},
+                       {tag: "Var", name: "fn_decl"},
+                       {tag: "Var", name: "fns"},
+                       {tag: "Str", val: "any"},
+                       {tag: "Var", name: "issues"}]}},
+        {tag: "Return", expr: {tag: "Int", val: 0}}
+      ]
+    };
+
+    var check_prog = {
+      name: "tc_check_program",
+      params: [{name: "prog", type: "any"}],
+      return_type: "any",
+      body: [
+        // tc_check_program -> tc_check_function
+        {tag: "VarDecl", name: "_z", type: "int",
+         expr: {tag: "Call", name: "tc_check_function",
+                args: [{tag: "Var", name: "prog"},
+                       {tag: "Var", name: "prog"},
+                       {tag: "Var", name: "prog"}]}},
+        {tag: "Return", expr: {tag: "Var", name: "prog"}}
+      ]
+    };
+
+    var self_prog = {
+      fns: [tc_compat, infer_expr, check_stmt, check_list, check_fn, check_prog],
+      main: []
+    };
+
+    var issues = tc_check_program(self_prog);
+    print("self-spec issues=" + array_len(issues));
+    var i = 0;
+    while (i < array_len(issues)) do {
+      print("  - " + array_get(issues, i));
+      i = i + 1;
+    }
+    print("(expected: 0 — typeck signatures are internally coherent)");
+
+    print("");
+    print("--- now intentionally break one rule to confirm detection ---");
+
+    // Construct a DELIBERATELY broken stub: tc_compatible called with
+    // (int, string) instead of (string, string).
+    var broken_caller = {
+      name: "broken_caller",
+      params: [{name: "p", type: "any"}],
+      return_type: "any",
+      body: [
+        {tag: "Return",
+         expr: {tag: "Call", name: "tc_compatible",
+                args: [{tag: "Int", val: 99},
+                       {tag: "Str", val: "string"}]}}
+      ]
+    };
+
+    var bad_prog = {
+      fns: [tc_compat, broken_caller],
+      main: []
+    };
+
+    var bad_issues = tc_check_program(bad_prog);
+    print("broken-caller issues=" + array_len(bad_issues));
+    var j = 0;
+    while (j < array_len(bad_issues)) do {
+      print("  - " + array_get(bad_issues, j));
+      j = j + 1;
+    }
+    print("(expected: 1 — int passed to string-annotated `expected`)");
+
+    // Aggregated count for smoke.sh (self-spec + broken).
+    var total_issues = array_len(issues) + array_len(bad_issues);
+    print("");
+    print("issues=" + total_issues);
+  }
+}
+
+var d = new Driver();
+send d.run();

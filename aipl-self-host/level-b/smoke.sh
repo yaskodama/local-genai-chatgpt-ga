@@ -11,6 +11,7 @@ declare -a SAMPLES=(
   "SampleTypeViolation.abcl      2"
   "SampleReturnViolation.abcl    1"
   "SampleUnion.abcl              1"
+  "SampleSelfConsistency.abcl    1"
 )
 
 pass=0; fail=0

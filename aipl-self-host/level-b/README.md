@@ -12,8 +12,8 @@ tail-first env idiom, but with one new dimension — types as strings.
 ```
 typeck.abcl     — the type checker (functions only, no actor)
 run.sh          — concats typeck + a sample, runs through host AIPL
-smoke.sh        — runs all 5 samples + verifies expected issue counts
-samples/        — typed AST programs (clean + 4 violation kinds)
+smoke.sh        — runs all 6 samples + verifies expected issue counts
+samples/        — typed AST programs (clean + 4 violation kinds + self-consistency)
 out/            — captured stdout per sample
 ```
 
@@ -45,6 +45,7 @@ A program is `{fns: [FunctionDecl], main: [stmt]}`.
 | union types `T1 | T2 | …`                       | `SampleUnion`                |
 | `any` wildcard accepts everything               | (used implicitly throughout) |
 | numeric promotion `int → float`                 | (used by `SampleUnion`)      |
+| typeck applied to itself                         | `SampleSelfConsistency`      |
 
 ## Run
 
@@ -55,8 +56,9 @@ bash run.sh   samples/SampleArityViolation.abcl
 bash run.sh   samples/SampleTypeViolation.abcl
 bash run.sh   samples/SampleReturnViolation.abcl
 bash run.sh   samples/SampleUnion.abcl
+bash run.sh   samples/SampleSelfConsistency.abcl
 
-# all five at once + count check
+# all six at once + count check
 bash smoke.sh
 ```
 
@@ -68,8 +70,24 @@ PASS  SampleArityViolation.abcl        issues=2
 PASS  SampleTypeViolation.abcl         issues=2
 PASS  SampleReturnViolation.abcl       issues=1
 PASS  SampleUnion.abcl                 issues=1
-Level B-1 typeck samples: 5 pass / 0 fail
+PASS  SampleSelfConsistency.abcl       issues=1
+Level B-1 typeck samples: 6 pass / 0 fail
 ```
+
+`SampleSelfConsistency` reports `issues=1` because the sample combines
+two checks:
+
+1. The typeck's own function signatures (`tc_compatible`, `tc_infer_expr`,
+   `tc_check_stmt`, `tc_check_stmt_list`, `tc_check_function`,
+   `tc_check_program`) are encoded as a typeck-AST and fed back into
+   `tc_check_program(self_spec)`. Result: **0 issues** — the typeck
+   accepts its own surface as type-coherent.
+2. A deliberately broken caller is then fed in (calls
+   `tc_compatible(99, "string")` — int instead of string).
+   Result: **1 issue** — the typeck flags it as expected.
+
+The smoke runner sums both (0 + 1 = 1) so a single
+`issues=` summary line stays comparable across the suite.
 
 ## Design notes
 
