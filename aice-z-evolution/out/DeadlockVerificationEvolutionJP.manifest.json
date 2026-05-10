@@ -1,0 +1,282 @@
+{
+  "name": "DeadlockVerificationEvolutionJP",
+  "dialect": "aice_evolution_v1",
+  "runtime": "ocaml_abcl_cplus",
+  "input": "aice-z-evolution/examples/DeadlockVerificationEvolutionJP.aice",
+  "abcl": "aice-z-evolution/out/DeadlockVerificationEvolutionJP.abcl",
+  "report": "aice-z-evolution/out/DeadlockVerificationEvolutionJP.report.md",
+  "final_archive": "ProvenAndCheckedWinner",
+  "stages": [
+    {
+      "name": "PrintDebug",
+      "order": 1,
+      "branch": "main",
+      "parents": [],
+      "archive": "PrintDebugWinner",
+      "genome": "verification_paradigm=print_debug; observation_method=human_log_reading; property_language=none; engine=in_process_AIPL; phil_layout=circular_naive; channel_kind=shared_mailbox; ownership=none; assurance_chain=none; counter_example_trace=none",
+      "mutations": "",
+      "crossover": "",
+      "focus": "correctness, paradigm_fit",
+      "candidates": [
+        {
+          "name": "D1",
+          "style": "print_each_send",
+          "prompt": "各 send/recv 直後に print し、デッドロックは目視で気付かせる。"
+        },
+        {
+          "name": "D2",
+          "style": "print_only_on_state",
+          "prompt": "got_lo / done / meals が変わったときだけ print する。"
+        },
+        {
+          "name": "D3",
+          "style": "print_with_step_count",
+          "prompt": "step 番号付きで print し、止まったら止まった step を記録する。"
+        }
+      ]
+    },
+    {
+      "name": "Assertion",
+      "order": 2,
+      "branch": "main",
+      "parents": [
+        "PrintDebugWinner"
+      ],
+      "archive": "AssertionWinner",
+      "genome": "verification_paradigm=runtime_assertion; observation_method=automatic_invariant_check; property_language=inline_boolean; engine=in_process_AIPL; phil_layout=circular_naive; assurance_chain=runtime_assert_only; counter_example_trace=last_failing_assert",
+      "mutations": "M1_Print_to_Assert",
+      "crossover": "",
+      "focus": "correctness, evolvability",
+      "candidates": [
+        {
+          "name": "AS1",
+          "style": "fork_assert_held_consistent",
+          "prompt": "Fork.held と queue 長さが矛盾しないことを各 method の出口で assert する。"
+        },
+        {
+          "name": "AS2",
+          "style": "phil_assert_meals_nonneg",
+          "prompt": "Phil.meals が負にならない、done==1 になったら meals==0 という invariant を assert する。"
+        },
+        {
+          "name": "AS3",
+          "style": "system_assert_no_double_grant",
+          "prompt": "1 つの fork が同時に 2 つの phil に granted を返さないことを assert する。"
+        }
+      ]
+    },
+    {
+      "name": "RandomFuzz",
+      "order": 3,
+      "branch": "main",
+      "parents": [
+        "AssertionWinner"
+      ],
+      "archive": "RandomFuzzWinner",
+      "genome": "verification_paradigm=random_fuzz_with_timeout; observation_method=repeated_runs_with_random_scheduling; property_language=inline_boolean_plus_timeout; engine=python_runner_with_seed; phil_layout=circular_naive; assurance_chain=fuzz_pass_rate; counter_example_trace=stuck_run_seed_only",
+      "mutations": "M2_Assert_to_Fuzz",
+      "crossover": "",
+      "focus": "correctness, scalability",
+      "candidates": [
+        {
+          "name": "F1",
+          "style": "fixed_seeds",
+          "prompt": "シード 0..99 で各 1 秒以内に終わることをチェックする。"
+        },
+        {
+          "name": "F2",
+          "style": "round_robin_vs_random",
+          "prompt": "ラウンドロビンと乱択スケジューラの両方で試す。"
+        },
+        {
+          "name": "F3",
+          "style": "shrink_failing_seed",
+          "prompt": "失敗したシードについて step 数を半分ずつ減らし、最小再現を出す。"
+        }
+      ]
+    },
+    {
+      "name": "BoundedModelCheck",
+      "order": 4,
+      "branch": "main",
+      "parents": [
+        "RandomFuzzWinner"
+      ],
+      "archive": "BoundedModelCheckWinner",
+      "genome": "verification_paradigm=bounded_BFS_state_search; coverage_method=exhaustive_within_depth_bound; property_language=LTL_lite; engine=python_aipl_modelcheck; phil_layout=circular_naive; assurance_chain=BFS_within_depth; counter_example_trace=per_step_world_snapshot",
+      "mutations": "M3_Fuzz_to_Bounded, M8_Add_LTL_Property, M9_Add_Counter_Example_Trace",
+      "crossover": "",
+      "focus": "correctness, counter_example_readability, scalability",
+      "candidates": [
+        {
+          "name": "B1",
+          "style": "depth_only_invariant_check",
+          "prompt": "depth=1000 で is_terminal をデッドロックとして検出する。"
+        },
+        {
+          "name": "B2",
+          "style": "ltl_safety_progress_pair",
+          "prompt": "G ¬all_hungry_holding_lo と F all_done を両方検査する。"
+        },
+        {
+          "name": "B3",
+          "style": "trace_with_visited_set",
+          "prompt": "visited set でメモリを抑えつつ反例トレースを保存する。"
+        }
+      ]
+    },
+    {
+      "name": "PromelaSPIN",
+      "order": 5,
+      "branch": "exhaustive_external_path",
+      "parents": [
+        "BoundedModelCheckWinner"
+      ],
+      "archive": "PromelaSPINWinner",
+      "genome": "verification_paradigm=SPIN_Promela_exhaustive; engine=external_compiled_pan; channel_model=bounded_chan_capacity; property_language=LTL_in_pml; phil_layout=circular_naive_for_naive_check; assurance_chain=spin_a_then_pan_a; counter_example_trace=spin_t_p_replay",
+      "mutations": "M4_Bounded_to_Promela, M8_Add_LTL_Property",
+      "crossover": "",
+      "focus": "correctness, executability, scalability",
+      "candidates": [
+        {
+          "name": "SP1",
+          "style": "minimal_qsize",
+          "prompt": "QSIZE=8 で 5 哲学者 naive のデッドロックを 132 状態で検出する。"
+        },
+        {
+          "name": "SP2",
+          "style": "fairness_off_default",
+          "prompt": "弱公平性を切って素直なデッドロック検出に絞る。"
+        },
+        {
+          "name": "SP3",
+          "style": "trail_replay_in_wrapper",
+          "prompt": "aipl_spin.sh が trail を spin -t -p で再生する。"
+        }
+      ]
+    },
+    {
+      "name": "TLAPlusTLC",
+      "order": 5,
+      "branch": "exhaustive_external_path",
+      "parents": [
+        "BoundedModelCheckWinner"
+      ],
+      "archive": "TLAPlusTLCWinner",
+      "genome": "verification_paradigm=TLA_TLC_declarative; engine=external_TLC; action_style=action_predicate_with_primes; mailbox_model=Sequences_with_Append_Tail; property_language=INVARIANT_NoDeadlock; phil_layout=circular_naive_for_naive_check; assurance_chain=tlc_with_check_deadlock_false; counter_example_trace=TLC_error_trace",
+      "mutations": "M5_Bounded_to_TLA, M8_Add_LTL_Property",
+      "crossover": "",
+      "focus": "correctness, type_safety, scalability",
+      "candidates": [
+        {
+          "name": "TL1",
+          "style": "per_class_actions_dispatch",
+          "prompt": "各 method を action 述語として出し、StepActor で dispatch する。"
+        },
+        {
+          "name": "TL2",
+          "style": "left_biased_at_at_init",
+          "prompt": "@@ の左バイアスに合わせて、初期 send を左、デフォルトを右に置く。"
+        },
+        {
+          "name": "TL3",
+          "style": "check_deadlock_false_cfg",
+          "prompt": "自然停止と真のデッドロックを区別するため CHECK_DEADLOCK FALSE を付ける。"
+        }
+      ]
+    },
+    {
+      "name": "OrderedAcquisition",
+      "order": 6,
+      "branch": "structural_fix_path",
+      "parents": [
+        "BoundedModelCheckWinner"
+      ],
+      "archive": "OrderedAcquisitionWinner",
+      "genome": "verification_paradigm=structural_prevention; fix_kind=ordered_resource_acquisition; phil_layout=ordered_lo_then_hi; engine=python_aipl_modelcheck; assurance_chain=BFS_passes_after_fix; counter_example_trace=none_after_fix",
+      "mutations": "M6_Symptom_to_Resource_Hierarchy",
+      "crossover": "C2_Bounded_to_OrderedFix_via_CounterExample",
+      "focus": "correctness, paradigm_fit, evolvability",
+      "candidates": [
+        {
+          "name": "OA1",
+          "style": "swap_last_phil_lo_hi",
+          "prompt": "最後の phil だけ (lo, hi) を入れ替えて lo < hi を全員に保たせる。"
+        },
+        {
+          "name": "OA2",
+          "style": "compute_lo_hi_from_min_max",
+          "prompt": "phil の引数 a,b から min/max を取り、lo=min, hi=max にする。"
+        },
+        {
+          "name": "OA3",
+          "style": "comment_explains_why",
+          "prompt": "Why-comment で「全員が lo<hi だと循環待ちが起きない」を残す。"
+        }
+      ]
+    },
+    {
+      "name": "TypedLinear",
+      "order": 7,
+      "branch": "structural_fix_path",
+      "parents": [
+        "OrderedAcquisitionWinner",
+        "BoundedModelCheckWinner"
+      ],
+      "archive": "TypedLinearWinner",
+      "genome": "verification_paradigm=typed_static_prevention; channel_kind=linear_owned_channel; ownership=by_type_system; fork_id_order=phantom_type; engine=AIPL_phase_11_to_15_type_checker; assurance_chain=type_check_only; counter_example_trace=type_error_message",
+      "mutations": "M7_Untyped_to_Linear_Channel",
+      "crossover": "C3_OrderedConvention_to_TypedLinear",
+      "focus": "type_safety, paradigm_fit, evolvability",
+      "candidates": [
+        {
+          "name": "TY1",
+          "style": "linear_fork_token",
+          "prompt": "Fork を線形トークンとして渡し、同時 2 重保持を型エラーにする。"
+        },
+        {
+          "name": "TY2",
+          "style": "phantom_lo_lt_hi",
+          "prompt": "fork id の半順序を phantom 型として持ち、lo より大きい id でしか hi に行けないようにする。"
+        },
+        {
+          "name": "TY3",
+          "style": "owned_channel_per_phil",
+          "prompt": "各 phil が自分の fork ペアを所有するチャネルとして表し、shared mailbox を排除する。"
+        }
+      ]
+    },
+    {
+      "name": "ProvenAndChecked",
+      "order": 8,
+      "branch": "join",
+      "parents": [
+        "TypedLinearWinner",
+        "PromelaSPINWinner",
+        "TLAPlusTLCWinner"
+      ],
+      "archive": "ProvenAndCheckedWinner",
+      "genome": "verification_paradigm=typed_plus_externally_checked; assurance_chain=type_check_then_SPIN_then_TLC; engine=AIPL_typecheck_plus_aipl_to_promela_plus_aipl_to_tla; phil_layout=ordered_lo_then_hi_typed; counter_example_trace=none_at_any_layer",
+      "mutations": "M10_Combine_Typed_and_Checked",
+      "crossover": "C1_SPIN_TLA_to_BackendAbstraction",
+      "focus": "correctness, type_safety, scalability, evolvability",
+      "candidates": [
+        {
+          "name": "PC1",
+          "style": "type_first_then_export",
+          "prompt": "まず Phase 11–15 で型検査し、通った版だけを SPIN と TLA+ に流す。"
+        },
+        {
+          "name": "PC2",
+          "style": "single_command_make_target",
+          "prompt": "make verify が型検査・SPIN・TLA+ を順に走らせ、すべて 0 違反で成功とする。"
+        },
+        {
+          "name": "PC3",
+          "style": "shared_backend_abstraction",
+          "prompt": "aipl_to_promela と aipl_to_tla を共通 backend trait の下に置き、同じ AIPL から両方を出す。"
+        }
+      ]
+    }
+  ]
+}

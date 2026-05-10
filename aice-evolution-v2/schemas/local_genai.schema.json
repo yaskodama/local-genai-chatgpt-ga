@@ -1,0 +1,105 @@
+{
+  "name": "local_genai",
+  "axes": {
+    "model_family": [
+      "ngram_count",
+      "char_rnn",
+      "single_block_transformer",
+      "multi_block_transformer",
+      "distilled_compact",
+      "preference_tuned_compact",
+      "self_evolving_compact"
+    ],
+    "positional": [
+      "none",
+      "implicit_recurrence",
+      "learned_absolute",
+      "rope",
+      "sinusoidal"
+    ],
+    "normalization": [
+      "none",
+      "layernorm",
+      "rmsnorm"
+    ],
+    "regularization": [
+      "none",
+      "dropout"
+    ],
+    "inference_optimization": [
+      "none",
+      "kv_cache",
+      "kv_cache_plus_int8"
+    ],
+    "training_paradigm": [
+      "count_normalize",
+      "maximum_likelihood_sgd",
+      "distillation",
+      "distillation_plus_dpo",
+      "self_proposed_mutation"
+    ],
+    "self_evolution": [
+      "none",
+      "model_proposes_three_mutations",
+      "model_writes_full_stage",
+      "model_critiques_then_proposes"
+    ],
+    "engine": [
+      "numpy_only",
+      "pytorch_cpu",
+      "pytorch_cpu_or_mps",
+      "pytorch_mps"
+    ],
+    "param_class": [
+      "32K",
+      "100K",
+      "1M",
+      "3M",
+      "10M"
+    ]
+  },
+  "ordinal_axes": {
+    "param_class": ["32K", "100K", "1M", "3M", "10M"],
+    "regularization": ["none", "dropout"],
+    "inference_optimization": ["none", "kv_cache", "kv_cache_plus_int8"],
+    "training_paradigm": [
+      "count_normalize",
+      "maximum_likelihood_sgd",
+      "distillation",
+      "distillation_plus_dpo",
+      "self_proposed_mutation"
+    ],
+    "self_evolution": [
+      "none",
+      "model_critiques_then_proposes",
+      "model_proposes_three_mutations",
+      "model_writes_full_stage"
+    ]
+  },
+  "coherence": [
+    {"if": {"model_family": "ngram_count"},
+     "then": {"positional": "none", "normalization": "none", "regularization": "none",
+              "inference_optimization": "none", "training_paradigm": "count_normalize",
+              "self_evolution": "none", "engine": "numpy_only", "param_class": "32K"}},
+    {"if": {"model_family": "char_rnn"},
+     "then": {"positional": "implicit_recurrence", "normalization": "none",
+              "training_paradigm": "maximum_likelihood_sgd"}},
+    {"if": {"model_family": "single_block_transformer"},
+     "then_in": {"positional": ["learned_absolute", "rope", "sinusoidal"],
+                 "normalization": ["layernorm", "rmsnorm"]}},
+    {"if": {"model_family": "multi_block_transformer"},
+     "then_in": {"positional": ["learned_absolute", "rope", "sinusoidal"],
+                 "normalization": ["layernorm", "rmsnorm"],
+                 "regularization": ["dropout"]}},
+    {"if": {"model_family": "distilled_compact"},
+     "then": {"training_paradigm": "distillation"}},
+    {"if": {"model_family": "preference_tuned_compact"},
+     "then": {"training_paradigm": "distillation_plus_dpo"}},
+    {"if": {"model_family": "self_evolving_compact"},
+     "then": {"training_paradigm": "self_proposed_mutation"},
+     "then_not": {"self_evolution": "none"}},
+    {"if": {"training_paradigm": "self_proposed_mutation"},
+     "then": {"model_family": "self_evolving_compact"}}
+  ],
+  "open_axes": true
+}

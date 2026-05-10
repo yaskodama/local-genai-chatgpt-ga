@@ -1,0 +1,128 @@
+{
+  "name": "LocalGenAIEvolutionJP",
+  "task": "ローカル MacBook (M2, MPS, 16GB RAM) のみで動く byte 単位の生成 AI を、 設計推定式 (params, FLOPs, memory, expected_ppl) を根拠に MAP-Elites で並列探索する. cell は (model_family, training_paradigm, param_class) の 3 軸で切り、 各セル champion を 3 レビュアー (言語品質 / 効率 / 再現性) で採点する. 共通評価プロトコルは [TinyShakespeare-100KB, 95-5 split, byte-ppl, seed=42, no_external_api, <=30min/candidate]. 終端目標は (self_evolving_compact, self_proposed_mutation, 3M) セルが 3 レビュアー累積点で Pareto front を支配し、 半自動の進化ループが成立すること.",
+  "schema_ref": "schemas/local_genai.schema.json",
+  "search": {
+    "algorithm": "map_elites",
+    "cell_axes": [
+      "model_family",
+      "training_paradigm",
+      "param_class"
+    ],
+    "generations": 30,
+    "seed_count": 8,
+    "open_axes": true,
+    "rng_seed": 42
+  },
+  "operators": {
+    "mutations": [
+      {
+        "name": "axis_resample",
+        "kind": "single_axis",
+        "weight": 0.45
+      },
+      {
+        "name": "coherent_paradigm_shift",
+        "kind": "multi_axis_correlated",
+        "weight": 0.25
+      },
+      {
+        "name": "llm_proposal",
+        "kind": "llm_directed",
+        "weight": 0.25
+      },
+      {
+        "name": "llm_new_axis",
+        "kind": "llm_directed",
+        "weight": 0.05
+      }
+    ],
+    "crossovers": [
+      {
+        "name": "uniform",
+        "kind": "axis_uniform",
+        "weight": 0.5
+      },
+      {
+        "name": "one_point",
+        "kind": "schema_partition",
+        "weight": 0.5
+      },
+      {
+        "name": "llm_merge",
+        "kind": "llm_directed",
+        "weight": 0.0
+      }
+    ]
+  },
+  "evaluation": {
+    "tasks": [
+      "ByteShakespearePPL",
+      "TrainTimeUnder30min",
+      "ParamBudgetWithinClass",
+      "ReproducibilityChecklist",
+      "SelfEvolutionDryRun"
+    ],
+    "evaluator": "mock_v1",
+    "reviewers": [
+      {
+        "name": "Quality",
+        "persona": "あなたは言語品質レビュアーです. 候補ジェノムから expected_holdout_ppl を推定し (32K: 8-10, 100K: 6-7, 1M: 5-5.5, 3M: 4-4.5, 10M: 3.8-4.2), ジェノム内の他軸 (positional, normalization, regularization) との整合性を確認します. 採点は 4 軸 [holdout_ppl 期待値 / 学習 loss 推移の合理性 / 退化モード耐性 / 世代相応サイズ] でそれぞれ 0-3 点、 計 0-12 点. 最後に最良候補番号を 1 行で返します.",
+        "weight": 0.3333333333333333
+      },
+      {
+        "name": "Efficiency",
+        "persona": "あなたは効率レビュアーです. 候補ジェノムから (params, flops_per_token, activation_mem, train_time_estimate) を共通設計推定式で再計算し、 param_class 軸上限を超えていないか、 inference_optimization の効果が量に見合うかを確認します. 採点は 4 軸 [ppl_per_param / param 上限内 / train_time<=30min / inference 改善] それぞれ 0-3 点、 計 0-12 点. 最後に最良候補番号を 1 行で返します.",
+        "weight": 0.3333333333333333
+      },
+      {
+        "name": "Reproducibility",
+        "persona": "あなたは再現性レビュアーです. 採点は 5 軸 [seed 固定 / corpus SHA-256 ロック / 外部 API 不使用 / 依存最小 / 単一スクリプト] それぞれ 0-2 点、 計 0-10 点. self_evolution!=none の候補は SelfEvolutionDryRun タスクの結果も加点要素にします. 最後に最良候補番号を 1 行で返します.",
+        "weight": 0.3333333333333333
+      }
+    ]
+  },
+  "meta_fitness": {
+    "trend_alignment": 0.2,
+    "frontier_coverage": 0.2,
+    "novelty": 0.1,
+    "evolvability": 0.2,
+    "cross_task_generality": 0.15,
+    "implementability": 0.15
+  },
+  "ranking": {
+    "strategy": "pareto_then_pairwise",
+    "scenarios": [
+      "conservative",
+      "innovative",
+      "general_purpose"
+    ],
+    "scenario_weights": {
+      "conservative": {
+        "trend_alignment": 0.45,
+        "cross_task_generality": 0.2,
+        "implementability": 0.15,
+        "evolvability": 0.1,
+        "frontier_coverage": 0.05,
+        "novelty": 0.05
+      },
+      "innovative": {
+        "novelty": 0.35,
+        "frontier_coverage": 0.3,
+        "evolvability": 0.15,
+        "trend_alignment": 0.05,
+        "cross_task_generality": 0.1,
+        "implementability": 0.05
+      },
+      "general_purpose": {
+        "cross_task_generality": 0.4,
+        "implementability": 0.2,
+        "trend_alignment": 0.15,
+        "evolvability": 0.1,
+        "frontier_coverage": 0.1,
+        "novelty": 0.05
+      }
+    },
+    "top_k": 3
+  }
+}

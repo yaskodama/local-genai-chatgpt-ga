@@ -1,0 +1,276 @@
+// DeadlockVerificationEvolutionJP.aice から自動変換した AIPL(AIPL) プログラム。
+// 入力 dialect: aice_evolution_v1
+// 形式チェックは外部工程。このプログラムは進化計算、3候補生成、3レビュー、選択、アーカイブ出力を行う。
+
+class DeadlockVerificationEvolutionJP {
+  var task = "ダイニング哲学者問題のデッドロックを、検証パラダイムの段階的進化として扱う。素朴な print デバッグから、実行時 assertion、ファズテスト、有界モデル検査、SPIN/Promela、TLA+/TLC、構造的修正、線形型による予防まで、それぞれの世代で哲学者プログラムをどう書き、どう検査するかを示す。最終世代では、線形型で構築上デッドロック不能な版が、SPIN と TLA+ の両方で 0 違反として確認される。";
+  var generator_persona = "あなたは進化計算の候補生成器です。指定された世代、親、遺伝子、突然変異、交叉に合う短い候補プログラムを1つ生成してください。説明は日本語で、候補コードは指定パラダイムに合わせて書いてください。最後に IMPROVES 行を1行だけ付けてください。";
+  var reviewer1_persona = "あなたは正しさレビュアーです。3つの候補を、ダイニング哲学者問題のデッドロック検出または予防という観点から評価してください。生 5 哲学者の素朴版で必ずデッドロックが見えること、ordered 版でデッドロックが報告されないことを優先します。簡潔な点数と最良候補番号を返してください。";
+  var reviewer2_persona = "あなたはパラダイムレビュアーです。3つの候補を、その世代の検証パラダイム（print/assert/fuzz/bounded/SPIN/TLA+/structural/typed）に忠実か、世代の手法を慣用的に使えているか、その世代でしか書けない強みが出ているかで評価してください。簡潔な点数と最良候補番号を返してください。";
+  var reviewer3_persona = "あなたは実装レビュアーです。3つの候補を、再現性（同じコマンドで同じ結果が出るか）、最小手順、状態空間サイズに対するスケーラビリティ、反例の読みやすさで評価してください。簡潔な点数と最良候補番号を返してください。";
+  var selector_persona = "あなたは選択器です。3つの候補と3つのレビューを読み、最良候補を1つ選んでください。出力は 1|2|3 のどれかだけにしてください。";
+  var weights = "correctness=0.30, executability=0.15, paradigm_fit=0.15, scalability=0.15, counter_example_readability=0.10, type_safety=0.10, evolvability=0.05";
+
+  method run() {
+    print("===== DeadlockVerificationEvolutionJP =====");
+    print("dialect = aice_evolution_v1");
+    print("経路 = PrintDebug -> Assertion -> RandomFuzz -> BoundedModelCheck -> fork { PromelaSPIN -> TLAPlusTLC, OrderedAcquisition -> TypedLinear } -> ProvenAndChecked");
+    print("候補数 = 3");
+    print("レビュアー数 = 3");
+    print("評価重み = " + weights);
+    print("");
+
+    print("===== 世代1: PrintDebug =====");
+    print("branch: main");
+    print("遺伝子: verification_paradigm=print_debug; observation_method=human_log_reading; property_language=none; engine=in_process_AIPL; phil_layout=circular_naive; channel_kind=shared_mailbox; ownership=none; assurance_chain=none; counter_example_trace=none");
+    print("突然変異: なし");
+    print("交叉: なし");
+    var printdebug_base = task + "\n\n世代: PrintDebug\nbranch: main\narchive: PrintDebugWinner\n遺伝子: verification_paradigm=print_debug; observation_method=human_log_reading; property_language=none; engine=in_process_AIPL; phil_layout=circular_naive; channel_kind=shared_mailbox; ownership=none; assurance_chain=none; counter_example_trace=none\n突然変異: なし\n交叉: なし\n評価観点: correctness, paradigm_fit";
+    var printdebug_1 = ai_call_with_system(generator_persona, printdebug_base + "\n候補1 id=D1 style=print_each_send。各 send/recv 直後に print し、デッドロックは目視で気付かせる。");
+    var printdebug_2 = ai_call_with_system(generator_persona, printdebug_base + "\n候補2 id=D2 style=print_only_on_state。got_lo / done / meals が変わったときだけ print する。");
+    var printdebug_3 = ai_call_with_system(generator_persona, printdebug_base + "\n候補3 id=D3 style=print_with_step_count。step 番号付きで print し、止まったら止まった step を記録する。");
+    print("--- PrintDebug candidate 1 ---"); print(printdebug_1);
+    print("--- PrintDebug candidate 2 ---"); print(printdebug_2);
+    print("--- PrintDebug candidate 3 ---"); print(printdebug_3);
+    var printdebug_payload = "世代 PrintDebug\\n候補:\\n1:\\n" + printdebug_1 + "\n\n2:\n" + printdebug_2 + "\n\n3:\n" + printdebug_3;
+    var printdebug_r1 = ai_call_with_system(reviewer1_persona, printdebug_payload);
+    var printdebug_r2 = ai_call_with_system(reviewer2_persona, printdebug_payload);
+    var printdebug_r3 = ai_call_with_system(reviewer3_persona, printdebug_payload);
+    print("[review CorrectnessReviewer PrintDebug]"); print(printdebug_r1);
+    print("[review ParadigmReviewer PrintDebug]"); print(printdebug_r2);
+    print("[review EngineeringReviewer PrintDebug]"); print(printdebug_r3);
+    var printdebug_pick = ai_call_with_system(selector_persona, printdebug_payload + "\n\nレビュー:\n" + printdebug_r1 + "\n" + printdebug_r2 + "\n" + printdebug_r3);
+    var PrintDebugWinner = printdebug_1;
+    if (printdebug_pick == "2") { PrintDebugWinner = printdebug_2; }
+    if (printdebug_pick == "3") { PrintDebugWinner = printdebug_3; }
+    print("[selector picked PrintDebug: " + printdebug_pick + "]");
+    print("[aice/archive] BEGIN PrintDebugWinner"); print(PrintDebugWinner); print("[aice/archive] END PrintDebugWinner");
+    print("");
+
+    print("===== 世代2: Assertion =====");
+    print("branch: main");
+    print("遺伝子: verification_paradigm=runtime_assertion; observation_method=automatic_invariant_check; property_language=inline_boolean; engine=in_process_AIPL; phil_layout=circular_naive; assurance_chain=runtime_assert_only; counter_example_trace=last_failing_assert");
+    print("突然変異: M1_Print_to_Assert");
+    print("交叉: なし");
+    var assertion_base = task + "\n\n世代: Assertion\nbranch: main\narchive: AssertionWinner\n遺伝子: verification_paradigm=runtime_assertion; observation_method=automatic_invariant_check; property_language=inline_boolean; engine=in_process_AIPL; phil_layout=circular_naive; assurance_chain=runtime_assert_only; counter_example_trace=last_failing_assert\n突然変異: M1_Print_to_Assert\n交叉: なし\n評価観点: correctness, evolvability\n親: PrintDebugWinner" + "\n\n親 PrintDebugWinner:\n" + PrintDebugWinner;
+    var assertion_1 = ai_call_with_system(generator_persona, assertion_base + "\n候補1 id=AS1 style=fork_assert_held_consistent。Fork.held と queue 長さが矛盾しないことを各 method の出口で assert する。");
+    var assertion_2 = ai_call_with_system(generator_persona, assertion_base + "\n候補2 id=AS2 style=phil_assert_meals_nonneg。Phil.meals が負にならない、done==1 になったら meals==0 という invariant を assert する。");
+    var assertion_3 = ai_call_with_system(generator_persona, assertion_base + "\n候補3 id=AS3 style=system_assert_no_double_grant。1 つの fork が同時に 2 つの phil に granted を返さないことを assert する。");
+    print("--- Assertion candidate 1 ---"); print(assertion_1);
+    print("--- Assertion candidate 2 ---"); print(assertion_2);
+    print("--- Assertion candidate 3 ---"); print(assertion_3);
+    var assertion_payload = "世代 Assertion\\n候補:\\n1:\\n" + assertion_1 + "\n\n2:\n" + assertion_2 + "\n\n3:\n" + assertion_3;
+    var assertion_r1 = ai_call_with_system(reviewer1_persona, assertion_payload);
+    var assertion_r2 = ai_call_with_system(reviewer2_persona, assertion_payload);
+    var assertion_r3 = ai_call_with_system(reviewer3_persona, assertion_payload);
+    print("[review CorrectnessReviewer Assertion]"); print(assertion_r1);
+    print("[review ParadigmReviewer Assertion]"); print(assertion_r2);
+    print("[review EngineeringReviewer Assertion]"); print(assertion_r3);
+    var assertion_pick = ai_call_with_system(selector_persona, assertion_payload + "\n\nレビュー:\n" + assertion_r1 + "\n" + assertion_r2 + "\n" + assertion_r3);
+    var AssertionWinner = assertion_1;
+    if (assertion_pick == "2") { AssertionWinner = assertion_2; }
+    if (assertion_pick == "3") { AssertionWinner = assertion_3; }
+    print("[selector picked Assertion: " + assertion_pick + "]");
+    print("[aice/archive] BEGIN AssertionWinner"); print(AssertionWinner); print("[aice/archive] END AssertionWinner");
+    print("");
+
+    print("===== fork from AssertionWinner =====");
+    print("");
+
+    print("===== 世代3: RandomFuzz =====");
+    print("branch: main");
+    print("遺伝子: verification_paradigm=random_fuzz_with_timeout; observation_method=repeated_runs_with_random_scheduling; property_language=inline_boolean_plus_timeout; engine=python_runner_with_seed; phil_layout=circular_naive; assurance_chain=fuzz_pass_rate; counter_example_trace=stuck_run_seed_only");
+    print("突然変異: M2_Assert_to_Fuzz");
+    print("交叉: なし");
+    var randomfuzz_base = task + "\n\n世代: RandomFuzz\nbranch: main\narchive: RandomFuzzWinner\n遺伝子: verification_paradigm=random_fuzz_with_timeout; observation_method=repeated_runs_with_random_scheduling; property_language=inline_boolean_plus_timeout; engine=python_runner_with_seed; phil_layout=circular_naive; assurance_chain=fuzz_pass_rate; counter_example_trace=stuck_run_seed_only\n突然変異: M2_Assert_to_Fuzz\n交叉: なし\n評価観点: correctness, scalability\n親: AssertionWinner" + "\n\n親 AssertionWinner:\n" + AssertionWinner;
+    var randomfuzz_1 = ai_call_with_system(generator_persona, randomfuzz_base + "\n候補1 id=F1 style=fixed_seeds。シード 0..99 で各 1 秒以内に終わることをチェックする。");
+    var randomfuzz_2 = ai_call_with_system(generator_persona, randomfuzz_base + "\n候補2 id=F2 style=round_robin_vs_random。ラウンドロビンと乱択スケジューラの両方で試す。");
+    var randomfuzz_3 = ai_call_with_system(generator_persona, randomfuzz_base + "\n候補3 id=F3 style=shrink_failing_seed。失敗したシードについて step 数を半分ずつ減らし、最小再現を出す。");
+    print("--- RandomFuzz candidate 1 ---"); print(randomfuzz_1);
+    print("--- RandomFuzz candidate 2 ---"); print(randomfuzz_2);
+    print("--- RandomFuzz candidate 3 ---"); print(randomfuzz_3);
+    var randomfuzz_payload = "世代 RandomFuzz\\n候補:\\n1:\\n" + randomfuzz_1 + "\n\n2:\n" + randomfuzz_2 + "\n\n3:\n" + randomfuzz_3;
+    var randomfuzz_r1 = ai_call_with_system(reviewer1_persona, randomfuzz_payload);
+    var randomfuzz_r2 = ai_call_with_system(reviewer2_persona, randomfuzz_payload);
+    var randomfuzz_r3 = ai_call_with_system(reviewer3_persona, randomfuzz_payload);
+    print("[review CorrectnessReviewer RandomFuzz]"); print(randomfuzz_r1);
+    print("[review ParadigmReviewer RandomFuzz]"); print(randomfuzz_r2);
+    print("[review EngineeringReviewer RandomFuzz]"); print(randomfuzz_r3);
+    var randomfuzz_pick = ai_call_with_system(selector_persona, randomfuzz_payload + "\n\nレビュー:\n" + randomfuzz_r1 + "\n" + randomfuzz_r2 + "\n" + randomfuzz_r3);
+    var RandomFuzzWinner = randomfuzz_1;
+    if (randomfuzz_pick == "2") { RandomFuzzWinner = randomfuzz_2; }
+    if (randomfuzz_pick == "3") { RandomFuzzWinner = randomfuzz_3; }
+    print("[selector picked RandomFuzz: " + randomfuzz_pick + "]");
+    print("[aice/archive] BEGIN RandomFuzzWinner"); print(RandomFuzzWinner); print("[aice/archive] END RandomFuzzWinner");
+    print("");
+
+    print("===== 世代4: BoundedModelCheck =====");
+    print("branch: main");
+    print("遺伝子: verification_paradigm=bounded_BFS_state_search; coverage_method=exhaustive_within_depth_bound; property_language=LTL_lite; engine=python_aipl_modelcheck; phil_layout=circular_naive; assurance_chain=BFS_within_depth; counter_example_trace=per_step_world_snapshot");
+    print("突然変異: M3_Fuzz_to_Bounded, M8_Add_LTL_Property, M9_Add_Counter_Example_Trace");
+    print("交叉: なし");
+    var boundedmodelcheck_base = task + "\n\n世代: BoundedModelCheck\nbranch: main\narchive: BoundedModelCheckWinner\n遺伝子: verification_paradigm=bounded_BFS_state_search; coverage_method=exhaustive_within_depth_bound; property_language=LTL_lite; engine=python_aipl_modelcheck; phil_layout=circular_naive; assurance_chain=BFS_within_depth; counter_example_trace=per_step_world_snapshot\n突然変異: M3_Fuzz_to_Bounded, M8_Add_LTL_Property, M9_Add_Counter_Example_Trace\n交叉: なし\n評価観点: correctness, counter_example_readability, scalability\n親: RandomFuzzWinner" + "\n\n親 RandomFuzzWinner:\n" + RandomFuzzWinner;
+    var boundedmodelcheck_1 = ai_call_with_system(generator_persona, boundedmodelcheck_base + "\n候補1 id=B1 style=depth_only_invariant_check。depth=1000 で is_terminal をデッドロックとして検出する。");
+    var boundedmodelcheck_2 = ai_call_with_system(generator_persona, boundedmodelcheck_base + "\n候補2 id=B2 style=ltl_safety_progress_pair。G ¬all_hungry_holding_lo と F all_done を両方検査する。");
+    var boundedmodelcheck_3 = ai_call_with_system(generator_persona, boundedmodelcheck_base + "\n候補3 id=B3 style=trace_with_visited_set。visited set でメモリを抑えつつ反例トレースを保存する。");
+    print("--- BoundedModelCheck candidate 1 ---"); print(boundedmodelcheck_1);
+    print("--- BoundedModelCheck candidate 2 ---"); print(boundedmodelcheck_2);
+    print("--- BoundedModelCheck candidate 3 ---"); print(boundedmodelcheck_3);
+    var boundedmodelcheck_payload = "世代 BoundedModelCheck\\n候補:\\n1:\\n" + boundedmodelcheck_1 + "\n\n2:\n" + boundedmodelcheck_2 + "\n\n3:\n" + boundedmodelcheck_3;
+    var boundedmodelcheck_r1 = ai_call_with_system(reviewer1_persona, boundedmodelcheck_payload);
+    var boundedmodelcheck_r2 = ai_call_with_system(reviewer2_persona, boundedmodelcheck_payload);
+    var boundedmodelcheck_r3 = ai_call_with_system(reviewer3_persona, boundedmodelcheck_payload);
+    print("[review CorrectnessReviewer BoundedModelCheck]"); print(boundedmodelcheck_r1);
+    print("[review ParadigmReviewer BoundedModelCheck]"); print(boundedmodelcheck_r2);
+    print("[review EngineeringReviewer BoundedModelCheck]"); print(boundedmodelcheck_r3);
+    var boundedmodelcheck_pick = ai_call_with_system(selector_persona, boundedmodelcheck_payload + "\n\nレビュー:\n" + boundedmodelcheck_r1 + "\n" + boundedmodelcheck_r2 + "\n" + boundedmodelcheck_r3);
+    var BoundedModelCheckWinner = boundedmodelcheck_1;
+    if (boundedmodelcheck_pick == "2") { BoundedModelCheckWinner = boundedmodelcheck_2; }
+    if (boundedmodelcheck_pick == "3") { BoundedModelCheckWinner = boundedmodelcheck_3; }
+    print("[selector picked BoundedModelCheck: " + boundedmodelcheck_pick + "]");
+    print("[aice/archive] BEGIN BoundedModelCheckWinner"); print(BoundedModelCheckWinner); print("[aice/archive] END BoundedModelCheckWinner");
+    print("");
+
+    print("===== 世代5: PromelaSPIN =====");
+    print("branch: exhaustive_external_path");
+    print("遺伝子: verification_paradigm=SPIN_Promela_exhaustive; engine=external_compiled_pan; channel_model=bounded_chan_capacity; property_language=LTL_in_pml; phil_layout=circular_naive_for_naive_check; assurance_chain=spin_a_then_pan_a; counter_example_trace=spin_t_p_replay");
+    print("突然変異: M4_Bounded_to_Promela, M8_Add_LTL_Property");
+    print("交叉: なし");
+    var promelaspin_base = task + "\n\n世代: PromelaSPIN\nbranch: exhaustive_external_path\narchive: PromelaSPINWinner\n遺伝子: verification_paradigm=SPIN_Promela_exhaustive; engine=external_compiled_pan; channel_model=bounded_chan_capacity; property_language=LTL_in_pml; phil_layout=circular_naive_for_naive_check; assurance_chain=spin_a_then_pan_a; counter_example_trace=spin_t_p_replay\n突然変異: M4_Bounded_to_Promela, M8_Add_LTL_Property\n交叉: なし\n評価観点: correctness, executability, scalability\n親: BoundedModelCheckWinner" + "\n\n親 BoundedModelCheckWinner:\n" + BoundedModelCheckWinner;
+    var promelaspin_1 = ai_call_with_system(generator_persona, promelaspin_base + "\n候補1 id=SP1 style=minimal_qsize。QSIZE=8 で 5 哲学者 naive のデッドロックを 132 状態で検出する。");
+    var promelaspin_2 = ai_call_with_system(generator_persona, promelaspin_base + "\n候補2 id=SP2 style=fairness_off_default。弱公平性を切って素直なデッドロック検出に絞る。");
+    var promelaspin_3 = ai_call_with_system(generator_persona, promelaspin_base + "\n候補3 id=SP3 style=trail_replay_in_wrapper。aipl_spin.sh が trail を spin -t -p で再生する。");
+    print("--- PromelaSPIN candidate 1 ---"); print(promelaspin_1);
+    print("--- PromelaSPIN candidate 2 ---"); print(promelaspin_2);
+    print("--- PromelaSPIN candidate 3 ---"); print(promelaspin_3);
+    var promelaspin_payload = "世代 PromelaSPIN\\n候補:\\n1:\\n" + promelaspin_1 + "\n\n2:\n" + promelaspin_2 + "\n\n3:\n" + promelaspin_3;
+    var promelaspin_r1 = ai_call_with_system(reviewer1_persona, promelaspin_payload);
+    var promelaspin_r2 = ai_call_with_system(reviewer2_persona, promelaspin_payload);
+    var promelaspin_r3 = ai_call_with_system(reviewer3_persona, promelaspin_payload);
+    print("[review CorrectnessReviewer PromelaSPIN]"); print(promelaspin_r1);
+    print("[review ParadigmReviewer PromelaSPIN]"); print(promelaspin_r2);
+    print("[review EngineeringReviewer PromelaSPIN]"); print(promelaspin_r3);
+    var promelaspin_pick = ai_call_with_system(selector_persona, promelaspin_payload + "\n\nレビュー:\n" + promelaspin_r1 + "\n" + promelaspin_r2 + "\n" + promelaspin_r3);
+    var PromelaSPINWinner = promelaspin_1;
+    if (promelaspin_pick == "2") { PromelaSPINWinner = promelaspin_2; }
+    if (promelaspin_pick == "3") { PromelaSPINWinner = promelaspin_3; }
+    print("[selector picked PromelaSPIN: " + promelaspin_pick + "]");
+    print("[aice/archive] BEGIN PromelaSPINWinner"); print(PromelaSPINWinner); print("[aice/archive] END PromelaSPINWinner");
+    print("");
+
+    print("===== 世代5: TLAPlusTLC =====");
+    print("branch: exhaustive_external_path");
+    print("遺伝子: verification_paradigm=TLA_TLC_declarative; engine=external_TLC; action_style=action_predicate_with_primes; mailbox_model=Sequences_with_Append_Tail; property_language=INVARIANT_NoDeadlock; phil_layout=circular_naive_for_naive_check; assurance_chain=tlc_with_check_deadlock_false; counter_example_trace=TLC_error_trace");
+    print("突然変異: M5_Bounded_to_TLA, M8_Add_LTL_Property");
+    print("交叉: なし");
+    var tlaplustlc_base = task + "\n\n世代: TLAPlusTLC\nbranch: exhaustive_external_path\narchive: TLAPlusTLCWinner\n遺伝子: verification_paradigm=TLA_TLC_declarative; engine=external_TLC; action_style=action_predicate_with_primes; mailbox_model=Sequences_with_Append_Tail; property_language=INVARIANT_NoDeadlock; phil_layout=circular_naive_for_naive_check; assurance_chain=tlc_with_check_deadlock_false; counter_example_trace=TLC_error_trace\n突然変異: M5_Bounded_to_TLA, M8_Add_LTL_Property\n交叉: なし\n評価観点: correctness, type_safety, scalability\n親: BoundedModelCheckWinner" + "\n\n親 BoundedModelCheckWinner:\n" + BoundedModelCheckWinner;
+    var tlaplustlc_1 = ai_call_with_system(generator_persona, tlaplustlc_base + "\n候補1 id=TL1 style=per_class_actions_dispatch。各 method を action 述語として出し、StepActor で dispatch する。");
+    var tlaplustlc_2 = ai_call_with_system(generator_persona, tlaplustlc_base + "\n候補2 id=TL2 style=left_biased_at_at_init。@@ の左バイアスに合わせて、初期 send を左、デフォルトを右に置く。");
+    var tlaplustlc_3 = ai_call_with_system(generator_persona, tlaplustlc_base + "\n候補3 id=TL3 style=check_deadlock_false_cfg。自然停止と真のデッドロックを区別するため CHECK_DEADLOCK FALSE を付ける。");
+    print("--- TLAPlusTLC candidate 1 ---"); print(tlaplustlc_1);
+    print("--- TLAPlusTLC candidate 2 ---"); print(tlaplustlc_2);
+    print("--- TLAPlusTLC candidate 3 ---"); print(tlaplustlc_3);
+    var tlaplustlc_payload = "世代 TLAPlusTLC\\n候補:\\n1:\\n" + tlaplustlc_1 + "\n\n2:\n" + tlaplustlc_2 + "\n\n3:\n" + tlaplustlc_3;
+    var tlaplustlc_r1 = ai_call_with_system(reviewer1_persona, tlaplustlc_payload);
+    var tlaplustlc_r2 = ai_call_with_system(reviewer2_persona, tlaplustlc_payload);
+    var tlaplustlc_r3 = ai_call_with_system(reviewer3_persona, tlaplustlc_payload);
+    print("[review CorrectnessReviewer TLAPlusTLC]"); print(tlaplustlc_r1);
+    print("[review ParadigmReviewer TLAPlusTLC]"); print(tlaplustlc_r2);
+    print("[review EngineeringReviewer TLAPlusTLC]"); print(tlaplustlc_r3);
+    var tlaplustlc_pick = ai_call_with_system(selector_persona, tlaplustlc_payload + "\n\nレビュー:\n" + tlaplustlc_r1 + "\n" + tlaplustlc_r2 + "\n" + tlaplustlc_r3);
+    var TLAPlusTLCWinner = tlaplustlc_1;
+    if (tlaplustlc_pick == "2") { TLAPlusTLCWinner = tlaplustlc_2; }
+    if (tlaplustlc_pick == "3") { TLAPlusTLCWinner = tlaplustlc_3; }
+    print("[selector picked TLAPlusTLC: " + tlaplustlc_pick + "]");
+    print("[aice/archive] BEGIN TLAPlusTLCWinner"); print(TLAPlusTLCWinner); print("[aice/archive] END TLAPlusTLCWinner");
+    print("");
+
+    print("===== 世代6: OrderedAcquisition =====");
+    print("branch: structural_fix_path");
+    print("遺伝子: verification_paradigm=structural_prevention; fix_kind=ordered_resource_acquisition; phil_layout=ordered_lo_then_hi; engine=python_aipl_modelcheck; assurance_chain=BFS_passes_after_fix; counter_example_trace=none_after_fix");
+    print("突然変異: M6_Symptom_to_Resource_Hierarchy");
+    print("交叉: C2_Bounded_to_OrderedFix_via_CounterExample");
+    var orderedacquisition_base = task + "\n\n世代: OrderedAcquisition\nbranch: structural_fix_path\narchive: OrderedAcquisitionWinner\n遺伝子: verification_paradigm=structural_prevention; fix_kind=ordered_resource_acquisition; phil_layout=ordered_lo_then_hi; engine=python_aipl_modelcheck; assurance_chain=BFS_passes_after_fix; counter_example_trace=none_after_fix\n突然変異: M6_Symptom_to_Resource_Hierarchy\n交叉: C2_Bounded_to_OrderedFix_via_CounterExample\n評価観点: correctness, paradigm_fit, evolvability\n親: BoundedModelCheckWinner" + "\n\n親 BoundedModelCheckWinner:\n" + BoundedModelCheckWinner;
+    var orderedacquisition_1 = ai_call_with_system(generator_persona, orderedacquisition_base + "\n候補1 id=OA1 style=swap_last_phil_lo_hi。最後の phil だけ (lo, hi) を入れ替えて lo < hi を全員に保たせる。");
+    var orderedacquisition_2 = ai_call_with_system(generator_persona, orderedacquisition_base + "\n候補2 id=OA2 style=compute_lo_hi_from_min_max。phil の引数 a,b から min/max を取り、lo=min, hi=max にする。");
+    var orderedacquisition_3 = ai_call_with_system(generator_persona, orderedacquisition_base + "\n候補3 id=OA3 style=comment_explains_why。Why-comment で「全員が lo<hi だと循環待ちが起きない」を残す。");
+    print("--- OrderedAcquisition candidate 1 ---"); print(orderedacquisition_1);
+    print("--- OrderedAcquisition candidate 2 ---"); print(orderedacquisition_2);
+    print("--- OrderedAcquisition candidate 3 ---"); print(orderedacquisition_3);
+    var orderedacquisition_payload = "世代 OrderedAcquisition\\n候補:\\n1:\\n" + orderedacquisition_1 + "\n\n2:\n" + orderedacquisition_2 + "\n\n3:\n" + orderedacquisition_3;
+    var orderedacquisition_r1 = ai_call_with_system(reviewer1_persona, orderedacquisition_payload);
+    var orderedacquisition_r2 = ai_call_with_system(reviewer2_persona, orderedacquisition_payload);
+    var orderedacquisition_r3 = ai_call_with_system(reviewer3_persona, orderedacquisition_payload);
+    print("[review CorrectnessReviewer OrderedAcquisition]"); print(orderedacquisition_r1);
+    print("[review ParadigmReviewer OrderedAcquisition]"); print(orderedacquisition_r2);
+    print("[review EngineeringReviewer OrderedAcquisition]"); print(orderedacquisition_r3);
+    var orderedacquisition_pick = ai_call_with_system(selector_persona, orderedacquisition_payload + "\n\nレビュー:\n" + orderedacquisition_r1 + "\n" + orderedacquisition_r2 + "\n" + orderedacquisition_r3);
+    var OrderedAcquisitionWinner = orderedacquisition_1;
+    if (orderedacquisition_pick == "2") { OrderedAcquisitionWinner = orderedacquisition_2; }
+    if (orderedacquisition_pick == "3") { OrderedAcquisitionWinner = orderedacquisition_3; }
+    print("[selector picked OrderedAcquisition: " + orderedacquisition_pick + "]");
+    print("[aice/archive] BEGIN OrderedAcquisitionWinner"); print(OrderedAcquisitionWinner); print("[aice/archive] END OrderedAcquisitionWinner");
+    print("");
+
+    print("===== 世代7: TypedLinear =====");
+    print("branch: structural_fix_path");
+    print("遺伝子: verification_paradigm=typed_static_prevention; channel_kind=linear_owned_channel; ownership=by_type_system; fork_id_order=phantom_type; engine=AIPL_phase_11_to_15_type_checker; assurance_chain=type_check_only; counter_example_trace=type_error_message");
+    print("突然変異: M7_Untyped_to_Linear_Channel");
+    print("交叉: C3_OrderedConvention_to_TypedLinear");
+    var typedlinear_base = task + "\n\n世代: TypedLinear\nbranch: structural_fix_path\narchive: TypedLinearWinner\n遺伝子: verification_paradigm=typed_static_prevention; channel_kind=linear_owned_channel; ownership=by_type_system; fork_id_order=phantom_type; engine=AIPL_phase_11_to_15_type_checker; assurance_chain=type_check_only; counter_example_trace=type_error_message\n突然変異: M7_Untyped_to_Linear_Channel\n交叉: C3_OrderedConvention_to_TypedLinear\n評価観点: type_safety, paradigm_fit, evolvability\n親: OrderedAcquisitionWinner, BoundedModelCheckWinner" + "\n\n親 OrderedAcquisitionWinner:\n" + OrderedAcquisitionWinner + "\n\n親 BoundedModelCheckWinner:\n" + BoundedModelCheckWinner;
+    var typedlinear_1 = ai_call_with_system(generator_persona, typedlinear_base + "\n候補1 id=TY1 style=linear_fork_token。Fork を線形トークンとして渡し、同時 2 重保持を型エラーにする。");
+    var typedlinear_2 = ai_call_with_system(generator_persona, typedlinear_base + "\n候補2 id=TY2 style=phantom_lo_lt_hi。fork id の半順序を phantom 型として持ち、lo より大きい id でしか hi に行けないようにする。");
+    var typedlinear_3 = ai_call_with_system(generator_persona, typedlinear_base + "\n候補3 id=TY3 style=owned_channel_per_phil。各 phil が自分の fork ペアを所有するチャネルとして表し、shared mailbox を排除する。");
+    print("--- TypedLinear candidate 1 ---"); print(typedlinear_1);
+    print("--- TypedLinear candidate 2 ---"); print(typedlinear_2);
+    print("--- TypedLinear candidate 3 ---"); print(typedlinear_3);
+    var typedlinear_payload = "世代 TypedLinear\\n候補:\\n1:\\n" + typedlinear_1 + "\n\n2:\n" + typedlinear_2 + "\n\n3:\n" + typedlinear_3;
+    var typedlinear_r1 = ai_call_with_system(reviewer1_persona, typedlinear_payload);
+    var typedlinear_r2 = ai_call_with_system(reviewer2_persona, typedlinear_payload);
+    var typedlinear_r3 = ai_call_with_system(reviewer3_persona, typedlinear_payload);
+    print("[review CorrectnessReviewer TypedLinear]"); print(typedlinear_r1);
+    print("[review ParadigmReviewer TypedLinear]"); print(typedlinear_r2);
+    print("[review EngineeringReviewer TypedLinear]"); print(typedlinear_r3);
+    var typedlinear_pick = ai_call_with_system(selector_persona, typedlinear_payload + "\n\nレビュー:\n" + typedlinear_r1 + "\n" + typedlinear_r2 + "\n" + typedlinear_r3);
+    var TypedLinearWinner = typedlinear_1;
+    if (typedlinear_pick == "2") { TypedLinearWinner = typedlinear_2; }
+    if (typedlinear_pick == "3") { TypedLinearWinner = typedlinear_3; }
+    print("[selector picked TypedLinear: " + typedlinear_pick + "]");
+    print("[aice/archive] BEGIN TypedLinearWinner"); print(TypedLinearWinner); print("[aice/archive] END TypedLinearWinner");
+    print("");
+
+    print("===== 世代8: ProvenAndChecked =====");
+    print("branch: join");
+    print("遺伝子: verification_paradigm=typed_plus_externally_checked; assurance_chain=type_check_then_SPIN_then_TLC; engine=AIPL_typecheck_plus_aipl_to_promela_plus_aipl_to_tla; phil_layout=ordered_lo_then_hi_typed; counter_example_trace=none_at_any_layer");
+    print("突然変異: M10_Combine_Typed_and_Checked");
+    print("交叉: C1_SPIN_TLA_to_BackendAbstraction");
+    var provenandchecked_base = task + "\n\n世代: ProvenAndChecked\nbranch: join\narchive: ProvenAndCheckedWinner\n遺伝子: verification_paradigm=typed_plus_externally_checked; assurance_chain=type_check_then_SPIN_then_TLC; engine=AIPL_typecheck_plus_aipl_to_promela_plus_aipl_to_tla; phil_layout=ordered_lo_then_hi_typed; counter_example_trace=none_at_any_layer\n突然変異: M10_Combine_Typed_and_Checked\n交叉: C1_SPIN_TLA_to_BackendAbstraction\n評価観点: correctness, type_safety, scalability, evolvability\n親: TypedLinearWinner, PromelaSPINWinner, TLAPlusTLCWinner" + "\n\n親 TypedLinearWinner:\n" + TypedLinearWinner + "\n\n親 PromelaSPINWinner:\n" + PromelaSPINWinner + "\n\n親 TLAPlusTLCWinner:\n" + TLAPlusTLCWinner;
+    var provenandchecked_1 = ai_call_with_system(generator_persona, provenandchecked_base + "\n候補1 id=PC1 style=type_first_then_export。まず Phase 11–15 で型検査し、通った版だけを SPIN と TLA+ に流す。");
+    var provenandchecked_2 = ai_call_with_system(generator_persona, provenandchecked_base + "\n候補2 id=PC2 style=single_command_make_target。make verify が型検査・SPIN・TLA+ を順に走らせ、すべて 0 違反で成功とする。");
+    var provenandchecked_3 = ai_call_with_system(generator_persona, provenandchecked_base + "\n候補3 id=PC3 style=shared_backend_abstraction。aipl_to_promela と aipl_to_tla を共通 backend trait の下に置き、同じ AIPL から両方を出す。");
+    print("--- ProvenAndChecked candidate 1 ---"); print(provenandchecked_1);
+    print("--- ProvenAndChecked candidate 2 ---"); print(provenandchecked_2);
+    print("--- ProvenAndChecked candidate 3 ---"); print(provenandchecked_3);
+    var provenandchecked_payload = "世代 ProvenAndChecked\\n候補:\\n1:\\n" + provenandchecked_1 + "\n\n2:\n" + provenandchecked_2 + "\n\n3:\n" + provenandchecked_3;
+    var provenandchecked_r1 = ai_call_with_system(reviewer1_persona, provenandchecked_payload);
+    var provenandchecked_r2 = ai_call_with_system(reviewer2_persona, provenandchecked_payload);
+    var provenandchecked_r3 = ai_call_with_system(reviewer3_persona, provenandchecked_payload);
+    print("[review CorrectnessReviewer ProvenAndChecked]"); print(provenandchecked_r1);
+    print("[review ParadigmReviewer ProvenAndChecked]"); print(provenandchecked_r2);
+    print("[review EngineeringReviewer ProvenAndChecked]"); print(provenandchecked_r3);
+    var provenandchecked_pick = ai_call_with_system(selector_persona, provenandchecked_payload + "\n\nレビュー:\n" + provenandchecked_r1 + "\n" + provenandchecked_r2 + "\n" + provenandchecked_r3);
+    var ProvenAndCheckedWinner = provenandchecked_1;
+    if (provenandchecked_pick == "2") { ProvenAndCheckedWinner = provenandchecked_2; }
+    if (provenandchecked_pick == "3") { ProvenAndCheckedWinner = provenandchecked_3; }
+    print("[selector picked ProvenAndChecked: " + provenandchecked_pick + "]");
+    print("[aice/archive] BEGIN ProvenAndCheckedWinner"); print(ProvenAndCheckedWinner); print("[aice/archive] END ProvenAndCheckedWinner");
+    print("");
+
+    print("===== レポート =====");
+    print("final_archive: ProvenAndCheckedWinner");
+    print(ai_usage());
+  }
+}
+
+var coordinator = new DeadlockVerificationEvolutionJP();
+send coordinator.run();

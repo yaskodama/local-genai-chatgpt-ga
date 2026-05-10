@@ -1,0 +1,331 @@
+{
+  "stage": "PreferenceTuned",
+  "branch": "alignment_path",
+  "parent": "DI1",
+  "winner": {
+    "genome": {
+      "seed": 42,
+      "corpus_pinned": true,
+      "uses_external_api": false,
+      "single_script": true,
+      "name": "PT3",
+      "style": "three_axis_separate_lora",
+      "model_family": "preference_tuned_compact",
+      "depth": 4,
+      "n_heads": 4,
+      "d_model": 160,
+      "ffn_mult": 4,
+      "vocab": 256,
+      "ctx": 256,
+      "tied_embedding": true,
+      "dropout": 0.1,
+      "param_class": "3M",
+      "engine": "pytorch_mps",
+      "training_paradigm": "distillation_plus_dpo",
+      "positional": "rope",
+      "normalization": "rmsnorm",
+      "regularization": "dropout",
+      "inference_optimization": "kv_cache_plus_int8",
+      "deps": [
+        "python>=3.11",
+        "pytorch==2.x"
+      ]
+    },
+    "estimate": {
+      "params": 1271040,
+      "param_class": "3M",
+      "param_budget": 4000000,
+      "over_budget": false,
+      "expected_holdout_ppl": 3.692,
+      "flops_per_token": 3197440,
+      "train_time_min_estimate": 2.22,
+      "inference_throughput_factor": 6.0,
+      "coherence_violations": [],
+      "measurement_kind": "design_estimator_formula"
+    },
+    "review": {
+      "quality": {
+        "reviewer": "Quality",
+        "axes": {
+          "ppl_score": 2,
+          "loss_trajectory_plausibility": 3,
+          "degeneracy_resistance": 3,
+          "generation_appropriate_size": 2
+        },
+        "total": 10,
+        "max": 12
+      },
+      "efficiency": {
+        "reviewer": "Efficiency",
+        "axes": {
+          "ppl_per_param": 2,
+          "within_param_budget": 3,
+          "train_time_under_30min": 3,
+          "inference_optimization": 3
+        },
+        "total": 11,
+        "max": 12
+      },
+      "reproducibility": {
+        "reviewer": "Reproducibility",
+        "axes": {
+          "seed_fixed": 2,
+          "corpus_pinned": 2,
+          "no_external_api": 2,
+          "minimal_deps": 2,
+          "single_script": 2,
+          "coherence_penalty": 0,
+          "over_budget_penalty": 0
+        },
+        "total": 10,
+        "max": 10
+      },
+      "normalized_total": 2.75
+    }
+  },
+  "all_candidates": [
+    {
+      "genome": {
+        "seed": 42,
+        "corpus_pinned": true,
+        "uses_external_api": false,
+        "single_script": true,
+        "name": "PT1",
+        "style": "pairs_top_vs_bottom_full_finetune",
+        "model_family": "preference_tuned_compact",
+        "depth": 4,
+        "n_heads": 4,
+        "d_model": 160,
+        "ffn_mult": 4,
+        "vocab": 256,
+        "ctx": 256,
+        "tied_embedding": true,
+        "dropout": 0.1,
+        "param_class": "3M",
+        "engine": "pytorch_mps",
+        "training_paradigm": "distillation_plus_dpo",
+        "positional": "rope",
+        "normalization": "rmsnorm",
+        "regularization": "dropout",
+        "inference_optimization": "kv_cache",
+        "deps": [
+          "python>=3.11",
+          "pytorch==2.x"
+        ]
+      },
+      "estimate": {
+        "params": 1271040,
+        "param_class": "3M",
+        "param_budget": 4000000,
+        "over_budget": false,
+        "expected_holdout_ppl": 3.644,
+        "flops_per_token": 3197440,
+        "train_time_min_estimate": 2.22,
+        "inference_throughput_factor": 4.0,
+        "coherence_violations": [],
+        "measurement_kind": "design_estimator_formula"
+      },
+      "review": {
+        "quality": {
+          "reviewer": "Quality",
+          "axes": {
+            "ppl_score": 2,
+            "loss_trajectory_plausibility": 3,
+            "degeneracy_resistance": 3,
+            "generation_appropriate_size": 2
+          },
+          "total": 10,
+          "max": 12
+        },
+        "efficiency": {
+          "reviewer": "Efficiency",
+          "axes": {
+            "ppl_per_param": 2,
+            "within_param_budget": 3,
+            "train_time_under_30min": 3,
+            "inference_optimization": 2
+          },
+          "total": 10,
+          "max": 12
+        },
+        "reproducibility": {
+          "reviewer": "Reproducibility",
+          "axes": {
+            "seed_fixed": 2,
+            "corpus_pinned": 2,
+            "no_external_api": 2,
+            "minimal_deps": 2,
+            "single_script": 2,
+            "coherence_penalty": 0,
+            "over_budget_penalty": 0
+          },
+          "total": 10,
+          "max": 10
+        },
+        "normalized_total": 2.6667
+      }
+    },
+    {
+      "genome": {
+        "seed": 42,
+        "corpus_pinned": true,
+        "uses_external_api": false,
+        "single_script": true,
+        "name": "PT2",
+        "style": "kl_anchored_full_finetune",
+        "model_family": "preference_tuned_compact",
+        "depth": 4,
+        "n_heads": 4,
+        "d_model": 160,
+        "ffn_mult": 4,
+        "vocab": 256,
+        "ctx": 256,
+        "tied_embedding": true,
+        "dropout": 0.1,
+        "param_class": "3M",
+        "engine": "pytorch_mps",
+        "training_paradigm": "distillation_plus_dpo",
+        "positional": "rope",
+        "normalization": "rmsnorm",
+        "regularization": "dropout",
+        "inference_optimization": "kv_cache",
+        "deps": [
+          "python>=3.11",
+          "pytorch==2.x"
+        ]
+      },
+      "estimate": {
+        "params": 1271040,
+        "param_class": "3M",
+        "param_budget": 4000000,
+        "over_budget": false,
+        "expected_holdout_ppl": 3.634,
+        "flops_per_token": 3197440,
+        "train_time_min_estimate": 2.22,
+        "inference_throughput_factor": 4.0,
+        "coherence_violations": [],
+        "measurement_kind": "design_estimator_formula"
+      },
+      "review": {
+        "quality": {
+          "reviewer": "Quality",
+          "axes": {
+            "ppl_score": 2,
+            "loss_trajectory_plausibility": 3,
+            "degeneracy_resistance": 3,
+            "generation_appropriate_size": 2
+          },
+          "total": 10,
+          "max": 12
+        },
+        "efficiency": {
+          "reviewer": "Efficiency",
+          "axes": {
+            "ppl_per_param": 2,
+            "within_param_budget": 3,
+            "train_time_under_30min": 3,
+            "inference_optimization": 2
+          },
+          "total": 10,
+          "max": 12
+        },
+        "reproducibility": {
+          "reviewer": "Reproducibility",
+          "axes": {
+            "seed_fixed": 2,
+            "corpus_pinned": 2,
+            "no_external_api": 2,
+            "minimal_deps": 2,
+            "single_script": 2,
+            "coherence_penalty": 0,
+            "over_budget_penalty": 0
+          },
+          "total": 10,
+          "max": 10
+        },
+        "normalized_total": 2.6667
+      }
+    },
+    {
+      "genome": {
+        "seed": 42,
+        "corpus_pinned": true,
+        "uses_external_api": false,
+        "single_script": true,
+        "name": "PT3",
+        "style": "three_axis_separate_lora",
+        "model_family": "preference_tuned_compact",
+        "depth": 4,
+        "n_heads": 4,
+        "d_model": 160,
+        "ffn_mult": 4,
+        "vocab": 256,
+        "ctx": 256,
+        "tied_embedding": true,
+        "dropout": 0.1,
+        "param_class": "3M",
+        "engine": "pytorch_mps",
+        "training_paradigm": "distillation_plus_dpo",
+        "positional": "rope",
+        "normalization": "rmsnorm",
+        "regularization": "dropout",
+        "inference_optimization": "kv_cache_plus_int8",
+        "deps": [
+          "python>=3.11",
+          "pytorch==2.x"
+        ]
+      },
+      "estimate": {
+        "params": 1271040,
+        "param_class": "3M",
+        "param_budget": 4000000,
+        "over_budget": false,
+        "expected_holdout_ppl": 3.692,
+        "flops_per_token": 3197440,
+        "train_time_min_estimate": 2.22,
+        "inference_throughput_factor": 6.0,
+        "coherence_violations": [],
+        "measurement_kind": "design_estimator_formula"
+      },
+      "review": {
+        "quality": {
+          "reviewer": "Quality",
+          "axes": {
+            "ppl_score": 2,
+            "loss_trajectory_plausibility": 3,
+            "degeneracy_resistance": 3,
+            "generation_appropriate_size": 2
+          },
+          "total": 10,
+          "max": 12
+        },
+        "efficiency": {
+          "reviewer": "Efficiency",
+          "axes": {
+            "ppl_per_param": 2,
+            "within_param_budget": 3,
+            "train_time_under_30min": 3,
+            "inference_optimization": 3
+          },
+          "total": 11,
+          "max": 12
+        },
+        "reproducibility": {
+          "reviewer": "Reproducibility",
+          "axes": {
+            "seed_fixed": 2,
+            "corpus_pinned": 2,
+            "no_external_api": 2,
+            "minimal_deps": 2,
+            "single_script": 2,
+            "coherence_penalty": 0,
+            "over_budget_penalty": 0
+          },
+          "total": 10,
+          "max": 10
+        },
+        "normalized_total": 2.75
+      }
+    }
+  ]
+}

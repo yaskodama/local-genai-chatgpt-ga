@@ -1,0 +1,327 @@
+{
+  "stage": "CharRNN",
+  "branch": "main",
+  "parent": "N1",
+  "winner": {
+    "genome": {
+      "seed": 42,
+      "corpus_pinned": true,
+      "uses_external_api": false,
+      "single_script": true,
+      "name": "R1",
+      "style": "single_layer_GRU_tied",
+      "model_family": "char_rnn",
+      "cell": "GRU",
+      "embed_dim": 64,
+      "hidden_dim": 128,
+      "layers": 1,
+      "vocab": 256,
+      "ctx": 128,
+      "tied_embedding": true,
+      "dropout": 0,
+      "param_class": "100K",
+      "engine": "pytorch_cpu",
+      "training_paradigm": "maximum_likelihood_sgd",
+      "positional": "implicit_recurrence",
+      "normalization": "none",
+      "regularization": "none",
+      "deps": [
+        "python>=3.11",
+        "pytorch==2.x"
+      ]
+    },
+    "estimate": {
+      "params": 90112,
+      "param_class": "100K",
+      "param_budget": 200000,
+      "over_budget": false,
+      "expected_holdout_ppl": 6.547,
+      "flops_per_token": 180736,
+      "train_time_min_estimate": 0.56,
+      "inference_throughput_factor": 1.0,
+      "coherence_violations": [],
+      "measurement_kind": "design_estimator_formula"
+    },
+    "review": {
+      "quality": {
+        "reviewer": "Quality",
+        "axes": {
+          "ppl_score": 0,
+          "loss_trajectory_plausibility": 3,
+          "degeneracy_resistance": 3,
+          "generation_appropriate_size": 3
+        },
+        "total": 9,
+        "max": 12
+      },
+      "efficiency": {
+        "reviewer": "Efficiency",
+        "axes": {
+          "ppl_per_param": 0,
+          "within_param_budget": 3,
+          "train_time_under_30min": 3,
+          "inference_optimization": 0
+        },
+        "total": 6,
+        "max": 12
+      },
+      "reproducibility": {
+        "reviewer": "Reproducibility",
+        "axes": {
+          "seed_fixed": 2,
+          "corpus_pinned": 2,
+          "no_external_api": 2,
+          "minimal_deps": 2,
+          "single_script": 2,
+          "coherence_penalty": 0,
+          "over_budget_penalty": 0
+        },
+        "total": 10,
+        "max": 10
+      },
+      "normalized_total": 2.25
+    }
+  },
+  "all_candidates": [
+    {
+      "genome": {
+        "seed": 42,
+        "corpus_pinned": true,
+        "uses_external_api": false,
+        "single_script": true,
+        "name": "R1",
+        "style": "single_layer_GRU_tied",
+        "model_family": "char_rnn",
+        "cell": "GRU",
+        "embed_dim": 64,
+        "hidden_dim": 128,
+        "layers": 1,
+        "vocab": 256,
+        "ctx": 128,
+        "tied_embedding": true,
+        "dropout": 0,
+        "param_class": "100K",
+        "engine": "pytorch_cpu",
+        "training_paradigm": "maximum_likelihood_sgd",
+        "positional": "implicit_recurrence",
+        "normalization": "none",
+        "regularization": "none",
+        "deps": [
+          "python>=3.11",
+          "pytorch==2.x"
+        ]
+      },
+      "estimate": {
+        "params": 90112,
+        "param_class": "100K",
+        "param_budget": 200000,
+        "over_budget": false,
+        "expected_holdout_ppl": 6.547,
+        "flops_per_token": 180736,
+        "train_time_min_estimate": 0.56,
+        "inference_throughput_factor": 1.0,
+        "coherence_violations": [],
+        "measurement_kind": "design_estimator_formula"
+      },
+      "review": {
+        "quality": {
+          "reviewer": "Quality",
+          "axes": {
+            "ppl_score": 0,
+            "loss_trajectory_plausibility": 3,
+            "degeneracy_resistance": 3,
+            "generation_appropriate_size": 3
+          },
+          "total": 9,
+          "max": 12
+        },
+        "efficiency": {
+          "reviewer": "Efficiency",
+          "axes": {
+            "ppl_per_param": 0,
+            "within_param_budget": 3,
+            "train_time_under_30min": 3,
+            "inference_optimization": 0
+          },
+          "total": 6,
+          "max": 12
+        },
+        "reproducibility": {
+          "reviewer": "Reproducibility",
+          "axes": {
+            "seed_fixed": 2,
+            "corpus_pinned": 2,
+            "no_external_api": 2,
+            "minimal_deps": 2,
+            "single_script": 2,
+            "coherence_penalty": 0,
+            "over_budget_penalty": 0
+          },
+          "total": 10,
+          "max": 10
+        },
+        "normalized_total": 2.25
+      }
+    },
+    {
+      "genome": {
+        "seed": 42,
+        "corpus_pinned": true,
+        "uses_external_api": false,
+        "single_script": true,
+        "name": "R2",
+        "style": "single_layer_LSTM_untied",
+        "model_family": "char_rnn",
+        "cell": "LSTM",
+        "embed_dim": 64,
+        "hidden_dim": 128,
+        "layers": 1,
+        "vocab": 256,
+        "ctx": 128,
+        "tied_embedding": false,
+        "dropout": 0,
+        "param_class": "100K",
+        "engine": "pytorch_cpu",
+        "training_paradigm": "maximum_likelihood_sgd",
+        "positional": "implicit_recurrence",
+        "normalization": "none",
+        "regularization": "none",
+        "deps": [
+          "python>=3.11",
+          "pytorch==2.x"
+        ]
+      },
+      "estimate": {
+        "params": 147456,
+        "param_class": "100K",
+        "param_budget": 200000,
+        "over_budget": false,
+        "expected_holdout_ppl": 6.535,
+        "flops_per_token": 295424,
+        "train_time_min_estimate": 0.92,
+        "inference_throughput_factor": 1.0,
+        "coherence_violations": [],
+        "measurement_kind": "design_estimator_formula"
+      },
+      "review": {
+        "quality": {
+          "reviewer": "Quality",
+          "axes": {
+            "ppl_score": 0,
+            "loss_trajectory_plausibility": 3,
+            "degeneracy_resistance": 3,
+            "generation_appropriate_size": 3
+          },
+          "total": 9,
+          "max": 12
+        },
+        "efficiency": {
+          "reviewer": "Efficiency",
+          "axes": {
+            "ppl_per_param": 0,
+            "within_param_budget": 3,
+            "train_time_under_30min": 3,
+            "inference_optimization": 0
+          },
+          "total": 6,
+          "max": 12
+        },
+        "reproducibility": {
+          "reviewer": "Reproducibility",
+          "axes": {
+            "seed_fixed": 2,
+            "corpus_pinned": 2,
+            "no_external_api": 2,
+            "minimal_deps": 2,
+            "single_script": 2,
+            "coherence_penalty": 0,
+            "over_budget_penalty": 0
+          },
+          "total": 10,
+          "max": 10
+        },
+        "normalized_total": 2.25
+      }
+    },
+    {
+      "genome": {
+        "seed": 42,
+        "corpus_pinned": true,
+        "uses_external_api": false,
+        "single_script": true,
+        "name": "R3",
+        "style": "GRU_with_input_dropout",
+        "model_family": "char_rnn",
+        "cell": "GRU",
+        "embed_dim": 64,
+        "hidden_dim": 128,
+        "layers": 1,
+        "vocab": 256,
+        "ctx": 128,
+        "tied_embedding": true,
+        "dropout": 0.1,
+        "param_class": "100K",
+        "engine": "pytorch_cpu",
+        "training_paradigm": "maximum_likelihood_sgd",
+        "positional": "implicit_recurrence",
+        "normalization": "none",
+        "regularization": "dropout",
+        "deps": [
+          "python>=3.11",
+          "pytorch==2.x"
+        ]
+      },
+      "estimate": {
+        "params": 90112,
+        "param_class": "100K",
+        "param_budget": 200000,
+        "over_budget": false,
+        "expected_holdout_ppl": 6.234,
+        "flops_per_token": 180736,
+        "train_time_min_estimate": 0.56,
+        "inference_throughput_factor": 1.0,
+        "coherence_violations": [],
+        "measurement_kind": "design_estimator_formula"
+      },
+      "review": {
+        "quality": {
+          "reviewer": "Quality",
+          "axes": {
+            "ppl_score": 0,
+            "loss_trajectory_plausibility": 2,
+            "degeneracy_resistance": 3,
+            "generation_appropriate_size": 3
+          },
+          "total": 8,
+          "max": 12
+        },
+        "efficiency": {
+          "reviewer": "Efficiency",
+          "axes": {
+            "ppl_per_param": 0,
+            "within_param_budget": 3,
+            "train_time_under_30min": 3,
+            "inference_optimization": 0
+          },
+          "total": 6,
+          "max": 12
+        },
+        "reproducibility": {
+          "reviewer": "Reproducibility",
+          "axes": {
+            "seed_fixed": 2,
+            "corpus_pinned": 2,
+            "no_external_api": 2,
+            "minimal_deps": 2,
+            "single_script": 2,
+            "coherence_penalty": 0,
+            "over_budget_penalty": 0
+          },
+          "total": 10,
+          "max": 10
+        },
+        "normalized_total": 2.1667
+      }
+    }
+  ]
+}

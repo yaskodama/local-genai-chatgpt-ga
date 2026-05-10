@@ -1,0 +1,287 @@
+{
+  "stage": "NGramFreq",
+  "branch": "main",
+  "parent": null,
+  "winner": {
+    "genome": {
+      "seed": 42,
+      "corpus_pinned": true,
+      "uses_external_api": false,
+      "single_script": true,
+      "name": "N1",
+      "style": "char_bigram_laplace",
+      "model_family": "ngram_count",
+      "n": 2,
+      "alpha": 1.0,
+      "param_class": "32K",
+      "engine": "numpy_only",
+      "training_paradigm": "count_normalize",
+      "deps": [
+        "python>=3.11"
+      ]
+    },
+    "estimate": {
+      "params": 357,
+      "param_class": "32K",
+      "param_budget": 64000,
+      "over_budget": false,
+      "expected_holdout_ppl": 15.519,
+      "flops_per_token": 2,
+      "train_time_min_estimate": 0.05,
+      "inference_throughput_factor": 1.0,
+      "coherence_violations": [],
+      "measurement_kind": "real_ngram_training_on_pinned_corpus"
+    },
+    "review": {
+      "quality": {
+        "reviewer": "Quality",
+        "axes": {
+          "ppl_score": 0,
+          "loss_trajectory_plausibility": 3,
+          "degeneracy_resistance": 3,
+          "generation_appropriate_size": 2
+        },
+        "total": 8,
+        "max": 12
+      },
+      "efficiency": {
+        "reviewer": "Efficiency",
+        "axes": {
+          "ppl_per_param": 0,
+          "within_param_budget": 3,
+          "train_time_under_30min": 3,
+          "inference_optimization": 0
+        },
+        "total": 6,
+        "max": 12
+      },
+      "reproducibility": {
+        "reviewer": "Reproducibility",
+        "axes": {
+          "seed_fixed": 2,
+          "corpus_pinned": 2,
+          "no_external_api": 2,
+          "minimal_deps": 2,
+          "single_script": 2,
+          "coherence_penalty": 0,
+          "over_budget_penalty": 0
+        },
+        "total": 10,
+        "max": 10
+      },
+      "normalized_total": 2.1667
+    }
+  },
+  "all_candidates": [
+    {
+      "genome": {
+        "seed": 42,
+        "corpus_pinned": true,
+        "uses_external_api": false,
+        "single_script": true,
+        "name": "N1",
+        "style": "char_bigram_laplace",
+        "model_family": "ngram_count",
+        "n": 2,
+        "alpha": 1.0,
+        "param_class": "32K",
+        "engine": "numpy_only",
+        "training_paradigm": "count_normalize",
+        "deps": [
+          "python>=3.11"
+        ]
+      },
+      "estimate": {
+        "params": 357,
+        "param_class": "32K",
+        "param_budget": 64000,
+        "over_budget": false,
+        "expected_holdout_ppl": 15.519,
+        "flops_per_token": 2,
+        "train_time_min_estimate": 0.05,
+        "inference_throughput_factor": 1.0,
+        "coherence_violations": [],
+        "measurement_kind": "real_ngram_training_on_pinned_corpus"
+      },
+      "review": {
+        "quality": {
+          "reviewer": "Quality",
+          "axes": {
+            "ppl_score": 0,
+            "loss_trajectory_plausibility": 3,
+            "degeneracy_resistance": 3,
+            "generation_appropriate_size": 2
+          },
+          "total": 8,
+          "max": 12
+        },
+        "efficiency": {
+          "reviewer": "Efficiency",
+          "axes": {
+            "ppl_per_param": 0,
+            "within_param_budget": 3,
+            "train_time_under_30min": 3,
+            "inference_optimization": 0
+          },
+          "total": 6,
+          "max": 12
+        },
+        "reproducibility": {
+          "reviewer": "Reproducibility",
+          "axes": {
+            "seed_fixed": 2,
+            "corpus_pinned": 2,
+            "no_external_api": 2,
+            "minimal_deps": 2,
+            "single_script": 2,
+            "coherence_penalty": 0,
+            "over_budget_penalty": 0
+          },
+          "total": 10,
+          "max": 10
+        },
+        "normalized_total": 2.1667
+      }
+    },
+    {
+      "genome": {
+        "seed": 42,
+        "corpus_pinned": true,
+        "uses_external_api": false,
+        "single_script": true,
+        "name": "N2",
+        "style": "char_trigram_with_backoff",
+        "model_family": "ngram_count",
+        "n": 3,
+        "alpha": 0.5,
+        "param_class": "32K",
+        "engine": "numpy_only",
+        "training_paradigm": "count_normalize",
+        "deps": [
+          "python>=3.11"
+        ]
+      },
+      "estimate": {
+        "params": 1879,
+        "param_class": "32K",
+        "param_budget": 64000,
+        "over_budget": false,
+        "expected_holdout_ppl": 17.882,
+        "flops_per_token": 2,
+        "train_time_min_estimate": 0.05,
+        "inference_throughput_factor": 1.0,
+        "coherence_violations": [],
+        "measurement_kind": "real_ngram_training_on_pinned_corpus"
+      },
+      "review": {
+        "quality": {
+          "reviewer": "Quality",
+          "axes": {
+            "ppl_score": 0,
+            "loss_trajectory_plausibility": 3,
+            "degeneracy_resistance": 3,
+            "generation_appropriate_size": 2
+          },
+          "total": 8,
+          "max": 12
+        },
+        "efficiency": {
+          "reviewer": "Efficiency",
+          "axes": {
+            "ppl_per_param": 0,
+            "within_param_budget": 3,
+            "train_time_under_30min": 3,
+            "inference_optimization": 0
+          },
+          "total": 6,
+          "max": 12
+        },
+        "reproducibility": {
+          "reviewer": "Reproducibility",
+          "axes": {
+            "seed_fixed": 2,
+            "corpus_pinned": 2,
+            "no_external_api": 2,
+            "minimal_deps": 2,
+            "single_script": 2,
+            "coherence_penalty": 0,
+            "over_budget_penalty": 0
+          },
+          "total": 10,
+          "max": 10
+        },
+        "normalized_total": 2.1667
+      }
+    },
+    {
+      "genome": {
+        "seed": 42,
+        "corpus_pinned": true,
+        "uses_external_api": false,
+        "single_script": true,
+        "name": "N3",
+        "style": "byte_unigram_only",
+        "model_family": "ngram_count",
+        "n": 1,
+        "alpha": 1.0,
+        "param_class": "32K",
+        "engine": "numpy_only",
+        "training_paradigm": "count_normalize",
+        "deps": [
+          "python>=3.11"
+        ]
+      },
+      "estimate": {
+        "params": 29,
+        "param_class": "32K",
+        "param_budget": 64000,
+        "over_budget": false,
+        "expected_holdout_ppl": 18.242,
+        "flops_per_token": 2,
+        "train_time_min_estimate": 0.05,
+        "inference_throughput_factor": 1.0,
+        "coherence_violations": [],
+        "measurement_kind": "real_ngram_training_on_pinned_corpus"
+      },
+      "review": {
+        "quality": {
+          "reviewer": "Quality",
+          "axes": {
+            "ppl_score": 0,
+            "loss_trajectory_plausibility": 3,
+            "degeneracy_resistance": 3,
+            "generation_appropriate_size": 2
+          },
+          "total": 8,
+          "max": 12
+        },
+        "efficiency": {
+          "reviewer": "Efficiency",
+          "axes": {
+            "ppl_per_param": 0,
+            "within_param_budget": 3,
+            "train_time_under_30min": 3,
+            "inference_optimization": 0
+          },
+          "total": 6,
+          "max": 12
+        },
+        "reproducibility": {
+          "reviewer": "Reproducibility",
+          "axes": {
+            "seed_fixed": 2,
+            "corpus_pinned": 2,
+            "no_external_api": 2,
+            "minimal_deps": 2,
+            "single_script": 2,
+            "coherence_penalty": 0,
+            "over_budget_penalty": 0
+          },
+          "total": 10,
+          "max": 10
+        },
+        "normalized_total": 2.1667
+      }
+    }
+  ]
+}

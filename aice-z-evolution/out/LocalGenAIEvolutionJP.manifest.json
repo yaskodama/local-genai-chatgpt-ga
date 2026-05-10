@@ -1,0 +1,220 @@
+{
+  "name": "LocalGenAIEvolutionJP",
+  "dialect": "aice_evolution_v1",
+  "runtime": "ocaml_abcl_cplus",
+  "input": "aice-z-evolution/examples/LocalGenAIEvolutionJP.aice",
+  "abcl": "aice-z-evolution/out/LocalGenAIEvolutionJP.abcl",
+  "report": "aice-z-evolution/out/LocalGenAIEvolutionJP.report.md",
+  "final_archive": "SemiAutoEvolveWinner",
+  "stages": [
+    {
+      "name": "NGramFreq",
+      "order": 1,
+      "branch": "main",
+      "parents": [],
+      "archive": "NGramFreqWinner",
+      "genome": "model_family=ngram_count; n=3; vocab=byte_256; smoothing=add_one_laplace; param_count_estimate=32KB-table; train_paradigm=count_normalize; engine=numpy_only; expected_holdout_ppl=8.0-10.0; train_time=0s; inference=O(1)_table_lookup; failure_modes={oov_blowup, low_diversity}; common_eval=TinyShakespeare-100KB-seed42",
+      "mutations": "",
+      "crossover": "",
+      "focus": "reproducibility, parameter_efficiency, common_baseline",
+      "candidates": [
+        {
+          "name": "N1",
+          "style": "char_bigram_laplace",
+          "prompt": "[N1 char_bigram_laplace] arch: bigram count table, vocab=256, n=2, smoothing=Laplace(alpha=1). レシピ: pass corpus once, normalize per-row. 期待: params ≒ 256*256*4byte = 256KB-table, holdout_ppl ≒ 9.0, train_time = 1s, inference = O(1). 既知の退化: high-entropy fallback when next byte unseen. 出力: ngram_train.py (40 行以内), ngram_eval.py。 共通評価プロトコルに従う。"
+        },
+        {
+          "name": "N2",
+          "style": "char_trigram_with_backoff",
+          "prompt": "[N2 char_trigram_with_backoff] arch: trigram counts + bigram backoff (Katz-style without discount). 期待: params ≒ 256^3 sparse ≒ 200KB (実コーパスで疎), holdout_ppl ≒ 8.0, train_time = 2s. 既知の退化: コーパスにない trigram で backoff の連鎖。 出力: ngram_train.py + backoff_eval.py。"
+        },
+        {
+          "name": "N3",
+          "style": "byte_unigram_only",
+          "prompt": "[N3 byte_unigram_only] arch: 単純な byte 出現確率のみ。 比較対象としての下限。 期待: params = 256*4byte = 1KB, holdout_ppl ≒ 12-15 (上振れ), train_time < 0.1s。 これより悪い候補は世代失格。"
+        }
+      ]
+    },
+    {
+      "name": "CharRNN",
+      "order": 2,
+      "branch": "main",
+      "parents": [
+        "NGramFreqWinner"
+      ],
+      "archive": "CharRNNWinner",
+      "genome": "model_family=char_rnn; cell=GRU_or_LSTM; embed_dim=64; hidden_dim=128; layers=1; vocab=256; ctx=128; tied_embedding=true; param_count_estimate=100K-150K; train_paradigm=AdamW; engine=pytorch_cpu; expected_holdout_ppl=6.0-7.0; train_time<=5min_M2_CPU; inference=sequential_O_n; failure_modes={hidden_state_explode, slow_inference, no_long_range}; mutations_applied=M1",
+      "mutations": "M1_NGram_to_CharRNN",
+      "crossover": "",
+      "focus": "expected_holdout_ppl, parameter_efficiency, training_efficiency",
+      "candidates": [
+        {
+          "name": "R1",
+          "style": "single_layer_GRU_tied",
+          "prompt": "[R1 single_layer_GRU_tied] arch: embed=64, GRU(hidden=128, layers=1), tied input/output embedding. レシピ: AdamW(lr=3e-3, wd=0.01), batch=64, BPTT_len=128, steps=2000, warmup=200, grad_clip=1.0, dropout=0, seed=42. 期待: params ≒ 2*256*64 + 3*(64+128)*128 + 256 ≒ 110K, holdout_ppl ≒ 6.3, train_time ≒ 4 min M2 CPU. 出力: rnn_train.py, rnn_eval.py。"
+        },
+        {
+          "name": "R2",
+          "style": "single_layer_LSTM_untied",
+          "prompt": "[R2 single_layer_LSTM_untied] arch: embed=64, LSTM(hidden=128, layers=1), untied. レシピ: 同上。 期待: params ≒ 256*64 + 4*(64+128)*128 + 128*256 ≒ 145K, holdout_ppl ≒ 6.5 (LSTM は forget gate のおかげでやや安定だが params 多), train_time ≒ 4.5 min。 比較対象として残す。"
+        },
+        {
+          "name": "R3",
+          "style": "GRU_with_input_dropout",
+          "prompt": "[R3 GRU_with_input_dropout] arch: R1 と同じだが embedding 直後に dropout=0.1。 期待: params 同じ ≒ 110K, holdout_ppl ≒ 6.1 (汎化分の改善), train_ppl 上昇 ≒ +0.4, train_time ≒ +5%。 dropout の早すぎる導入が逆効果になる場合の参照点。"
+        }
+      ]
+    },
+    {
+      "name": "TinyTransformer",
+      "order": 3,
+      "branch": "main",
+      "parents": [
+        "CharRNNWinner"
+      ],
+      "archive": "TinyTransformerWinner",
+      "genome": "model_family=single_block_transformer; depth=1; n_heads=4; d_model=128; ffn_mult=4; vocab=256; ctx=128; positional=rope_or_learned; norm=pre_layernorm; dropout=0; tied_embedding=true; param_count_estimate=600K-1.0M; train_paradigm=AdamW; engine=pytorch_cpu_or_mps; expected_holdout_ppl=5.0-5.5; train_time<=15min_M2_MPS; inference=full_attention_O_n2; failure_modes={no_position_signal_if_skipped, layernorm_misplaced, attention_entropy_collapse}; mutations_applied=M2+M3+M4",
+      "mutations": "M2_CharRNN_to_TinyTransformer, M3_Add_Positional_Embedding, M4_Add_LayerNorm",
+      "crossover": "C1_RNN_plus_Attention_to_Hybrid optional",
+      "focus": "expected_holdout_ppl, parameter_efficiency, generation_appropriate_size",
+      "candidates": [
+        {
+          "name": "T1",
+          "style": "depth1_h4_d128_rope_rmsnorm",
+          "prompt": "[T1 depth1_h4_d128_rope_rmsnorm] arch: depth=1, n_heads=4, d_model=128, ffn_mult=4, RoPE, RMSNorm, tied_embed. レシピ: AdamW(lr=3e-3, betas=(0.9,0.95), wd=0.1), batch=64, ctx=128, steps=3000, warmup=300, grad_clip=1.0, seed=42, MPS. 期待: params ≒ 2*256*128 + 1*(4*128^2 + 2*128*4*128) + 128*128 ≒ 200K (注: tied なので embed*2 を 1 とすると 80K ぶん減る、 計 ≒ 660K)。 詳細: attn ≒ 65K + ffn ≒ 130K + LN ≒ 0.3K + ctx_pos ≒ 16K (RoPE は params 0)。 合計 ≒ 720K。 holdout_ppl ≒ 5.2, train_time ≒ 12 min MPS。 出力: tx_train.py, tx_infer.py。"
+        },
+        {
+          "name": "T2",
+          "style": "depth1_h4_d128_learned_pos_layernorm",
+          "prompt": "[T2 depth1_h4_d128_learned_pos_layernorm] arch: T1 と同じだが positional は learned_absolute(ctx*d_model)、 norm は LayerNorm。 期待: params +16K (位置埋め込み), 計 ≒ 730K, holdout_ppl ≒ 5.4 (RoPE よりわずかに悪い), train_time ≒ 13 min。 比較対象。"
+        },
+        {
+          "name": "T3",
+          "style": "depth1_h2_d96_rope",
+          "prompt": "[T3 depth1_h2_d96_rope] arch: 縮小版。 depth=1, n_heads=2, d_model=96, ffn_mult=4, RoPE. params ≒ 2*256*96 + 4*96^2 + 2*96*4*96 ≒ 130K (tied), holdout_ppl ≒ 5.7 (params 半減で品質も少し落ちる), train_time ≒ 8 min。 効率重視枝の参照点。"
+        }
+      ]
+    },
+    {
+      "name": "ImprovedMicroGPT",
+      "order": 4,
+      "branch": "improvement_path",
+      "parents": [
+        "TinyTransformerWinner"
+      ],
+      "archive": "ImprovedMicroGPTWinner",
+      "genome": "model_family=multi_block_transformer; depth=4; n_heads=4; d_model=192; ffn_mult=4; vocab=256; ctx=256; positional=rope; norm=pre_rmsnorm; dropout=0.1; tied_embedding=true; param_count_estimate=2.5M-3.5M; train_paradigm=AdamW_with_cosine_decay; engine=pytorch_mps; expected_holdout_ppl=4.0-4.5; train_time<=25min_M2_MPS; inference=kv_cache; failure_modes={dropout_too_high_for_small_corpus, lr_spike_at_warmup, attention_oscillation}; mutations_applied=M5+M6+M7",
+      "mutations": "M5_Add_Dropout, M6_Increase_Depth_and_Heads, M7_Add_KVCache_for_Inference",
+      "crossover": "",
+      "focus": "expected_holdout_ppl, parameter_efficiency, inference_efficiency",
+      "candidates": [
+        {
+          "name": "G1",
+          "style": "depth4_h4_d192_drop01_kvcache",
+          "prompt": "[G1 depth4_h4_d192_drop01_kvcache] arch: depth=4, n_heads=4, d_model=192, ffn_mult=4, RoPE, RMSNorm, dropout=0.1, tied_embed, KV cache for inference. レシピ: AdamW(lr=3e-4, betas=(0.9,0.95), wd=0.1), cosine decay to 3e-5, batch=32, ctx=256, steps=4000, warmup=400, grad_clip=1.0, seed=42, MPS, bf16 mixed. 期待: params ≒ 2*256*192 + 4*(4*192^2 + 2*192*4*192) ≒ 2.5M (tied で -100K), holdout_ppl ≒ 4.1, train_time ≒ 22 min, infer ≒ x4 with KV cache。 出力: gpt_train.py, gpt_infer_with_kvcache.py。"
+        },
+        {
+          "name": "G2",
+          "style": "depth8_h4_d160_drop005_kvcache",
+          "prompt": "[G2 depth8_h4_d160_drop005_kvcache] arch: depth=8, n_heads=4, d_model=160, ffn_mult=4, dropout=0.05 (深い分減らす)。 レシピ: 同上, steps=5000。 期待: params ≒ 8*(4*160^2 + 2*160*4*160) ≒ 3.3M, holdout_ppl ≒ 3.9 (深さで稼ぐ), train_time ≒ 28 min (上限ぎりぎり), infer x3 with KV. 効率は G1 並、 品質はわずかに上。"
+        },
+        {
+          "name": "G3",
+          "style": "depth4_h8_d192_grouped_kvcache",
+          "prompt": "[G3 depth4_h8_d192_grouped_kvcache] arch: depth=4, n_heads=8 (head_dim=24), d_model=192, ffn_mult=4, dropout=0.1, RoPE。 head_dim を小さくしてヘッド数を倍にする。 期待: params 同等 ≒ 2.5M, holdout_ppl ≒ 4.05 (頭数増で頭ごとの専門化), train_time 同等。 head_dim 24 は MPS で速い (8 の倍数)。"
+        }
+      ]
+    },
+    {
+      "name": "DistilledMicro",
+      "order": 5,
+      "branch": "improvement_path",
+      "parents": [
+        "ImprovedMicroGPTWinner"
+      ],
+      "archive": "DistilledMicroWinner",
+      "genome": "model_family=multi_block_transformer_compact; depth=4; n_heads=4; d_model=160; ffn_mult=4; vocab=256; ctx=256; positional=rope; norm=pre_rmsnorm; dropout=0.1; tied_embedding=true; param_count_estimate=1.8M-2.2M; train_paradigm=hard_label+soft_label_distillation; teacher=ImprovedMicroGPTWinner; distill_temperature=2.0; loss_mix=alpha*KL(student||teacher_soft) + (1-alpha)*CE(student, hard); alpha=0.5; engine=pytorch_mps; expected_holdout_ppl=3.8-4.1; train_time<=27min_M2_MPS; mutations_applied=M8",
+      "mutations": "M8_Distill_from_Teacher",
+      "crossover": "",
+      "focus": "expected_holdout_ppl, parameter_efficiency, training_efficiency",
+      "candidates": [
+        {
+          "name": "DI1",
+          "style": "soft_label_T2_alpha05",
+          "prompt": "[DI1 soft_label_T2_alpha05] arch: G1 を縮小 (d_model=160) した生徒。 教師 = ImprovedMicroGPTWinner。 レシピ: alpha=0.5, T=2.0, AdamW(lr=3e-4 wd=0.1), batch=32, ctx=256, steps=4500, warmup=400, MPS. 期待: params ≒ 1.9M (G1 から ~25% 縮小), holdout_ppl ≒ 4.0 (教師に追いつく), train_time ≒ 25 min。 蒸留で 'params 半分でも品質維持' を狙う。"
+        },
+        {
+          "name": "DI2",
+          "style": "soft_label_plus_intermediate_match",
+          "prompt": "[DI2 soft_label_plus_intermediate_match] arch: DI1 と同じだが各層の出力 hidden state も MSE で教師に合わせる (FitNets 風)。 損失 = alpha*KL + beta*MSE_hidden + (1-alpha-beta)*CE, alpha=0.4, beta=0.2。 期待: params 同じ 1.9M, holdout_ppl ≒ 3.9, train_time +15%。 教師との生徒層数が一致 (4=4) 必要。"
+        },
+        {
+          "name": "DI3",
+          "style": "data_only_distill",
+          "prompt": "[DI3 data_only_distill] arch: 教師に追加 byte 列 1MB を生成させ、 そのデータで生徒を素直に CE 学習。 教師 logits は使わない。 利点は実装が hard label のみで済むこと。 期待: params 1.9M, holdout_ppl ≒ 4.2 (DI1 より 0.2 悪い), train_time ≒ 22 min + 教師生成 5 min。 単純さ重視枝。"
+        }
+      ]
+    },
+    {
+      "name": "PreferenceTuned",
+      "order": 6,
+      "branch": "alignment_path",
+      "parents": [
+        "DistilledMicroWinner"
+      ],
+      "archive": "PreferenceTunedWinner",
+      "genome": "model_family=multi_block_transformer_compact; depth=4; n_heads=4; d_model=160; ffn_mult=4; param_count_estimate=1.8M-2.2M+lora_overhead; train_paradigm=distillation+DPO_lite; preference_data=three_reviewer_score_top_vs_bottom_pairs; reference_model=DistilledMicroWinner_frozen; beta=0.1; algorithm=DPO_with_KL_anchor; engine=pytorch_mps; expected_holdout_ppl=3.9-4.1; expected_reviewer_consistency=+1.5; mutations_applied=M9",
+      "mutations": "M9_Add_Preference_Tuning_DPO",
+      "crossover": "C2_Distill_plus_DPO_to_Aligned",
+      "focus": "expected_holdout_ppl, reproducibility, reviewer_consistency",
+      "candidates": [
+        {
+          "name": "PT1",
+          "style": "pairs_top_vs_bottom_full_finetune",
+          "prompt": "[PT1 pairs_top_vs_bottom_full_finetune] 過去 5 世代の 3 レビュアー累積点で各世代の最上位 vs 最下位を優劣ペア化、 計 5*3 = 15 ペア (足りなければ世代内 1 vs 3 も追加して 30 ペアに揃える)。 損失 = -log sigmoid(beta*(log p_pi(y_w|x) - log p_ref(y_w|x) - log p_pi(y_l|x) + log p_ref(y_l|x))), beta=0.1。 ref = DistilledMicroWinner frozen。 全パラメータ更新。 lr=1e-5, steps=200, MPS。 期待: holdout_ppl ≒ 4.0 (ほぼ不変), reviewer_consistency +1.5。"
+        },
+        {
+          "name": "PT2",
+          "style": "kl_anchored_full_finetune",
+          "prompt": "[PT2 kl_anchored_full_finetune] PT1 と同じだが KL を陽に項として足す (loss += lambda * KL(pi || ref), lambda=0.05)。 reviewer に過剰最適化して holdout_ppl が悪化するのを防ぐ。 期待: holdout_ppl ≒ 3.95, reviewer_consistency +1.2 (PT1 より控えめ)。"
+        },
+        {
+          "name": "PT3",
+          "style": "three_axis_separate_lora",
+          "prompt": "[PT3 three_axis_separate_lora] LoRA(rank=8) を 3 つ用意し、 言語品質 / 効率 / 再現性 軸ごとに別 LoRA で DPO する。 推論時はすべて加算。 LoRA params ≒ 3 * 2 * d_model * rank * depth = 3*2*160*8*4 ≒ 30K (本体 1.9M に対して微小)。 期待: holdout_ppl ≒ 4.0, reviewer_consistency +1.7 (3 軸でバランスする), 学習 +20%。 軸ごとのトレードオフを見たいときに有効。"
+        }
+      ]
+    },
+    {
+      "name": "SemiAutoEvolve",
+      "order": 7,
+      "branch": "join",
+      "parents": [
+        "PreferenceTunedWinner",
+        "ImprovedMicroGPTWinner"
+      ],
+      "archive": "SemiAutoEvolveWinner",
+      "genome": "model_family=multi_block_transformer_compact_self_evolving; depth=4; n_heads=4; d_model=160; ffn_mult=4; param_count_estimate=1.8M-2.2M+lora_overhead; train_paradigm=distill_then_DPO_then_self_proposed_mutation; self_evolution=model_drafts_3_mutations_human_picks_one; loop_protocol={input=[full_aice_history, mutation_log, reviewer_scores_per_stage, fitness_trajectory], output=[3_mutation_blocks_in_aice_format_with_expected_delta], filtering=human_picks_one, regression_guard=next_holdout_ppl_must_not_increase_by_more_than_0.2}; engine=pytorch_mps; expected_holdout_ppl=3.8-4.0; mutations_applied=M10",
+      "mutations": "M10_Add_SelfProposed_Mutations",
+      "crossover": "C3_Reviewer_Score_to_Mutation_Proposal",
+      "focus": "self_evolution_capability, evolvability, reproducibility",
+      "candidates": [
+        {
+          "name": "SE1",
+          "style": "model_drafts_three_mutations",
+          "prompt": "[SE1 model_drafts_three_mutations] 入力 = [これまでの aice 全文, mutations 履歴, 各世代の 3 レビュアー累積点数]。 出力 = mutation ブロック 3 つ (mutation Mxx_Name { kind, changes, expected_delta, reason })。 各 mutation は独立で、 'なぜ今これか' を reason 1 行に書く。 既存変異との重複を禁止 (名前ベースで dedupe)。 人間は 1 つ選ぶ。 自己提案受理率 0.33 -> 0.6 を目標。"
+        },
+        {
+          "name": "SE2",
+          "style": "model_writes_full_next_stage",
+          "prompt": "[SE2 model_writes_full_next_stage] SE1 をさらに進めて、 mutation だけでなく次の stage 全体 (genome + 3 candidates + 期待 fitness) を 1 つ起草する。 人間は採否のみ判断。 リスク: regression_guard (次世代 holdout_ppl を 0.2 以上悪化させない) を満たさないと拒否。 利点: aice の編集コストが大幅に下がる。"
+        },
+        {
+          "name": "SE3",
+          "style": "model_critiques_then_proposes",
+          "prompt": "[SE3 model_critiques_then_proposes] 前世代の最良候補の弱点を 3 行で自己批評し、 その弱点を埋める変異だけを 3 案提案。 各変異は弱点との対応を 1 行で示す。 多様性は減るが提案精度は上がる。 過去 stage で reviewer 点数が伸び悩んだ軸 (例: 効率) を狙い撃ちにできる。"
+        }
+      ]
+    }
+  ]
+}
