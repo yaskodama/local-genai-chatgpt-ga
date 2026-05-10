@@ -513,6 +513,17 @@ class TypeChecker:
             for ix in s.idxs:
                 self._infer(ix, env, where=where)
         elif kind is FieldAssign:
+            # Phase 15: external write to actor fields is forbidden, even
+            # for `pub` fields. Records remain mutable. Self-fields inside
+            # methods are bare-Var assigns (caught by Assign branch above)
+            # so this only fires for `obj.field = ...` with obj an actor.
+            base_t = env.get(s.name, "any")
+            if base_t.startswith("actor(") and base_t.endswith(")"):
+                cls_name = base_t[len("actor("):-1].split(",")[0].strip()
+                self._issue(where,
+                    f"external write to `{s.name}.{'.'.join(s.attrs)}` "
+                    f"on actor({cls_name}) is not allowed — use a method "
+                    f"(Phase 15: symbol_owned enforcement)")
             self._infer(s.expr, env, where=where)
         elif kind is Become:
             self._check_constructor(s.cls_name, s.args, env, where)
@@ -730,10 +741,12 @@ class TypeChecker:
             return "any"
         if kind is FieldAccess:
             cur = env.get(e.name, "any")
+            base_name = e.name
             for attr in e.attrs:
-                cur = self._field_type(cur, attr)
+                cur = self._field_type(cur, attr, where=where, base_name=base_name)
                 if cur == "any":
                     break
+                base_name = base_name + "." + attr
             return cur
         if kind is ArraySized:
             init = self._infer(e.init, env, where=where) if e.init is not None else "int"
@@ -758,18 +771,27 @@ class TypeChecker:
         sig = self.fn_sigs.get(f"{cls_name}.{method}")
         return _return_of(sig) if sig else "any"
 
-    def _field_type(self, rec: str, field: str) -> str:
+    def _field_type(self, rec: str, field: str, where: str = "",
+                    base_name: str = "") -> str:
         # First try record annotation.
         if rec.startswith("record{") and rec.endswith("}"):
             return _record_fields(rec).get(field, "any")
-        # Then actor field declared type.
+        # Then actor field declared type — Phase 15: external read of a
+        # private actor field is flagged. Inside the actor's own methods,
+        # bare `field` is a Var lookup (not FieldAccess), so this only
+        # fires for `obj.field` with `obj` an actor reference.
         if rec.startswith("actor(") and rec.endswith(")"):
             cls_name = rec[len("actor("):-1].split(",")[0].strip()
             cls = self.classes_by_name.get(cls_name)
             if cls is not None:
                 for f in cls.fields:
-                    if f.name == field and f.type_annotation:
-                        return f.type_annotation
+                    if f.name == field:
+                        if not f.is_public:
+                            self._issue(where,
+                                f"private field `{base_name}.{field}` "
+                                f"of actor({cls_name}) — annotate with `pub` "
+                                f"or call a method instead")
+                        return f.type_annotation or "any"
         return "any"
 
     def _issue(self, where: str, message: str,

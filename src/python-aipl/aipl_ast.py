@@ -128,6 +128,7 @@ class VarDecl:
     name: str
     expr: Expr
     type_annotation: Optional[str] = None  # gradual annotation (None = unchecked)
+    is_public: bool = False                # Phase 15: `pub` prefix on actor fields
 
 @dataclass
 class VarNew:

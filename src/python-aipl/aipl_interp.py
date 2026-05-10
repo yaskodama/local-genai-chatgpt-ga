@@ -701,7 +701,13 @@ class Interpreter:
             rec = frame.lookup(e.name, self.globals)
             try:
                 for a in e.attrs:
-                    rec = rec[a]
+                    # Phase 15: actor field reads route through actor.fields.
+                    # Visibility (`pub` vs private) is enforced statically
+                    # by aipl_typeck, so the runtime can stay permissive.
+                    if isinstance(rec, Actor):
+                        rec = rec.fields.get(a)
+                    else:
+                        rec = rec[a]
                 return rec
             except (KeyError, TypeError):
                 return None

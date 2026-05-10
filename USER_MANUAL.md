@@ -538,6 +538,46 @@ class Demo {
 
 サンプル: `src/python-aipl/samples/Typecheck11de.abcl`
 
+### 4.7o Phase 15 — symbol_owned (アクターフィールドのカプセル化)
+
+Phase 9 の予測軸 `state_representation = symbol_owned` を完成させる。
+アクターの状態 (フィールド) は **そのアクター自身しか書き換えられない**
+ことを静的検査で強制する:
+
+```
+class BankAccount {
+  var balance: int = 0;          // 既定: 外部不可視 (private)
+  pub var holder: string = "";   // pub: 外部から read 可
+
+  method deposit(amount: int) -> int {
+    balance = balance + amount;  // 自分のメソッドからの書き込みは OK
+    return balance;
+  }
+}
+
+class Bandit {
+  method attack() {
+    var acct = new BankAccount();
+    var s = acct.holder;     // OK   (pub field の external read)
+    var b = acct.balance;    // ✗   (private field の external read)
+    acct.balance = 999;      // ✗   (external write は pub/private 問わず禁止)
+  }
+}
+```
+
+**規則**:
+- フィールド宣言の頭に `pub` を付けると **外部から read 可** になる。
+  デフォルト (no `pub`) は private。
+- **外部書き込み (`obj.field = ...`) は常に禁止**: `pub` でも書き換えは
+  メソッド経由を強制する (アクター不変条件を保護)。
+- 同一クラスのメソッド内では bare `field` 名で自分のフィールドを
+  自由に read/write できる (これは FieldAccess ではなく Var 解決)。
+- レコード型 (匿名 `{...}` データ) は引き続き自由に read/write 可能 ―
+  Phase 15 はアクターのみを対象。
+
+サンプル: `src/python-aipl/samples/Owned.abcl` (clean)、
+`samples/Owned_violations.abcl` (3 件の意図的違反を出す)。
+
 ### 4.7n Phase 14 — Linear / 借用型 (use-after-move 検出)
 
 `linear T` プレフィックスで **「最大 1 回しか使えない」値** を宣言できる:

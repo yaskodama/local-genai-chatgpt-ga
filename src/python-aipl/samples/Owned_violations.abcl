@@ -1,0 +1,31 @@
+// Phase 15 — intentional violations.
+//
+// This file is *meant* to fail the type checker. It demonstrates
+// every diagnostic Phase 15 emits. Run with the type checker; do
+// not run with the interpreter.
+
+class BankAccount {
+  var balance: int = 0;
+  pub var holder: string = "anonymous";
+
+  method peek() -> int { return balance; }
+}
+
+class Bandit {
+  method attack() {
+    var acct = new BankAccount();
+
+    // Violation 1: external write to a public field.
+    acct.holder = "stolen";
+
+    // Violation 2: external write to a private field.
+    acct.balance = 999999;
+
+    // Violation 3: external read of a private field.
+    var stolen = acct.balance;
+    print("stolen amount = " + stolen);
+  }
+}
+
+var b = new Bandit();
+send b.attack();

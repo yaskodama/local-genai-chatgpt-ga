@@ -185,11 +185,26 @@ class _Builder(Transformer):
             return VarDecl(name, items[2], type_annotation=str(items[1]))
         return VarDecl(name, items[1])
 
+    @v_args(inline=False)
+    def field_pub(self, items):
+        # Same shape as `field` but the surrounding production already
+        # ensured `pub` was present.
+        name = str(items[0])
+        if len(items) == 3:
+            return VarDecl(name, items[2], type_annotation=str(items[1]), is_public=True)
+        return VarDecl(name, items[1], is_public=True)
+
     def field_array(self, name, dims):
         return VarDecl(str(name), ArraySized(dims, None))
 
+    def field_array_pub(self, name, dims):
+        return VarDecl(str(name), ArraySized(dims, None), is_public=True)
+
     def field_array_init(self, name, dims, init_expr):
         return VarDecl(str(name), ArraySized(dims, init_expr))
+
+    def field_array_init_pub(self, name, dims, init_expr):
+        return VarDecl(str(name), ArraySized(dims, init_expr), is_public=True)
 
     @v_args(inline=False)
     def params(self, items):

@@ -1,0 +1,65 @@
+// Phase 15 — symbol_owned: actor field encapsulation.
+//
+// Two actors interact through methods only. The static checker
+// (Phase 15) flags every external `obj.field = ...` write and every
+// external read of a non-`pub` field.
+//
+// Demonstrates:
+//   - `pub` modifier exposes a field for external read
+//   - private fields (default) are flagged when read from outside
+//   - external writes are flagged for ALL actor fields (pub or not):
+//     callers must go through methods, preserving the actor's invariants
+//   - methods inside the owning class can freely mutate any field
+
+class BankAccount {
+  var balance: int = 0;     // private — only deposit/withdraw can change it
+  pub var holder: string = "anonymous";   // public read-only handle
+
+  method open(name, initial: int) -> int {
+    holder = name;
+    balance = initial;
+    return initial;
+  }
+
+  method deposit(amount: int) -> int {
+    balance = balance + amount;   // OK — same-class method writing own field
+    return balance;
+  }
+
+  method withdraw(amount: int) -> int {
+    if (amount > balance) {
+      return -1;
+    }
+    balance = balance - amount;
+    return balance;
+  }
+
+  method peek() -> int {
+    return balance;
+  }
+}
+
+class Auditor {
+  method run() {
+    var acct = new BankAccount();
+    var opened = now acct.open("Alice", 100);
+    print("opened with " + opened);
+
+    // OK: pub field, external read.
+    print("holder = " + acct.holder);
+
+    // OK: balance accessed through a method.
+    var b = now acct.peek();
+    print("balance via peek() = " + b);
+
+    // OK: mutation through a method.
+    var after_dep = now acct.deposit(50);
+    print("after deposit = " + after_dep);
+
+    var after_wd = now acct.withdraw(30);
+    print("after withdraw = " + after_wd);
+  }
+}
+
+var a = new Auditor();
+send a.run();

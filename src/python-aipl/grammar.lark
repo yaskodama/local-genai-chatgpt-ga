@@ -24,9 +24,16 @@ return_anno: "->" type_expr
 // propagates effects through call chains and flags shortfalls.
 effect_anno: "!" "{" (NAME ("," NAME)*)? "}"
 
+// Fields are private by default. Prefixing with `pub` makes them
+// externally readable via `obj.field`. External writes (`obj.field = ...`)
+// are banned for *all* actor fields regardless of visibility — callers
+// must go through a method (Phase 15: symbol_owned enforcement).
 field: ("var" | "float" | "int") NAME type_anno? "=" expr ";"
-     | ("var" | "float" | "int") NAME dim_list ";"               -> field_array
-     | ("var" | "float" | "int") NAME dim_list "=" expr ";"      -> field_array_init
+     | "pub" ("var" | "float" | "int") NAME type_anno? "=" expr ";"      -> field_pub
+     | ("var" | "float" | "int") NAME dim_list ";"                       -> field_array
+     | "pub" ("var" | "float" | "int") NAME dim_list ";"                 -> field_array_pub
+     | ("var" | "float" | "int") NAME dim_list "=" expr ";"              -> field_array_init
+     | "pub" ("var" | "float" | "int") NAME dim_list "=" expr ";"        -> field_array_init_pub
 
 type_anno: ":" type_expr
 
@@ -150,7 +157,7 @@ args: (expr ("," expr)*)?
 record_fields: record_field ("," record_field)* ","?
 record_field:  NAME ":" expr
 
-NAME: /(?!(class|method|function|return|var|float|int|new|send|call|become|if|else|while|do|self|sender|now|future|await|true|false)\b)[a-zA-Z_][a-zA-Z0-9_]*/
+NAME: /(?!(class|method|function|return|var|float|int|new|send|call|become|if|else|while|do|self|sender|now|future|await|true|false|pub|linear)\b)[a-zA-Z_][a-zA-Z0-9_]*/
 INT: /[0-9]+(?!\.)/
 FLOAT: /[0-9]+\.[0-9]*|\.[0-9]+/
 STRING: /"([^"\\]|\\.)*"/

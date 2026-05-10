@@ -42,7 +42,7 @@ class Worker {
 class Coordinator {
   var req = 0;
   var res = 0;
-  var workers = [];
+  pub var workers = [];   // read-only handle so Demo can iterate the pool
 
   method init(request_ch, result_ch) {
     req = request_ch;
