@@ -1,0 +1,35 @@
+// Sample 2 — send-side type mismatch.
+//
+//   var ch = channel(0, "int");
+//   channel_send(ch, "not-an-int");    // ✗ string passed to channel[int]
+
+class Driver {
+  method run() {
+    print("=== Level B-3 — SampleChannelSendMismatch ===");
+
+    var prog = {
+      fns: [],
+      main: [
+        {tag: "VarDecl", name: "ch", type: "any",
+         expr: {tag: "Call", name: "channel",
+                args: [{tag: "Int", val: 0},
+                       {tag: "Str", val: "int"}]}},
+        {tag: "Call", name: "channel_send",
+         args: [{tag: "Var", name: "ch"},
+                {tag: "Str", val: "not-an-int"}]}
+      ]
+    };
+
+    var issues = tc_check_program(prog);
+    print("issues=" + array_len(issues));
+    var i = 0;
+    while (i < array_len(issues)) do {
+      print("  - " + array_get(issues, i));
+      i = i + 1;
+    }
+    print("(expected: 1 — string sent to channel[int])");
+  }
+}
+
+var d = new Driver();
+send d.run();

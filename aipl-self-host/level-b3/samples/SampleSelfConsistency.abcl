@@ -1,0 +1,84 @@
+// Sample 5 — Phase 13 typeck self-consistency.
+//
+// The B-3 typeck functions don't use channel ops directly, so the
+// self-spec is identical to B-2's: 0 issues from clean spec, 1
+// issue from a deliberately broken caller.  We then add a SECOND
+// broken caller that misuses channel_send to confirm the new path
+// is detected.
+
+class Driver {
+  method run() {
+    print("=== Level B-3 — SampleSelfConsistency ===");
+
+    // ---- (a) clean self-spec (typeck functions are pure) ----
+    var tc_compat = {
+      name: "tc_compatible",
+      params: [{name: "expected", type: "string"}, {name: "actual", type: "string"}],
+      return_type: "int",
+      effects: [],
+      body: [
+        {tag: "Return",
+         expr: {tag: "Call", name: "tc_compatible",
+                args: [{tag: "Var", name: "expected"},
+                       {tag: "Var", name: "actual"}]}}
+      ]
+    };
+
+    var infer_expr = {
+      name: "tc_infer_expr",
+      params: [{name: "ast", type: "any"}, {name: "tenv", type: "any"},
+               {name: "fns", type: "any"}, {name: "issues", type: "any"},
+               {name: "observed", type: "any"}],
+      return_type: "string",
+      effects: [],
+      body: [
+        {tag: "Return", expr: {tag: "Str", val: "int"}}
+      ]
+    };
+
+    var prog_clean = { fns: [tc_compat, infer_expr], main: [] };
+    var clean_issues = tc_check_program(prog_clean);
+    print("self-spec issues=" + array_len(clean_issues));
+    var i = 0;
+    while (i < array_len(clean_issues)) do {
+      print("  - " + array_get(clean_issues, i));
+      i = i + 1;
+    }
+
+    // ---- (b) broken: channel_send with wrong element type ----
+    print("");
+    print("--- intentional violation: channel_send with mismatched element ---");
+    var bad_chan = {
+      name: "bad_chan",
+      params: [],
+      return_type: "any",
+      effects: [],
+      body: [
+        {tag: "VarDecl", name: "ch", type: "any",
+         expr: {tag: "Call", name: "channel",
+                args: [{tag: "Int", val: 0},
+                       {tag: "Str", val: "int"}]}},
+        {tag: "Call", name: "channel_send",
+         args: [{tag: "Var", name: "ch"},
+                {tag: "Str", val: "wrong"}]},
+        {tag: "Return", expr: {tag: "Int", val: 0}}
+      ]
+    };
+    var prog_bad = { fns: [bad_chan], main: [] };
+    var bad_issues = tc_check_program(prog_bad);
+    print("bad-chan issues=" + array_len(bad_issues));
+    var j = 0;
+    while (j < array_len(bad_issues)) do {
+      print("  - " + array_get(bad_issues, j));
+      j = j + 1;
+    }
+    print("(expected: 1 — string sent on channel[int])");
+
+    var total = array_len(clean_issues) + array_len(bad_issues);
+    print("");
+    print("issues=" + total);
+  }
+}
+
+var d = new Driver();
+send d.run();

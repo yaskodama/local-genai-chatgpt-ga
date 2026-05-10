@@ -1,0 +1,42 @@
+// Sample 4 — channel_try_recv returns tuple(int, T).
+//
+//   var ch = channel(0, "int");
+//   channel_send(ch, 7);
+//   var pair = channel_try_recv(ch);
+//   var ok = pair[0];           // (these tuple-index calls won't be checked
+//   var val: int = pair[1];     //  by B-3's simple checker; we only verify
+//                                //  that try_recv's return type is captured.)
+// Expected: 0 issues. Demonstrates the try_recv inference path.
+
+class Driver {
+  method run() {
+    print("=== Level B-3 — SampleChannelTryRecv ===");
+
+    var prog = {
+      fns: [],
+      main: [
+        {tag: "VarDecl", name: "ch", type: "any",
+         expr: {tag: "Call", name: "channel",
+                args: [{tag: "Int", val: 0},
+                       {tag: "Str", val: "int"}]}},
+        {tag: "Call", name: "channel_send",
+         args: [{tag: "Var", name: "ch"}, {tag: "Int", val: 7}]},
+        {tag: "VarDecl", name: "pair", type: "tuple(int, int)",
+         expr: {tag: "Call", name: "channel_try_recv",
+                args: [{tag: "Var", name: "ch"}]}}
+      ]
+    };
+
+    var issues = tc_check_program(prog);
+    print("issues=" + array_len(issues));
+    var i = 0;
+    while (i < array_len(issues)) do {
+      print("  - " + array_get(issues, i));
+      i = i + 1;
+    }
+    print("(expected: 0 — pair: tuple(int, int) matches try_recv on channel[int])");
+  }
+}
+
+var d = new Driver();
+send d.run();

@@ -1,0 +1,41 @@
+// Sample 1 — clean channel use.
+//
+//   var ch = channel(0, "int");
+//   channel_send(ch, 42);            // OK: int matches channel[int]
+//   var v: int = channel_recv(ch);   // OK: recv yields int
+//   channel_close(ch);
+
+class Driver {
+  method run() {
+    print("=== Level B-3 — SampleChannelClean ===");
+
+    var prog = {
+      fns: [],
+      main: [
+        {tag: "VarDecl", name: "ch", type: "any",
+         expr: {tag: "Call", name: "channel",
+                args: [{tag: "Int", val: 0},
+                       {tag: "Str", val: "int"}]}},
+        {tag: "Call", name: "channel_send",
+         args: [{tag: "Var", name: "ch"}, {tag: "Int", val: 42}]},
+        {tag: "VarDecl", name: "v", type: "int",
+         expr: {tag: "Call", name: "channel_recv",
+                args: [{tag: "Var", name: "ch"}]}},
+        {tag: "Call", name: "channel_close",
+         args: [{tag: "Var", name: "ch"}]}
+      ]
+    };
+
+    var issues = tc_check_program(prog);
+    print("issues=" + array_len(issues));
+    var i = 0;
+    while (i < array_len(issues)) do {
+      print("  - " + array_get(issues, i));
+      i = i + 1;
+    }
+    print("(expected: 0 — channel[int] used consistently)");
+  }
+}
+
+var d = new Driver();
+send d.run();

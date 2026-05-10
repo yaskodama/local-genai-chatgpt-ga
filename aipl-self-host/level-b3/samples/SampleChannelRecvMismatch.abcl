@@ -1,0 +1,35 @@
+// Sample 3 — recv-side annotation mismatch.
+//
+//   var ch = channel(0, "string");
+//   var n: int = channel_recv(ch);    // ✗ recv returns string, not int
+
+class Driver {
+  method run() {
+    print("=== Level B-3 — SampleChannelRecvMismatch ===");
+
+    var prog = {
+      fns: [],
+      main: [
+        {tag: "VarDecl", name: "ch", type: "any",
+         expr: {tag: "Call", name: "channel",
+                args: [{tag: "Int", val: 0},
+                       {tag: "Str", val: "string"}]}},
+        {tag: "VarDecl", name: "n", type: "int",
+         expr: {tag: "Call", name: "channel_recv",
+                args: [{tag: "Var", name: "ch"}]}}
+      ]
+    };
+
+    var issues = tc_check_program(prog);
+    print("issues=" + array_len(issues));
+    var i = 0;
+    while (i < array_len(issues)) do {
+      print("  - " + array_get(issues, i));
+      i = i + 1;
+    }
+    print("(expected: 1 — channel[string].recv into int-typed var)");
+  }
+}
+
+var d = new Driver();
+send d.run();
