@@ -1,0 +1,47 @@
+// Sample 1 — clean owned use.
+//
+//   class BankAccount {
+//     pub var holder: string;       // public read
+//     var balance: int;             // private
+//   }
+//   var acct = new BankAccount();
+//   var who: string = acct.holder;  // OK pub read
+//   // (no external writes)
+
+class Driver {
+  method run() {
+    print("=== Level B-5 — SampleOwnedClean ===");
+
+    var bank = {
+      name: "BankAccount",
+      fields: [
+        {name: "holder",  type: "string", is_pub: 1},
+        {name: "balance", type: "int",    is_pub: 0}
+      ],
+      methods: []
+    };
+
+    var prog = {
+      classes: [bank],
+      fns: [],
+      main: [
+        {tag: "VarDecl", name: "acct", type: "any",
+         expr: {tag: "New", cls_name: "BankAccount", args: []}},
+        {tag: "VarDecl", name: "who", type: "string",
+         expr: {tag: "FieldAccess", obj: "acct", field: "holder"}}
+      ]
+    };
+
+    var issues = tc_check_program(prog);
+    print("issues=" + array_len(issues));
+    var i = 0;
+    while (i < array_len(issues)) do {
+      print("  - " + array_get(issues, i));
+      i = i + 1;
+    }
+    print("(expected: 0 — only pub field read externally)");
+  }
+}
+
+var d = new Driver();
+send d.run();

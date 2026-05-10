@@ -1,0 +1,65 @@
+// Sample 4 — Phase 14 typeck self-consistency.
+//
+// (a) typeck functions are non-linear → 0 issues.
+// (b) intentionally violate: define a fn taking `linear int` and
+//     consume it twice.
+
+class Driver {
+  method run() {
+    print("=== Level B-4 — SampleSelfConsistency ===");
+
+    var tc_compat = {
+      name: "tc_compatible",
+      params: [{name: "expected", type: "string"}, {name: "actual", type: "string"}],
+      return_type: "int",
+      effects: [],
+      body: [
+        {tag: "Return",
+         expr: {tag: "Call", name: "tc_compatible",
+                args: [{tag: "Var", name: "expected"},
+                       {tag: "Var", name: "actual"}]}}
+      ]
+    };
+
+    var prog_clean = { fns: [tc_compat], main: [] };
+    var clean_issues = tc_check_program(prog_clean);
+    print("self-spec issues=" + array_len(clean_issues));
+
+    print("");
+    print("--- intentional violation: double-consume linear ---");
+    var consume = {
+      name: "consume",
+      params: [{name: "x", type: "linear int"}],
+      return_type: "int",
+      effects: [],
+      body: [{tag: "Return", expr: {tag: "Int", val: 0}}]
+    };
+    var bad_caller = {
+      name: "bad_caller",
+      params: [{name: "y", type: "linear int"}],
+      return_type: "int",
+      effects: [],
+      body: [
+        {tag: "Call", name: "consume", args: [{tag: "Var", name: "y"}]},
+        {tag: "Call", name: "consume", args: [{tag: "Var", name: "y"}]},
+        {tag: "Return", expr: {tag: "Int", val: 0}}
+      ]
+    };
+    var prog_bad = { fns: [consume, bad_caller], main: [] };
+    var bad_issues = tc_check_program(prog_bad);
+    print("bad-caller issues=" + array_len(bad_issues));
+    var j = 0;
+    while (j < array_len(bad_issues)) do {
+      print("  - " + array_get(bad_issues, j));
+      j = j + 1;
+    }
+    print("(expected: 1 — second consume is use-after-move on y)");
+
+    var total = array_len(clean_issues) + array_len(bad_issues);
+    print("");
+    print("issues=" + total);
+  }
+}
+
+var d = new Driver();
+send d.run();

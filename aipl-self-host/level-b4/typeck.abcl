@@ -1,0 +1,475 @@
+// Level B-4 — Phase 14 linear / use-after-move checker (AIPL impl).
+//
+// Extends Level B-3 with use-after-move detection.  Linear values
+// are encoded in the tenv with a "<moved> " prefix once consumed by
+// a Call whose corresponding parameter has type starting with
+// "linear ".  Subsequent Var lookups that find this prefix emit a
+// `use of moved linear variable` issue.
+//
+// The classic rebind pattern stays clean:
+//
+//   var fh: linear int = open(...);   // tenv: fh -> "linear int"
+//   fh = write(fh, ...);              // call → tenv prepended:
+//                                     //   fh -> "<moved> linear int"
+//                                     // then Assign re-binds:
+//                                     //   fh -> "linear int"  (latest wins)
+//
+// Phase monotonicity (B-3 → B-4):
+//   tenv shape          unchanged (still array of (name, type) tuples)
+//   tail-first lookup   unchanged
+//   per-call fresh env  unchanged
+//   tc_compatible       unchanged at the surface; linearity is stripped
+//                       at the boundary so it doesn't perturb compat
+//   effect tracking     unchanged
+//   channel rules       unchanged
+
+// ===================================================================
+// PART 1 — env helpers (unchanged from B-3).
+// ===================================================================
+
+function tenv_get(env, name) {
+  var i: int = array_len(env) - 1;
+  while (i >= 0) do {
+    var pair = array_get(env, i);
+    if (pair[0] == name) { return pair[1]; }
+    i = i - 1;
+  }
+  return "any";
+}
+
+function tenv_set(env, name, ty) {
+  array_push(env, (name, ty));
+  return ty;
+}
+
+function fns_lookup(fns, name) {
+  var i: int = array_len(fns) - 1;
+  while (i >= 0) do {
+    var pair = array_get(fns, i);
+    if (pair[0] == name) { return pair[1]; }
+    i = i - 1;
+  }
+  return 0;
+}
+
+function fns_register(fns, name, fn_decl) {
+  array_push(fns, (name, fn_decl));
+  return 0;
+}
+
+function str_split_on(s: string, sep: string) {
+  var out = [];
+  var n: int = str_len(s);
+  var sep_len: int = str_len(sep);
+  var start: int = 0;
+  var i: int = 0;
+  while (i <= n - sep_len) do {
+    if (str_sub(s, i, i + sep_len) == sep) {
+      array_push(out, str_sub(s, start, i));
+      i = i + sep_len;
+      start = i;
+    } else {
+      i = i + 1;
+    }
+  }
+  array_push(out, str_sub(s, start, n));
+  return out;
+}
+
+// ===================================================================
+// PART 2 — linear modifier helpers (NEW for B-4).
+// ===================================================================
+
+// Detect / strip a leading "linear " modifier.
+function is_linear(t: string) {
+  if (str_starts_with(t, "linear ") == 1) { return 1; }
+  return 0;
+}
+
+function strip_linear(t: string) {
+  if (str_starts_with(t, "linear ") == 1) {
+    return str_sub(t, 7, str_len(t));
+  }
+  return t;
+}
+
+// Detect / strip / apply a "<moved> " prefix on a tenv-encoded type.
+function is_moved(t: string) {
+  if (str_starts_with(t, "<moved> ") == 1) { return 1; }
+  return 0;
+}
+
+function mark_moved(t: string) {
+  if (is_moved(t) == 1) { return t; }
+  return "<moved> " + t;
+}
+
+// ===================================================================
+// PART 3 — type compatibility.  Linear/moved prefixes are stripped
+// at the boundary so the lattice itself stays B-1's shape.
+// ===================================================================
+
+function tc_compatible(expected: string, actual: string) {
+  // Strip linearity + moved markers — they're orthogonal to compat.
+  var ex = strip_linear(expected);
+  if (is_moved(ex) == 1) { ex = str_sub(ex, 8, str_len(ex)); ex = strip_linear(ex); }
+  var ac = strip_linear(actual);
+  if (is_moved(ac) == 1) { ac = str_sub(ac, 8, str_len(ac)); ac = strip_linear(ac); }
+
+  if (ex == "any") { return 1; }
+  if (ac == "any") { return 1; }
+  if (ex == ac)    { return 1; }
+  if (ex == "float") {
+    if (ac == "int") { return 1; }
+  }
+  if (str_contains(ex, "|") == 1) {
+    var parts = str_split_on(ex, "|");
+    var i: int = 0;
+    var n: int = array_len(parts);
+    while (i < n) do {
+      var p = str_trim(array_get(parts, i));
+      if (tc_compatible(p, ac) == 1) { return 1; }
+      i = i + 1;
+    }
+    return 0;
+  }
+  return 0;
+}
+
+// ===================================================================
+// PART 4 — effect-set helpers (unchanged from B-2).
+// ===================================================================
+
+function eff_has(set, name) {
+  var i: int = 0;
+  var n: int = array_len(set);
+  while (i < n) do {
+    if (array_get(set, i) == name) { return 1; }
+    i = i + 1;
+  }
+  return 0;
+}
+
+function eff_add(set, name) {
+  if (eff_has(set, name) == 0) { array_push(set, name); }
+  return 0;
+}
+
+function eff_union(dst, src) {
+  var i: int = 0;
+  var n: int = array_len(src);
+  while (i < n) do { eff_add(dst, array_get(src, i)); i = i + 1; }
+  return 0;
+}
+
+function eff_missing(declared, observed) {
+  var miss = [];
+  var i: int = 0;
+  var n: int = array_len(observed);
+  while (i < n) do {
+    var e = array_get(observed, i);
+    if (eff_has(declared, e) == 0) { array_push(miss, e); }
+    i = i + 1;
+  }
+  return miss;
+}
+
+function eff_render(set) {
+  var s: string = "{";
+  var i: int = 0;
+  var n: int = array_len(set);
+  while (i < n) do {
+    if (i > 0) { s = s + ", "; }
+    s = s + array_get(set, i);
+    i = i + 1;
+  }
+  return s + "}";
+}
+
+function builtin_effects(name: string) {
+  if (name == "ai_call")              { return ["ai", "net"]; }
+  if (name == "ai_call_with_system")  { return ["ai", "net"]; }
+  if (name == "ai_call_image")        { return ["ai", "net"]; }
+  if (name == "ai_call_image_with_system") { return ["ai", "net"]; }
+  if (name == "ai_call_priority")     { return ["ai", "net"]; }
+  if (name == "ai_call_priority_with_system") { return ["ai", "net"]; }
+  if (name == "read_file")            { return ["fs"]; }
+  if (name == "write_file")           { return ["fs"]; }
+  if (name == "read_bytes")           { return ["fs"]; }
+  if (name == "write_bytes")          { return ["fs"]; }
+  if (name == "list_dir")             { return ["fs"]; }
+  if (name == "mkdir")                { return ["fs"]; }
+  if (name == "image_load")           { return ["fs"]; }
+  if (name == "image_save")           { return ["fs"]; }
+  if (name == "web_listen")           { return ["net"]; }
+  if (name == "web_expose")           { return ["net"]; }
+  if (name == "remote_call")          { return ["net"]; }
+  if (name == "remote_now")           { return ["net"]; }
+  if (name == "remote_future")        { return ["net"]; }
+  if (name == "compile")              { return ["mut"]; }
+  if (name == "spawn")                { return ["mut"]; }
+  if (name == "add_method")           { return ["mut"]; }
+  if (name == "remove_method")        { return ["mut"]; }
+  return [];
+}
+
+// Phase 13: extract element type T from "channel[T]".
+function channel_elem_type(ty: string) {
+  if (str_starts_with(ty, "channel[") == 1) {
+    var inner_start: int = 8;
+    var inner_end:   int = str_len(ty) - 1;
+    return str_sub(ty, inner_start, inner_end);
+  }
+  return "any";
+}
+
+// ===================================================================
+// PART 5 — walker.  Threads only (issues, observed) through the
+// arms.  Linearity uses the tenv directly via "<moved> " prefix.
+// ===================================================================
+
+function tc_infer_expr(ast, tenv, fns, issues, observed) {
+  if (ast.tag == "Int") { return "int"; }
+  if (ast.tag == "Str") { return "string"; }
+  if (ast.tag == "Var") {
+    var t = tenv_get(tenv, ast.name);
+    if (is_moved(t) == 1) {
+      array_push(issues,
+        "use of moved linear variable `" + ast.name + "`");
+    }
+    return t;
+  }
+  if (ast.tag == "Binop") {
+    var lt = tc_infer_expr(ast.lhs, tenv, fns, issues, observed);
+    var rt = tc_infer_expr(ast.rhs, tenv, fns, issues, observed);
+    var op = ast.op;
+    if (op == "==") { return "int"; }
+    if (op == "!=") { return "int"; }
+    if (op == "<")  { return "int"; }
+    if (op == ">")  { return "int"; }
+    if (op == "<=") { return "int"; }
+    if (op == ">=") { return "int"; }
+    if (op == "+") {
+      if (strip_linear(lt) == "string") { return "string"; }
+      if (strip_linear(rt) == "string") { return "string"; }
+    }
+    if (strip_linear(lt) == "float") { return "float"; }
+    if (strip_linear(rt) == "float") { return "float"; }
+    return "int";
+  }
+  if (ast.tag == "Call") {
+    // Phase 13 channel builtins (unchanged from B-3).
+    if (ast.name == "channel") {
+      tc_infer_expr(array_get(ast.args, 0), tenv, fns, issues, observed);
+      if (array_len(ast.args) >= 2) {
+        var elem_ast = array_get(ast.args, 1);
+        if (elem_ast.tag == "Str") { return "channel[" + elem_ast.val + "]"; }
+      }
+      return "channel[any]";
+    }
+    if (ast.name == "channel_send") {
+      var ch_ty = tc_infer_expr(array_get(ast.args, 0), tenv, fns, issues, observed);
+      var v_ty  = tc_infer_expr(array_get(ast.args, 1), tenv, fns, issues, observed);
+      var elem  = channel_elem_type(ch_ty);
+      if (tc_compatible(elem, v_ty) == 0) {
+        array_push(issues,
+          "channel_send: element type mismatch (channel expects " + elem +
+          ", got " + v_ty + ")");
+      }
+      return "int";
+    }
+    if (ast.name == "channel_recv") {
+      var ch_ty2 = tc_infer_expr(array_get(ast.args, 0), tenv, fns, issues, observed);
+      if (array_len(ast.args) >= 2) {
+        tc_infer_expr(array_get(ast.args, 1), tenv, fns, issues, observed);
+      }
+      return channel_elem_type(ch_ty2);
+    }
+    if (ast.name == "channel_try_recv") {
+      var ch_ty3 = tc_infer_expr(array_get(ast.args, 0), tenv, fns, issues, observed);
+      return "tuple(int, " + channel_elem_type(ch_ty3) + ")";
+    }
+    if (ast.name == "channel_close") {
+      tc_infer_expr(array_get(ast.args, 0), tenv, fns, issues, observed);
+      return "int";
+    }
+    if (ast.name == "channel_size") {
+      tc_infer_expr(array_get(ast.args, 0), tenv, fns, issues, observed);
+      return "int";
+    }
+
+    var fn = fns_lookup(fns, ast.name);
+    if (fn == 0) {
+      eff_union(observed, builtin_effects(ast.name));
+      var i: int = 0;
+      var na: int = array_len(ast.args);
+      while (i < na) do {
+        tc_infer_expr(array_get(ast.args, i), tenv, fns, issues, observed);
+        i = i + 1;
+      }
+      return "any";
+    }
+
+    var nparams: int = array_len(fn.params);
+    var nargs: int = array_len(ast.args);
+    if (nparams != nargs) {
+      array_push(issues,
+        "call to " + ast.name + ": arity " + nargs + " vs declared " + nparams);
+    } else {
+      var i2: int = 0;
+      while (i2 < nparams) do {
+        var p = array_get(fn.params, i2);
+        var arg_ast = array_get(ast.args, i2);
+        var at = tc_infer_expr(arg_ast, tenv, fns, issues, observed);
+        if (tc_compatible(p.type, at) == 0) {
+          array_push(issues,
+            "call to " + ast.name + " arg `" + p.name + "` mismatch (expected " + p.type + ", got " + at + ")");
+        }
+        // Phase 14: if the parameter is `linear T` and the arg is a
+        // bare Var, mark that var as moved IN tenv (prepend a new
+        // "<moved> ..." binding; tail-first lookup picks it up).
+        if (is_linear(p.type) == 1) {
+          if (arg_ast.tag == "Var") {
+            // Don't double-mark if already moved.
+            if (is_moved(at) == 0) {
+              tenv_set(tenv, arg_ast.name, mark_moved(at));
+            }
+          }
+        }
+        i2 = i2 + 1;
+      }
+    }
+    eff_union(observed, fn.effects);
+    return fn.return_type;
+  }
+  return "any";
+}
+
+function tc_check_stmt(s, tenv, fns, expected_ret, issues, observed) {
+  if (s.tag == "VarDecl") {
+    var anno = s.type;
+    var rhs_ty = tc_infer_expr(s.expr, tenv, fns, issues, observed);
+    if (anno != "any") {
+      if (tc_compatible(anno, rhs_ty) == 0) {
+        array_push(issues,
+          "var `" + s.name + "` initializer mismatch (expected " + anno + ", got " + rhs_ty + ")");
+      }
+    }
+    // VarDecl rebinds (clears any prior <moved> via tail-first).
+    if (anno == "any") {
+      tenv_set(tenv, s.name, rhs_ty);
+    } else {
+      tenv_set(tenv, s.name, anno);
+    }
+    return 0;
+  }
+  if (s.tag == "Assign") {
+    var declared = tenv_get(tenv, s.name);
+    var rhs_ty = tc_infer_expr(s.expr, tenv, fns, issues, observed);
+    if (is_moved(declared) == 0) {
+      if (declared != "any") {
+        if (tc_compatible(declared, rhs_ty) == 0) {
+          array_push(issues,
+            "assign to `" + s.name + "` mismatch (declared " + declared + ", got " + rhs_ty + ")");
+        }
+      }
+    }
+    // Assign re-binds → clear <moved> by setting the original
+    // declared type (or rhs type if it was unannotated).
+    var clean = strip_linear(declared);
+    if (is_moved(clean) == 1) { clean = str_sub(clean, 8, str_len(clean)); }
+    if (clean == "any") {
+      tenv_set(tenv, s.name, rhs_ty);
+    } else {
+      tenv_set(tenv, s.name, declared);   // restore the linear-tagged form
+    }
+    return 0;
+  }
+  if (s.tag == "Print") {
+    tc_infer_expr(s.expr, tenv, fns, issues, observed);
+    return 0;
+  }
+  if (s.tag == "If") {
+    tc_infer_expr(s.cond, tenv, fns, issues, observed);
+    tc_check_stmt_list(s.then_body, tenv, fns, expected_ret, issues, observed);
+    tc_check_stmt_list(s.else_body, tenv, fns, expected_ret, issues, observed);
+    return 0;
+  }
+  if (s.tag == "While") {
+    tc_infer_expr(s.cond, tenv, fns, issues, observed);
+    tc_check_stmt_list(s.body, tenv, fns, expected_ret, issues, observed);
+    return 0;
+  }
+  if (s.tag == "Return") {
+    var rt = tc_infer_expr(s.expr, tenv, fns, issues, observed);
+    if (expected_ret != "any") {
+      if (tc_compatible(expected_ret, rt) == 0) {
+        array_push(issues,
+          "return type mismatch (declared " + expected_ret + ", got " + rt + ")");
+      }
+    }
+    return 0;
+  }
+  if (s.tag == "Call") {
+    tc_infer_expr(s, tenv, fns, issues, observed);
+    return 0;
+  }
+  return 0;
+}
+
+function tc_check_stmt_list(stmts, tenv, fns, expected_ret, issues, observed) {
+  var i: int = 0;
+  var n: int = array_len(stmts);
+  while (i < n) do {
+    tc_check_stmt(array_get(stmts, i), tenv, fns, expected_ret, issues, observed);
+    i = i + 1;
+  }
+  return 0;
+}
+
+function tc_check_function(fn_decl, fns, issues) {
+  var tenv = [];
+  var i: int = 0;
+  var nparams: int = array_len(fn_decl.params);
+  while (i < nparams) do {
+    var p = array_get(fn_decl.params, i);
+    tenv_set(tenv, p.name, p.type);
+    i = i + 1;
+  }
+  var observed = [];
+  tc_check_stmt_list(fn_decl.body, tenv, fns, fn_decl.return_type, issues, observed);
+  var miss = eff_missing(fn_decl.effects, observed);
+  if (array_len(miss) > 0) {
+    array_push(issues,
+      "function " + fn_decl.name + ": effect set incomplete — declared " +
+      eff_render(fn_decl.effects) + " but uses " + eff_render(observed) +
+      "; missing: " + eff_render(miss));
+  }
+  return 0;
+}
+
+function tc_check_program(prog) {
+  var issues = [];
+  var fns = [];
+
+  var i: int = 0;
+  var n: int = array_len(prog.fns);
+  while (i < n) do {
+    var fn = array_get(prog.fns, i);
+    fns_register(fns, fn.name, fn);
+    i = i + 1;
+  }
+
+  i = 0;
+  while (i < n) do {
+    var fn2 = array_get(prog.fns, i);
+    tc_check_function(fn2, fns, issues);
+    i = i + 1;
+  }
+
+  var main_tenv = [];
+  var main_observed = [];
+  tc_check_stmt_list(prog.main, main_tenv, fns, "any", issues, main_observed);
+
+  return issues;
+}

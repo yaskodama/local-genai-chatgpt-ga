@@ -1,0 +1,70 @@
+// Sample 1 — linear rebind pattern (clean).
+//
+//   function open(name: string) -> linear int { ... }
+//   function write(fh: linear int) -> linear int { ... }
+//   function close(fh: linear int) -> int { ... }
+//
+//   var fh: linear int = open("hello.txt");
+//   fh = write(fh);                  // moved-then-rebound
+//   fh = write(fh);
+//   var rc: int = close(fh);
+
+class Driver {
+  method run() {
+    print("=== Level B-4 — SampleLinearClean ===");
+
+    var open_fn = {
+      name: "open",
+      params: [{name: "name", type: "string"}],
+      return_type: "linear int",
+      effects: [],
+      body: [{tag: "Return", expr: {tag: "Int", val: 1}}]
+    };
+
+    var write_fn = {
+      name: "write",
+      params: [{name: "fh", type: "linear int"}],
+      return_type: "linear int",
+      effects: [],
+      body: [{tag: "Return", expr: {tag: "Int", val: 1}}]
+    };
+
+    var close_fn = {
+      name: "close",
+      params: [{name: "fh", type: "linear int"}],
+      return_type: "int",
+      effects: [],
+      body: [{tag: "Return", expr: {tag: "Int", val: 0}}]
+    };
+
+    var prog = {
+      fns: [open_fn, write_fn, close_fn],
+      main: [
+        {tag: "VarDecl", name: "fh", type: "linear int",
+         expr: {tag: "Call", name: "open",
+                args: [{tag: "Str", val: "hello.txt"}]}},
+        {tag: "Assign", name: "fh",
+         expr: {tag: "Call", name: "write",
+                args: [{tag: "Var", name: "fh"}]}},
+        {tag: "Assign", name: "fh",
+         expr: {tag: "Call", name: "write",
+                args: [{tag: "Var", name: "fh"}]}},
+        {tag: "VarDecl", name: "rc", type: "int",
+         expr: {tag: "Call", name: "close",
+                args: [{tag: "Var", name: "fh"}]}}
+      ]
+    };
+
+    var issues = tc_check_program(prog);
+    print("issues=" + array_len(issues));
+    var i = 0;
+    while (i < array_len(issues)) do {
+      print("  - " + array_get(issues, i));
+      i = i + 1;
+    }
+    print("(expected: 0 — proper rebind chain)");
+  }
+}
+
+var d = new Driver();
+send d.run();

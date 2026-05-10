@@ -1,0 +1,67 @@
+// Sample 4 — Phase 15 typeck self-consistency.
+//
+// (a) typeck has no class fields → 0 issues self-spec.
+// (b) intentional violation: a class with private field, plus a
+//     bad caller that reads it externally.
+
+class Driver {
+  method run() {
+    print("=== Level B-5 — SampleSelfConsistency ===");
+
+    var tc_compat = {
+      name: "tc_compatible",
+      params: [{name: "expected", type: "string"}, {name: "actual", type: "string"}],
+      return_type: "int",
+      effects: [],
+      body: [
+        {tag: "Return",
+         expr: {tag: "Call", name: "tc_compatible",
+                args: [{tag: "Var", name: "expected"},
+                       {tag: "Var", name: "actual"}]}}
+      ]
+    };
+
+    var prog_clean = { classes: [], fns: [tc_compat], main: [] };
+    var clean_issues = tc_check_program(prog_clean);
+    print("self-spec issues=" + array_len(clean_issues));
+
+    print("");
+    print("--- intentional violation: external read + write ---");
+    var account = {
+      name: "Account",
+      fields: [
+        {name: "balance", type: "int", is_pub: 0}
+      ],
+      methods: []
+    };
+    var prog_bad = {
+      classes: [account],
+      fns: [],
+      main: [
+        {tag: "VarDecl", name: "a", type: "any",
+         expr: {tag: "New", cls_name: "Account", args: []}},
+        // private read
+        {tag: "VarDecl", name: "b", type: "int",
+         expr: {tag: "FieldAccess", obj: "a", field: "balance"}},
+        // external write
+        {tag: "FieldAssign", obj: "a", field: "balance",
+         expr: {tag: "Int", val: 0}}
+      ]
+    };
+    var bad_issues = tc_check_program(prog_bad);
+    print("bad-prog issues=" + array_len(bad_issues));
+    var j = 0;
+    while (j < array_len(bad_issues)) do {
+      print("  - " + array_get(bad_issues, j));
+      j = j + 1;
+    }
+    print("(expected: 2 — private read + external write)");
+
+    var total = array_len(clean_issues) + array_len(bad_issues);
+    print("");
+    print("issues=" + total);
+  }
+}
+
+var d = new Driver();
+send d.run();

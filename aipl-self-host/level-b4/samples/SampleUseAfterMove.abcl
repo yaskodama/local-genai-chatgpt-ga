@@ -1,0 +1,63 @@
+// Sample 2 — use-after-move violation.
+//
+//   var fh: linear int = open(...);
+//   write(fh);                  // consumes fh (no Assign back)
+//   close(fh);                  // ✗ use of moved linear variable
+
+class Driver {
+  method run() {
+    print("=== Level B-4 — SampleUseAfterMove ===");
+
+    var open_fn = {
+      name: "open",
+      params: [{name: "name", type: "string"}],
+      return_type: "linear int",
+      effects: [],
+      body: [{tag: "Return", expr: {tag: "Int", val: 1}}]
+    };
+
+    var write_fn = {
+      name: "write",
+      params: [{name: "fh", type: "linear int"}],
+      return_type: "linear int",
+      effects: [],
+      body: [{tag: "Return", expr: {tag: "Int", val: 1}}]
+    };
+
+    var close_fn = {
+      name: "close",
+      params: [{name: "fh", type: "linear int"}],
+      return_type: "int",
+      effects: [],
+      body: [{tag: "Return", expr: {tag: "Int", val: 0}}]
+    };
+
+    var prog = {
+      fns: [open_fn, write_fn, close_fn],
+      main: [
+        {tag: "VarDecl", name: "fh", type: "linear int",
+         expr: {tag: "Call", name: "open",
+                args: [{tag: "Str", val: "x"}]}},
+        // consumes fh as a stmt-level call (no rebind back)
+        {tag: "Call", name: "write",
+         args: [{tag: "Var", name: "fh"}]},
+        // ✗ fh is moved
+        {tag: "VarDecl", name: "rc", type: "int",
+         expr: {tag: "Call", name: "close",
+                args: [{tag: "Var", name: "fh"}]}}
+      ]
+    };
+
+    var issues = tc_check_program(prog);
+    print("issues=" + array_len(issues));
+    var i = 0;
+    while (i < array_len(issues)) do {
+      print("  - " + array_get(issues, i));
+      i = i + 1;
+    }
+    print("(expected: 1 — use of moved fh in close)");
+  }
+}
+
+var d = new Driver();
+send d.run();

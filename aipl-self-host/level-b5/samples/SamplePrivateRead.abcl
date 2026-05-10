@@ -1,0 +1,41 @@
+// Sample 2 — external read of a private field.
+//
+//   var bal: int = acct.balance;    // ✗ private
+
+class Driver {
+  method run() {
+    print("=== Level B-5 — SamplePrivateRead ===");
+
+    var bank = {
+      name: "BankAccount",
+      fields: [
+        {name: "holder",  type: "string", is_pub: 1},
+        {name: "balance", type: "int",    is_pub: 0}
+      ],
+      methods: []
+    };
+
+    var prog = {
+      classes: [bank],
+      fns: [],
+      main: [
+        {tag: "VarDecl", name: "acct", type: "any",
+         expr: {tag: "New", cls_name: "BankAccount", args: []}},
+        {tag: "VarDecl", name: "bal", type: "int",
+         expr: {tag: "FieldAccess", obj: "acct", field: "balance"}}
+      ]
+    };
+
+    var issues = tc_check_program(prog);
+    print("issues=" + array_len(issues));
+    var i = 0;
+    while (i < array_len(issues)) do {
+      print("  - " + array_get(issues, i));
+      i = i + 1;
+    }
+    print("(expected: 1 — private balance read externally)");
+  }
+}
+
+var d = new Driver();
+send d.run();

@@ -1,0 +1,49 @@
+// Sample 3 — double consume (use-after-move at second close).
+//
+//   var fh: linear int = open(...);
+//   close(fh);
+//   close(fh);                  // ✗ already moved
+
+class Driver {
+  method run() {
+    print("=== Level B-4 — SampleDoubleConsume ===");
+
+    var open_fn = {
+      name: "open",
+      params: [],
+      return_type: "linear int",
+      effects: [],
+      body: [{tag: "Return", expr: {tag: "Int", val: 1}}]
+    };
+
+    var close_fn = {
+      name: "close",
+      params: [{name: "fh", type: "linear int"}],
+      return_type: "int",
+      effects: [],
+      body: [{tag: "Return", expr: {tag: "Int", val: 0}}]
+    };
+
+    var prog = {
+      fns: [open_fn, close_fn],
+      main: [
+        {tag: "VarDecl", name: "fh", type: "linear int",
+         expr: {tag: "Call", name: "open", args: []}},
+        {tag: "Call", name: "close", args: [{tag: "Var", name: "fh"}]},
+        {tag: "Call", name: "close", args: [{tag: "Var", name: "fh"}]}
+      ]
+    };
+
+    var issues = tc_check_program(prog);
+    print("issues=" + array_len(issues));
+    var i = 0;
+    while (i < array_len(issues)) do {
+      print("  - " + array_get(issues, i));
+      i = i + 1;
+    }
+    print("(expected: 1 — second close is use-after-move)");
+  }
+}
+
+var d = new Driver();
+send d.run();
