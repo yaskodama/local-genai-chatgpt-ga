@@ -7,17 +7,30 @@ import random
 from pathlib import Path
 
 HERE = Path(__file__).parent
-CORPUS_PATH = HERE / "corpus" / "tiny_corpus.txt"
-CORPUS_SHA256 = "9614a5a4d3f6474f004c982e8a2e89f8bdbda367fe55edc6d9d52d72cc48593e"
+
+CORPORA = {
+    "10KB": (
+        HERE / "corpus" / "tiny_corpus.txt",
+        "9614a5a4d3f6474f004c982e8a2e89f8bdbda367fe55edc6d9d52d72cc48593e",
+    ),
+    "100KB": (
+        HERE / "corpus" / "tinyshake_100KB.txt",
+        "caad989adf87f2482e346c9a77d1fb03c6c033aa8689e2e97aee2de90b0f8839",
+    ),
+}
+
+CORPUS_PATH = CORPORA["10KB"][0]
+CORPUS_SHA256 = CORPORA["10KB"][1]
 
 SEED = 42
 
 
-def load_corpus() -> bytes:
-    raw = CORPUS_PATH.read_bytes()
+def load_corpus(size_class: str = "10KB") -> bytes:
+    path, expected_hash = CORPORA[size_class]
+    raw = path.read_bytes()
     h = hashlib.sha256(raw).hexdigest()
-    if h != CORPUS_SHA256:
-        raise RuntimeError(f"corpus hash mismatch: expected {CORPUS_SHA256}, got {h}")
+    if h != expected_hash:
+        raise RuntimeError(f"corpus {size_class} hash mismatch: expected {expected_hash}, got {h}")
     return raw
 
 

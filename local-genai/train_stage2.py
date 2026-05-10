@@ -28,6 +28,7 @@ def parse_args():
     p = argparse.ArgumentParser()
     p.add_argument("--device", default="cpu",
                    choices=["cpu", "mps"])
+    p.add_argument("--corpus", default="10KB", choices=["10KB", "100KB"])
     return p.parse_args()
 
 
@@ -38,7 +39,7 @@ def main():
         print("[warn] mps not available, falling back to cpu")
         device = "cpu"
 
-    raw = load_corpus()
+    raw = load_corpus(args.corpus)
     train, holdout = split_corpus(raw)
     print(f"corpus: {len(raw)} bytes  train {len(train)}  holdout {len(holdout)}")
     print(f"device: {device}")

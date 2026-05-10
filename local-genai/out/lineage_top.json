@@ -1,0 +1,104 @@
+{
+  "winner": {
+    "id": "I66",
+    "cell": "model_family=multi_block_transformer|training_paradigm=maximum_likelihood_sgd|param_class=6M|corpus_size_class=10KB",
+    "genome_axes": {
+      "model_family": "multi_block_transformer",
+      "positional": "none",
+      "normalization": "none",
+      "regularization": "dropout_005",
+      "inference_optimization": "kv_cache_plus_int8",
+      "training_paradigm": "maximum_likelihood_sgd",
+      "self_evolution": "none",
+      "engine": "pytorch_cpu",
+      "param_class": "6M",
+      "corpus_size_class": "10KB",
+      "data_per_param_health": "100_to_200_healthy"
+    },
+    "design": {
+      "name": "I66",
+      "model_family": "multi_block_transformer",
+      "param_class": "10M",
+      "positional": "none",
+      "normalization": "none",
+      "regularization": "dropout",
+      "inference_optimization": "kv_cache_plus_int8",
+      "training_paradigm": "maximum_likelihood_sgd",
+      "self_evolution": "none",
+      "engine": "pytorch_cpu",
+      "corpus_size_class": "10KB",
+      "data_per_param_health": "100_to_200_healthy",
+      "depth": 4,
+      "n_heads": 4,
+      "d_model": 192,
+      "ffn_mult": 4,
+      "vocab": 256,
+      "ctx": 128,
+      "tied_embedding": true,
+      "seed": 42,
+      "corpus_pinned": true,
+      "uses_external_api": false,
+      "single_script": true,
+      "deps": [
+        "python>=3.11",
+        "pytorch==2.x"
+      ]
+    },
+    "estimate": {
+      "params": 1818624,
+      "param_class": "10M",
+      "param_budget": 12000000,
+      "over_budget": false,
+      "expected_holdout_ppl": 5.74,
+      "flops_per_token": 4030464,
+      "train_time_min_estimate": 11.37,
+      "inference_throughput_factor": 6.0,
+      "coherence_violations": [
+        "transformer_without_normalization",
+        "transformer_without_positional"
+      ]
+    },
+    "review": {
+      "quality": {
+        "reviewer": "Quality",
+        "axes": {
+          "ppl_score_class_aware": 1,
+          "loss_trajectory_plausibility": 2,
+          "generation_appropriate_size": 2
+        },
+        "total": 5,
+        "max": 12
+      },
+      "efficiency": {
+        "reviewer": "Efficiency",
+        "axes": {
+          "ppl_per_param": 1,
+          "within_param_budget": 3,
+          "train_time_under_30min": 3,
+          "inference_optimization": 3
+        },
+        "total": 10,
+        "max": 12
+      },
+      "reproducibility": {
+        "reviewer": "Reproducibility",
+        "axes": {
+          "seed_fixed": 2,
+          "corpus_pinned": 2,
+          "no_external_api": 2,
+          "minimal_deps": 2,
+          "single_script": 2,
+          "coherence_penalty": -2,
+          "over_budget_penalty": 0
+        },
+        "total": 8,
+        "max": 10
+      },
+      "normalized_total": 2.05
+    },
+    "feasible": true,
+    "reason": "feasible"
+  },
+  "feasible_count": 4,
+  "total_individuals": 76
+}
