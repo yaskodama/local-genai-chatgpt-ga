@@ -22,8 +22,36 @@ origin/main と同期済み (push 済み)。
 
 ## チャンピオン (現状最強モデル)
 
-**Stage-6b Transformer (165K params, RoPE + 10MB)** —
-10MB tail (Early Modern English 全般) で ppl **4.725** (= 10MB tail champion)
+**Stage-6c Transformer (855K params, 4d-orth recipe + 10MB)** — **unified champion**
+
+```
+local-genai/out/transformer_stage6c_large.pt
+  TinyTransformer depth=4, d_model=128, n_heads=4, ctx=256, bptt=256
+  ffn_mult=4, RMSNorm, learned positional
+  dropout 0.1, label_smoothing 0.05, weight_decay 0.05
+  warmup 1500, cosine 終端 LR=1e-5 (min_lr_frac=0.005)
+  TinyShakespeare+KJV-10MB 学習, 855,680 params
+  best ppl 4.249 @ step 19500 (20000 step 走破; ほぼ収束)
+  訓練時間 1494s (M2 MPS, ≈ 25 分)
+```
+
+**両ベンチで champion を奪取**:
+
+| stage | params | trained on | **1MB tail** | **10MB tail** |
+|---|---:|---|---:|---:|
+| 5-RoPE | 165K | 1MB | 5.120 | 7.005 |
+| 6b | 165K | 10MB | 5.289 | 4.725 |
+| **6c** | **855K** | **10MB** | **4.765** | **4.249** |
+
+容量 (855K) × データ (10MB) の **両軸を同時に**押すと、 専門特化の壁を
+破って **両ベンチで同時に勝つ**単一モデルが出現した。 これは:
+- 容量 855K だけでは効かない (4d-orth: 1MB tail 5.30, 10MB tail 7.32)
+- データ 10MB だけでは効かない (6b: 1MB tail 5.29, 10MB tail 4.73 — 1MB
+  tail で 5-RoPE に負ける = Shakespeare 特化が劣る)
+- 容量 × データ 両方そろうと両方を制圧 (6c)
+
+**Stage-6b Transformer (165K params, 軽量 champion)** — 165K で達成可能な
+最良が 1MB tail 5.289 / 10MB tail 4.725:
 
 ```
 local-genai/out/transformer_stage6b_rope.pt
@@ -213,7 +241,8 @@ cd aice-evolution-v2 && /opt/homebrew/bin/python3.13 -m src.cli \
 | 4f-extend (1MB) | 4f-mini + 20000 step + min_lr_frac=0.005 | 1MB | 181K | 5.20 | 5.20 |
 | 4g (1MB) | 4e + 20000 step + min_lr_frac=0.005 | 1MB | 383K | 5.20 | 5.20 |
 | **5-RoPE (1MB)** | **4f-extend + RoPE** | **1MB** | **165K** | **5.12** | **5.12 (1MB tail champion)** |
-| **6b (10MB)** | **5-RoPE recipe + 10MB** | **10MB** | **165K** | **4.73** | **4.73 (10MB tail champion)** |
+| 6b (10MB) | 5-RoPE recipe + 10MB | 10MB | 165K | 4.73 | 4.73 (軽量 leader) |
+| **6c (10MB)** | **4d-orth recipe + 10MB** | **10MB** | **855K** | **4.25** | **4.25 (unified champion: 1MB tail 4.77 / 10MB tail 4.25)** |
 
 教訓:
 - Stage-3 の transformer 敗北は ctx だけの問題ではなかった: BPTT < ctx
@@ -244,11 +273,15 @@ cd aice-evolution-v2 && /opt/homebrew/bin/python3.13 -m src.cli \
 1. ~~**Stage-4f-mini / 4f-extend / 4g**~~ — 完了 (1MB は data-saturated 確認)
 2. ~~**Stage-5-RoPE**~~ — 完了 (165K, ppl **5.12**, 絶対 champion)
 3. **Stage-6 シリーズ (10MB 学習)**
-   - ~~**6b**~~ — 完了 (165K, ppl 4.725 @ 10MB tail; **未収束** で延長余地あり)
-   - **6b-extend**: 6b を steps=40000 で延長 → 4.5 切り狙い
+   - ~~**6b**~~ — 完了 (165K, ppl 4.725 @ 10MB tail; 軽量 leader)
+   - ~~**6c**~~ — 完了 (855K, ppl 4.249 @ 10MB tail; **unified champion**)
+   - **6d**: 4d-orth + RoPE + 10MB (~840K, RoPE) — 6c に RoPE 追加で更に伸びるか
    - **6a**: 4f-extend recipe + 10MB (181K, learned pos) — RoPE 効果を 10MB で再検証
-   - **6c**: 4d-orth recipe + 10MB (855K, learned pos) — データで容量天井破れるか
-   - **6d**: 4d-orth + RoPE + 10MB (~840K, RoPE)       — 全部入り
+   - **6c-extend**: 6c を steps=40000 で延長 — 6c は step 19500 で best、 ほぼ収束だが微更新中
+4. **Stage-7 シリーズ (Stage-6 を超える)**
+   - **7-deeper**: depth=6 + d=128 → 1.5M params で 4.0 切り狙い
+   - **7-bpe**: byte → BPE トークナイザに切替 (実効 ctx 4x)
+   - **7-AIPL-revival**: 全 prior を AIPL .abcl に encode して進化計算へ
 4. **Stage-AIPL-revival**: 全 prior (容量, 正則化 3 種, schedule, RoPE) を
    `.aice` に encode → AIPL evolution で人が見つけた Pareto を AI が更に
    押し下げられるか
@@ -275,7 +308,23 @@ local-genai/.venv/bin/python local-genai/train_stage4.py \
 # 約 7 分 (M2 MPS), best ppl 5.302 @ step 10000 (収束未達)
 ```
 
-## Stage-6b (10MB tail champion) を回す手順
+## Stage-6c (unified champion, 両ベンチで champion) を回す手順
+
+```sh
+local-genai/.venv/bin/python local-genai/train_stage4.py \
+  --corpus 10MB \
+  --steps 20000 --eval-every 500 --warmup 1500 \
+  --batch 24 --bptt 256 --ctx 256 \
+  --depth 4 --d-model 128 --n-heads 4 \
+  --lr 2e-3 --dropout 0.1 \
+  --label-smoothing 0.05 --weight-decay 0.05 \
+  --min-lr-frac 0.005 \
+  --pos-encoding learned \
+  --out-name transformer_stage6c_large.pt
+# 約 25 分 (M2 MPS, 1494s), 855K params, best ppl 4.249 @ step 19500 (収束直前)
+```
+
+## Stage-6b (軽量 leader, 165K) を回す手順
 
 ```sh
 local-genai/.venv/bin/python local-genai/train_stage4.py \
