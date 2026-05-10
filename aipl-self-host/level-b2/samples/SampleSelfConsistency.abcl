@@ -1,0 +1,107 @@
+// Sample 4 — Phase 12 typeck self-consistency.
+//
+// Encodes the Level B-2 typeck's own functions as typeck-AST records
+// (with effects: [] since they are pure) and checks them.  The
+// pure-typeck has no fs/net/ai/mut effects so declared = [] = observed.
+// A second variant deliberately mis-declares to confirm detection.
+
+class Driver {
+  method run() {
+    print("=== Level B-2 — SampleSelfConsistency ===");
+
+    // ---- Self-spec: typeck's surface, pure ([] effects).
+    var tc_compat = {
+      name: "tc_compatible",
+      params: [{name: "expected", type: "string"}, {name: "actual", type: "string"}],
+      return_type: "int",
+      effects: [],
+      body: [
+        {tag: "Return",
+         expr: {tag: "Call", name: "tc_compatible",
+                args: [{tag: "Var", name: "expected"},
+                       {tag: "Var", name: "actual"}]}}
+      ]
+    };
+
+    var infer_expr = {
+      name: "tc_infer_expr",
+      params: [{name: "ast", type: "any"}, {name: "tenv", type: "any"},
+               {name: "fns", type: "any"}, {name: "issues", type: "any"},
+               {name: "observed", type: "any"}],
+      return_type: "string",
+      effects: [],
+      body: [
+        {tag: "VarDecl", name: "_chk", type: "int",
+         expr: {tag: "Call", name: "tc_compatible",
+                args: [{tag: "Str", val: "int"}, {tag: "Str", val: "int"}]}},
+        {tag: "Return", expr: {tag: "Str", val: "int"}}
+      ]
+    };
+
+    var check_prog = {
+      name: "tc_check_program",
+      params: [{name: "prog", type: "any"}],
+      return_type: "any",
+      effects: [],
+      body: [
+        {tag: "VarDecl", name: "_t", type: "string",
+         expr: {tag: "Call", name: "tc_infer_expr",
+                args: [{tag: "Var", name: "prog"}, {tag: "Var", name: "prog"},
+                       {tag: "Var", name: "prog"}, {tag: "Var", name: "prog"},
+                       {tag: "Var", name: "prog"}]}},
+        {tag: "Return", expr: {tag: "Var", name: "prog"}}
+      ]
+    };
+
+    var prog_clean = {
+      fns: [tc_compat, infer_expr, check_prog],
+      main: []
+    };
+
+    var clean_issues = tc_check_program(prog_clean);
+    print("self-spec issues=" + array_len(clean_issues));
+    var i = 0;
+    while (i < array_len(clean_issues)) do {
+      print("  - " + array_get(clean_issues, i));
+      i = i + 1;
+    }
+    print("(expected: 0 — typeck functions are pure and consistently typed)");
+
+    // ---- Now misdeclare: claim tc_compatible has !{} but call ai_call inside.
+    print("");
+    print("--- intentional violation: declare !{} but call ai_call ---");
+
+    var bad_compat = {
+      name: "bad_compat",
+      params: [{name: "x", type: "string"}],
+      return_type: "string",
+      effects: [],
+      body: [
+        {tag: "Return",
+         expr: {tag: "Call", name: "ai_call",
+                args: [{tag: "Var", name: "x"}]}}
+      ]
+    };
+
+    var prog_bad = {
+      fns: [bad_compat],
+      main: []
+    };
+
+    var bad_issues = tc_check_program(prog_bad);
+    print("bad-decl issues=" + array_len(bad_issues));
+    var j = 0;
+    while (j < array_len(bad_issues)) do {
+      print("  - " + array_get(bad_issues, j));
+      j = j + 1;
+    }
+    print("(expected: 1 — declares {} but observed {ai, net} via ai_call)");
+
+    var total = array_len(clean_issues) + array_len(bad_issues);
+    print("");
+    print("issues=" + total);
+  }
+}
+
+var d = new Driver();
+send d.run();

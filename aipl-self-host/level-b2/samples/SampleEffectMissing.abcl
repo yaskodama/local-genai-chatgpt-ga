@@ -1,0 +1,61 @@
+// Sample 2 — direct effect declaration mismatch.
+//
+//   function bad_silent(p: string) -> string !{} {
+//     return read_file(p);                // ✗ uses fs but declares {}
+//   }
+//   function bad_partial(p: string) -> string !{fs} {
+//     var d = read_file(p);
+//     return ai_call(d);                  // ✗ adds {ai, net}, only fs declared
+//   }
+//
+// Expected: 2 issues.
+
+class Driver {
+  method run() {
+    print("=== Level B-2 — SampleEffectMissing ===");
+
+    var bad_silent = {
+      name: "bad_silent",
+      params: [{name: "p", type: "string"}],
+      return_type: "string",
+      effects: [],
+      body: [
+        {tag: "Return",
+         expr: {tag: "Call", name: "read_file",
+                args: [{tag: "Var", name: "p"}]}}
+      ]
+    };
+
+    var bad_partial = {
+      name: "bad_partial",
+      params: [{name: "p", type: "string"}],
+      return_type: "string",
+      effects: ["fs"],
+      body: [
+        {tag: "VarDecl", name: "d", type: "string",
+         expr: {tag: "Call", name: "read_file",
+                args: [{tag: "Var", name: "p"}]}},
+        {tag: "Return",
+         expr: {tag: "Call", name: "ai_call",
+                args: [{tag: "Var", name: "d"}]}}
+      ]
+    };
+
+    var prog = {
+      fns: [bad_silent, bad_partial],
+      main: []
+    };
+
+    var issues = tc_check_program(prog);
+    print("issues=" + array_len(issues));
+    var i = 0;
+    while (i < array_len(issues)) do {
+      print("  - " + array_get(issues, i));
+      i = i + 1;
+    }
+    print("(expected: 2 — both functions declare strict subset of what they use)");
+  }
+}
+
+var d = new Driver();
+send d.run();

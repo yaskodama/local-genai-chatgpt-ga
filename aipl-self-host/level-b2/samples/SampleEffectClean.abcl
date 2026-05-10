@@ -1,0 +1,73 @@
+// Sample 1 — clean effect declarations.
+//
+//   function read_cfg(p: string) -> string !{fs}      { return read_file(p); }
+//   function classify(t: string) -> string !{ai, net} { return ai_call_with_system("...", t); }
+//   function pipe(p: string)     -> string !{fs, ai, net} {
+//     var d = read_cfg(p);
+//     return classify(d);
+//   }
+//
+// All three correctly declare what they use.  Expected: 0 issues.
+
+class Driver {
+  method run() {
+    print("=== Level B-2 — SampleEffectClean ===");
+
+    var read_cfg = {
+      name: "read_cfg",
+      params: [{name: "p", type: "string"}],
+      return_type: "string",
+      effects: ["fs"],
+      body: [
+        {tag: "Return",
+         expr: {tag: "Call", name: "read_file",
+                args: [{tag: "Var", name: "p"}]}}
+      ]
+    };
+
+    var classify = {
+      name: "classify",
+      params: [{name: "t", type: "string"}],
+      return_type: "string",
+      effects: ["ai", "net"],
+      body: [
+        {tag: "Return",
+         expr: {tag: "Call", name: "ai_call_with_system",
+                args: [{tag: "Str", val: "categorize"},
+                       {tag: "Var", name: "t"}]}}
+      ]
+    };
+
+    var pipe = {
+      name: "pipe",
+      params: [{name: "p", type: "string"}],
+      return_type: "string",
+      effects: ["fs", "ai", "net"],
+      body: [
+        {tag: "VarDecl", name: "d", type: "string",
+         expr: {tag: "Call", name: "read_cfg",
+                args: [{tag: "Var", name: "p"}]}},
+        {tag: "Return",
+         expr: {tag: "Call", name: "classify",
+                args: [{tag: "Var", name: "d"}]}}
+      ]
+    };
+
+    var prog = {
+      fns: [read_cfg, classify, pipe],
+      main: []
+    };
+
+    var issues = tc_check_program(prog);
+    print("issues=" + array_len(issues));
+    var i = 0;
+    while (i < array_len(issues)) do {
+      print("  - " + array_get(issues, i));
+      i = i + 1;
+    }
+    print("(expected: 0 — every function declares >= what it uses)");
+  }
+}
+
+var d = new Driver();
+send d.run();

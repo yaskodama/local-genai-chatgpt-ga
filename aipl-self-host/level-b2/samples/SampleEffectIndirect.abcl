@@ -1,0 +1,59 @@
+// Sample 3 — indirect propagation through Call chain.
+//
+//   function inner(s: string) -> string !{ai, net} {
+//     return ai_call(s);
+//   }
+//   function outer(s: string) -> string !{} {
+//     return inner(s);              // outer declares {} but inner has !{ai,net}
+//   }
+//
+// Effect propagation: outer's observed set should accumulate inner's
+// declared effects, then the completeness check catches the gap.
+// Expected: 1 issue (outer is the offender; inner is fine).
+
+class Driver {
+  method run() {
+    print("=== Level B-2 — SampleEffectIndirect ===");
+
+    var inner = {
+      name: "inner",
+      params: [{name: "s", type: "string"}],
+      return_type: "string",
+      effects: ["ai", "net"],
+      body: [
+        {tag: "Return",
+         expr: {tag: "Call", name: "ai_call",
+                args: [{tag: "Var", name: "s"}]}}
+      ]
+    };
+
+    var outer = {
+      name: "outer",
+      params: [{name: "s", type: "string"}],
+      return_type: "string",
+      effects: [],
+      body: [
+        {tag: "Return",
+         expr: {tag: "Call", name: "inner",
+                args: [{tag: "Var", name: "s"}]}}
+      ]
+    };
+
+    var prog = {
+      fns: [inner, outer],
+      main: []
+    };
+
+    var issues = tc_check_program(prog);
+    print("issues=" + array_len(issues));
+    var i = 0;
+    while (i < array_len(issues)) do {
+      print("  - " + array_get(issues, i));
+      i = i + 1;
+    }
+    print("(expected: 1 — outer declares {} but indirectly uses {ai, net})");
+  }
+}
+
+var d = new Driver();
+send d.run();
