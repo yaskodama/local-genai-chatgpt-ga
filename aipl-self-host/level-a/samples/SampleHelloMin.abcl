@@ -1,0 +1,19 @@
+// Smallest possible test for the metacircular evaluator.
+//   var x = 5;
+//   print(x);
+class Driver {
+  method run() {
+    print("=== SampleHelloMin ===");
+    var prog = {
+      funcs: [],
+      main: [
+        {tag: "VarDecl", name: "x", expr: {tag: "Int", val: 5}},
+        {tag: "Print",   expr: {tag: "Var", name: "x"}}
+      ]
+    };
+    run_program(prog);
+    print("(expected: 5)");
+  }
+}
+var d = new Driver();
+send d.run();

@@ -1,0 +1,36 @@
+// Sample 1 — arithmetic.
+//
+// Builds an AST for:
+//   var x = 3;
+//   var y = 4;
+//   var z = x * x + y * y;
+//   print(z);                  // expects 25
+// and runs it through the metacircular evaluator.
+
+class Driver {
+  method run() {
+    print("=== Level A — SampleArith ===");
+    var prog = {
+      funcs: [],
+      main: [
+        {tag: "VarDecl", name: "x", expr: {tag: "Int", val: 3}},
+        {tag: "VarDecl", name: "y", expr: {tag: "Int", val: 4}},
+        {tag: "VarDecl", name: "z",
+         expr: {tag: "Binop", op: "+",
+                lhs: {tag: "Binop", op: "*",
+                      lhs: {tag: "Var", name: "x"},
+                      rhs: {tag: "Var", name: "x"}},
+                rhs: {tag: "Binop", op: "*",
+                      lhs: {tag: "Var", name: "y"},
+                      rhs: {tag: "Var", name: "y"}}}},
+        {tag: "Print", expr: {tag: "Var", name: "z"}}
+      ]
+    };
+    run_program(prog);
+    print("[arith] expected: 25");
+    print("=== done ===");
+  }
+}
+
+var d = new Driver();
+send d.run();

@@ -1,0 +1,130 @@
+{
+  "name": "AIPLSelfHost_B_PhaseChase",
+  "task": "Level A の eval を土台として, AIPL で Phase 11-15 の各検査器を順次再実装する. フェーズ間の単調性 (前フェーズの抽象が後フェーズに継承され破壊されない) と相互整合性 (検査器自身が自分の検査をパスする) を最大化する設計を探索する.",
+  "schema_ref": "schemas/programming_paradigm.schema.json",
+  "search": {
+    "algorithm": "map_elites",
+    "cell_axes": [
+      "paradigm",
+      "concurrency_model",
+      "type_safety",
+      "ownership_model"
+    ],
+    "generations": 35,
+    "seed_count": 10,
+    "open_axes": true,
+    "rng_seed": 234
+  },
+  "operators": {
+    "mutations": [
+      {
+        "name": "axis_resample",
+        "kind": "single_axis",
+        "weight": 0.45
+      },
+      {
+        "name": "coherent_paradigm_shift",
+        "kind": "multi_axis_correlated",
+        "weight": 0.25
+      },
+      {
+        "name": "llm_proposal",
+        "kind": "llm_directed",
+        "weight": 0.25
+      },
+      {
+        "name": "llm_new_axis",
+        "kind": "llm_directed",
+        "weight": 0.05
+      }
+    ],
+    "crossovers": [
+      {
+        "name": "uniform",
+        "kind": "axis_uniform",
+        "weight": 0.5
+      },
+      {
+        "name": "one_point",
+        "kind": "schema_partition",
+        "weight": 0.5
+      },
+      {
+        "name": "llm_merge",
+        "kind": "llm_directed",
+        "weight": 0.0
+      }
+    ]
+  },
+  "evaluation": {
+    "tasks": [
+      "Phase11_TypeCheck",
+      "Phase12_EffectCheck",
+      "Phase13_Channels",
+      "Phase14_Linear",
+      "Phase15_Owned",
+      "SelfConsistency"
+    ],
+    "evaluator": "mock_v1",
+    "reviewers": [
+      {
+        "name": "Monotonicity",
+        "persona": "あなたはフェーズ単調性レビュアーです。各候補実装で, Phase N の検査器が Phase N-1 で確立された型表現/env 構造/issue shape をそのまま使っているか, それとも壊しているかを判定してください。'OK: <継承点>' / 'NG: <破壊点>' で 1 行返答。",
+        "weight": 0.3333333333333333
+      },
+      {
+        "name": "SelfConsistency",
+        "persona": "あなたは自己整合性レビュアーです。各検査器自身が, 自分が課す検査をパスするか (例: Phase 12 の効果検査器自身が !{} で書かれている) を 1 文で評価してください。",
+        "weight": 0.3333333333333333
+      },
+      {
+        "name": "Reuse",
+        "persona": "あなたは再利用性レビュアーです。Level A の eval(ast, env) と env 構造を各検査器が共有しているか, それとも独自実装が増殖しているかを評価してください。'OK: 共有' / 'NG: <重複箇所>' で答えてください。",
+        "weight": 0.3333333333333333
+      }
+    ]
+  },
+  "meta_fitness": {
+    "trend_alignment": 0.35,
+    "frontier_coverage": 0.1,
+    "novelty": 0.1,
+    "evolvability": 0.15,
+    "cross_task_generality": 0.2,
+    "implementability": 0.1
+  },
+  "ranking": {
+    "strategy": "pareto_then_pairwise",
+    "scenarios": [
+      "conservative",
+      "innovative",
+      "general_purpose"
+    ],
+    "scenario_weights": {
+      "conservative": {
+        "trend_alignment": 0.45,
+        "cross_task_generality": 0.2,
+        "implementability": 0.15,
+        "evolvability": 0.1,
+        "frontier_coverage": 0.05,
+        "novelty": 0.05
+      },
+      "innovative": {
+        "novelty": 0.35,
+        "frontier_coverage": 0.3,
+        "evolvability": 0.15,
+        "trend_alignment": 0.05,
+        "cross_task_generality": 0.1,
+        "implementability": 0.05
+      },
+      "general_purpose": {
+        "cross_task_generality": 0.4,
+        "implementability": 0.2,
+        "trend_alignment": 0.15,
+        "evolvability": 0.1,
+        "frontier_coverage": 0.1,
+        "novelty": 0.05
+      }
+    },
+    "top_k": 5
+  }
+}

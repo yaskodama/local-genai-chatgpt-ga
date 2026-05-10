@@ -1,0 +1,73 @@
+// Level A — Metacircular Evaluator
+//
+// 自己反映計算の最小段階. AIPL で `eval(ast, env)` を書き, AST レコード
+// (record{tag:string, ...}) で表現された小さな AIPL 部分集合を実行できる
+// ようにする. パーサ・型検査・効果系・linear・owned はホスト Python に
+// 残し, 「実行」だけが AIPL 側に移譲される.
+//
+// 規模感: 1-2 ファイル, 数百行. 1-2 日で実装可能.
+//
+// 価値:
+//   - AIPL が「自分の AST」を扱えることを示す最小証明
+//   - 後の Level B/C への足場 (eval が後フェーズで型注釈付き AST を扱う前準備)
+//   - ホスト Python の interpreter コードと挙動が一致することを比較可能
+//
+// 残置: parser, type checker, effect/linear/owned analyses, scheduler
+// 移譲: tree-walking eval(ast, env) — Int/Var/Binop/If/While/Block/Call
+
+aice AIPLSelfHost_A_Metacircular {
+  dialect = "aice_evolution_v2";
+
+  task = "AIPL で eval(ast, env) を実装し, AST レコードで表された AIPL 部分集合を実行できる最小のメタサーキュラ評価器を探索する. パーサ・型検査・スケジューラはホスト Python に残置し, 評価部のみを AIPL に移譲する.";
+
+  gene_schema = "schemas/programming_paradigm.schema.json";
+
+  evaluation_tasks {
+    // 評価対象は eval が扱える AST ノード種別.
+    // 各タスクは「この種類のノードを正しく評価できる候補が存在するか」を見る.
+    task EvalLiterals  { spec = "Int / Float / String / Bool リテラルを value にマップする最小 eval."; }
+    task EvalVariables { spec = "env (record か array of pairs) からの変数参照と Assign による更新."; }
+    task EvalBinop     { spec = "+ - * / 比較演算子を AST で表現し eval が型整合性を runtime で確認."; }
+    task EvalControl   { spec = "If / While / Block の制御フロー. ReturnSignal を AIPL の reply で代行."; }
+    task EvalCallExpr  { spec = "ユーザ関数 (FunctionDecl の AST) を eval が呼出. 再帰関数 (fib) が動くこと."; }
+    task ASTRoundTrip  { spec = "ホスト Python の AST -> AIPL レコード -> eval -> 値; ホストの解釈と一致."; }
+  }
+
+  search {
+    algorithm   = "map_elites";
+    // 評価器の設計選択肢が現れる軸だけを使う.
+    cell_axes   = "paradigm, type_safety";
+    generations = 20;
+    seed_count  = 6;
+    open_axes   = true;
+    rng_seed    = 161;
+  }
+
+  meta_fitness {
+    // Level A は実装可能性最優先. 単一ファイルで書ければよい.
+    trend_alignment       = 0.10;
+    frontier_coverage     = 0.10;
+    novelty               = 0.05;
+    evolvability          = 0.20;
+    cross_task_generality = 0.20;
+    implementability      = 0.35;
+  }
+
+  ranking {
+    strategy  = "pareto_then_pairwise";
+    scenarios = ["conservative", "innovative", "general_purpose"];
+    top_k     = 3;
+  }
+
+  reviewers {
+    reviewer Feasibility {
+      persona = "あなたはメタサーキュラ評価器の実装可能性レビュアーです。各候補実装が AIPL の record + function + recursion だけで書けるかを 1 文で 'OK: <根拠>' / 'NG: <欠けている機能>' で答えてください。";
+    }
+    reviewer ScopeMinimality {
+      persona = "あなたはスコープレビュアーです。Level A は eval に集中すべきで, パーサや型検査を巻き込まないこと。スコープ漏れを 'OK: 評価のみ' / 'NG: <逸脱>' で 1 行で返答してください。";
+    }
+    reviewer EvolutionPath {
+      persona = "あなたは将来拡張レビュアーです。この eval が Level B (フェーズ追随) でどう拡張されうるか, 抽象が破綻しないかを 1 文で評価してください。";
+    }
+  }
+}

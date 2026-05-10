@@ -1,0 +1,87 @@
+// Level C — Full Self-Host
+//
+// Level B で得た 5 検査器 + Level A の eval を更に拡張し, パーサ・
+// アクタースケジューラ・I/O builtin を含むランタイム全体を AIPL で
+// 自己ホストする. ホスト Python は最低限の bootstrap loader (起動時の
+// 文字列読込と最初の eval 呼出) のみに縮退する.
+//
+// 規模感: 数週間. 複数ファイル, 数千行.
+//
+// 価値:
+//   - 「AIPL は AIPL 自身を完全にホスト可能」 — 最大限の自己反映
+//   - 各レイヤ (parser → AST → typeck → eval → scheduler → I/O) の
+//     全層が AIPL 表現可能であることの実証
+//   - aice-evolution-v2 が理論的に予測した Phase 9 軸 (4 軸 + symbol_owned)
+//     をすべて実装した言語が, 自身の処理系を書ききれることの実証
+//
+// 残置: 起動 bootstrap loader (10-20 行の Python; 文字列を読んで eval を呼ぶだけ)
+// 移譲: parser, AST, typeck, effect, linear, owned, transient,
+//        eval, scheduler, mailbox, futures, I/O bridges
+
+aice AIPLSelfHost_C_FullHost {
+  dialect = "aice_evolution_v2";
+
+  task = "AIPL を完全に自己ホストする処理系の最適設計を探索する. パーサ, AST, 型/効果/linear/owned 検査, 評価器, アクタースケジューラ, メイルボックス, future, I/O ブリッジを全て AIPL で実装し, ホスト Python は 20 行以下の bootstrap loader のみに縮退させる.";
+
+  gene_schema = "schemas/programming_paradigm.schema.json";
+
+  evaluation_tasks {
+    // 自己ホストに必要な全レイヤをタスクとして列挙.
+    task Parser            { spec = "AIPL ソース文字列を AST レコードに変換するパーサを AIPL で実装. 字句 + LL(1) 構文解析."; }
+    task AST_Roundtrip     { spec = "AST -> 文字列 -> AST が一致 (pretty printer + parser の整合)."; }
+    task Phase11_TypeCheck { spec = "Level B の Phase 11 検査器を流用. パーサが吐く AST 上で動く."; }
+    task Phase12_EffectCheck { spec = "Level B の Phase 12 検査器."; }
+    task Phase13_Channels    { spec = "Level B の Phase 13 検査器 + ランタイム channel actor の AIPL 実装."; }
+    task Phase14_Linear      { spec = "Level B の Phase 14 検査器."; }
+    task Phase15_Owned       { spec = "Level B の Phase 15 検査器."; }
+    task Phase16_Transient   { spec = "transient cast を eval 経路で挿入する自己反映実装."; }
+    task Eval                { spec = "Level A の eval を完全 AIPL 構文 (closure, generic, linear, owned) に拡張."; }
+    task Scheduler           { spec = "アクタースケジューラ本体を AIPL の actor で書く. メイン loop は queue + dispatch."; }
+    task Mailbox             { spec = "メッセージキュー + select + timeout を AIPL の linear ハンドルで実装."; }
+    task Future              { spec = "now/future/await を AIPL の channel で再実装. ホスト Future への依存を切る."; }
+    task IO_Bridge           { spec = "file_read/write, ai_call, image_load などのホスト bridge を, AIPL から見える capability actor (Fs/Net/Ai/Mut) として再エクスポート."; }
+    task Bootstrap           { spec = "ホスト loader が AIPL ソースを読んで eval を呼ぶ最小コード (20 行以下) で全機能が立ち上がる."; }
+    task FullSelfTypeCheck   { spec = "上記すべてのコードが AIPL 検査器自身でパス (型 + 効果 + linear + owned + transient)."; }
+  }
+
+  search {
+    algorithm   = "map_elites";
+    // 全層を扱うので軸は最大限にする.
+    cell_axes   = "paradigm, state_representation, concurrency_model, type_safety, effect_handling, ownership_model";
+    generations = 60;
+    seed_count  = 16;
+    open_axes   = true;
+    rng_seed    = 314;
+  }
+
+  meta_fitness {
+    // ホスト最小性が主目的. 実装可能性も重要.
+    trend_alignment       = 0.15;
+    frontier_coverage     = 0.15;
+    novelty               = 0.15;
+    evolvability          = 0.10;
+    cross_task_generality = 0.20;
+    implementability      = 0.25;
+  }
+
+  ranking {
+    strategy  = "pareto_then_pairwise";
+    scenarios = ["conservative", "innovative", "general_purpose"];
+    top_k     = 7;
+  }
+
+  reviewers {
+    reviewer HostMinimality {
+      persona = "あなたはホスト最小性レビュアーです。bootstrap loader が何行で済むか, ホスト Python に残るコードが本当に bootstrap だけかを 1 文で評価し, '残置: <list>; 移譲: <list>' の形で返答してください。";
+    }
+    reviewer Layering {
+      persona = "あなたはレイヤリングレビュアーです。parser → AST → typeck → eval → scheduler → I/O の各層が独立に置換可能か, 循環依存が無いかを 'OK: <層>' / 'NG: <循環箇所>' で答えてください。";
+    }
+    reviewer SchedulerCircularity {
+      persona = "あなたはスケジューラ循環性レビュアーです。AIPL のアクタースケジューラを AIPL で書く際, 「スケジューラ自身を実行するスケジューラ」が必要にならないかを 1 文で評価してください。";
+    }
+    reviewer FullSelfHostFeasibility {
+      persona = "あなたは完全自己ホスト可能性レビュアーです。各候補が AIPL の Phase 11-16 機能だけで本当にここまで書けるか, 隠れた言語拡張要求 (例: weak ref, finalizer) が必要にならないかを評価してください。";
+    }
+  }
+}

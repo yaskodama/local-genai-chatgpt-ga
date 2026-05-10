@@ -1,0 +1,94 @@
+// AIPL Self-Reflective Bootstrap
+//
+// 目的: AIPL を自己反映計算によって Phase 11-15 まで段階的に
+// ブートストラップする際の「各フェーズの最小実装」を MAP-Elites
+// で探索し、トレードオフが最小化される実装方針を提示する。
+//
+// 探索問題の定式化:
+//   - 各フェーズの責務 (parser/typeck/eval/effect/linear/owned 検査) を
+//     evaluation_task として与える。
+//   - 探索軸は実装上の設計選択肢 (パーサ流儀, AST 表現, 環境のデータ構造,
+//     スケジューラ実装の所在 …) を含む。
+//   - meta_fitness は (1) フェーズ間の単調性 (前フェーズが後フェーズの
+//     部分集合になっていること) と (2) ホスト最小性 (Python ランタイムへ
+//     の依存をどれだけ減らせるか) を重視する。
+//
+// 既存資産:
+//   - 自己反映プリミティブ: compile, spawn, add_method, remove_method,
+//     methods_of, typeof, type_check, reply, now/future/await
+//   - 段階的型システム + 効果系 + チャネル + linear + owned + transient
+//     cast がランタイム側で動く (Phase 16 まで Python 実装済み)
+//
+// 出力:
+//   - 各フェーズで「自己反映 AIPL がどこまで自身を担当できるか」の
+//     champion 設計
+//   - フェーズ単調性を破る軸組合せ (例: actor 自体を AIPL で書くと
+//     スケジューラ循環が発生する) を coherence 違反として弾く
+//   - Pareto フロンティアの未充填セル -> 「次に書くべきブートストラップ
+//     ステップ」のヒント
+
+aice AIPLSelfHost {
+  dialect = "aice_evolution_v2";
+
+  task = "AIPL の Phase 11-15 を自己反映計算でブートストラップする際の、各フェーズの最小実装設計を MAP-Elites で探索する。フェーズ単調性 (前フェーズが後フェーズの基盤) とホスト最小性 (Python ランタイム依存の漸減) を最大化する。";
+
+  gene_schema = "schemas/programming_paradigm.schema.json";
+
+  evaluation_tasks {
+    // 各タスクは「自己反映 AIPL でこのフェーズの責務を実装し,
+    // その実装自身が同じフェーズで型検査を通過する」ことを評価する.
+    task Phase11_TypeCheck   { spec = "AIPL で型注釈の整合検査器 (_compatible, _infer_type, generic 単一化) を実装する."; }
+    task Phase12_EffectCheck { spec = "AIPL で効果集合の伝播検査器 (call chain 越しに !{...} の上集合関係を確認) を実装する."; }
+    task Phase13_Channels    { spec = "AIPL でチャネル要素型の整合 + capacity 検査 + send/recv/try_recv のシグネチャ検査を実装する."; }
+    task Phase14_Linear      { spec = "AIPL で linear 値の use-after-move 検出器 (_moved set の制御フロー認識) を実装する."; }
+    task Phase15_Owned       { spec = "AIPL でアクターフィールド可視性検査 (pub 修飾, 外部 write 禁止, 外部 read は pub のみ) を実装する."; }
+    task Metacircular        { spec = "AIPL で eval(ast, env) を書き, AST レコード (record{tag:string, ...}) でテストプログラムを実行できる."; }
+  }
+
+  search {
+    algorithm   = "map_elites";
+    // 探索セルの軸. open_axes = true なので新しい軸が探索中に発見されうる.
+    cell_axes   = "paradigm, concurrency_model, type_safety, ownership_model";
+    generations = 40;
+    seed_count  = 12;
+    open_axes   = true;
+    rng_seed    = 1115;
+  }
+
+  meta_fitness {
+    // フェーズ単調性: 前フェーズの設計が後フェーズの実装に再利用されているか.
+    trend_alignment       = 0.25;
+    // Pareto フロンティアの被覆 (どれだけ多様な実装スタイルを試したか).
+    frontier_coverage     = 0.15;
+    // novelty: ホスト Python に無いブートストラップ手法を発見したか.
+    novelty               = 0.15;
+    // evolvability: 次フェーズ (Phase 16+) を上にも積めそうな抽象を持つか.
+    evolvability          = 0.15;
+    // 6 evaluation_tasks すべてで一貫して機能する設計か.
+    cross_task_generality = 0.20;
+    // 実装可能性: 1-2 ファイル × 数百行で書けるか, 数千行を要するか.
+    implementability      = 0.10;
+  }
+
+  ranking {
+    strategy  = "pareto_then_pairwise";
+    // bootstrap という主題上, 3 つのシナリオで採点を変える:
+    //   - conservative: ホスト残置, AIPL は型検査だけ自己ホスト
+    //   - innovative:   メタサーキュラ評価器 + 検査器を全 AIPL で
+    //   - general_purpose: バランス. パーサは Python, AST 以降は AIPL.
+    scenarios = ["conservative", "innovative", "general_purpose"];
+    top_k     = 5;
+  }
+
+  reviewers {
+    reviewer SelfHostFeasibility {
+      persona = "あなたは自己反映評価器の実装可能性レビュアーです。各候補実装が AIPL の現行構文 (record, tuple, array, function, actor, generic, union, linear, owned) で本当に書けるかを厳しく評価し, 'OK: <根拠>' / 'NG: <欠けている言語機能>' で 1 行返答してください。";
+    }
+    reviewer PhaseMonotonicity {
+      persona = "あなたはフェーズ単調性レビュアーです。Phase N の実装が Phase N-1 の実装の真の拡張になっているか, 前フェーズの設計を破壊していないかを評価してください。'OK: <継承された抽象>' / 'NG: <破壊された invariant>' で答えてください。";
+    }
+    reviewer HostMinimality {
+      persona = "あなたはホスト最小性レビュアーです。Python ランタイムのどの部分が AIPL 側に移譲され, どの部分がホストに残るかを 1 文で要約してください。'残置: <list>; 移譲: <list>' の形で返答。";
+    }
+  }
+}

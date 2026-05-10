@@ -1,0 +1,130 @@
+{
+  "name": "AIPLSelfHost",
+  "task": "AIPL の Phase 11-15 を自己反映計算でブートストラップする際の、各フェーズの最小実装設計を MAP-Elites で探索する。フェーズ単調性 (前フェーズが後フェーズの基盤) とホスト最小性 (Python ランタイム依存の漸減) を最大化する。",
+  "schema_ref": "schemas/programming_paradigm.schema.json",
+  "search": {
+    "algorithm": "map_elites",
+    "cell_axes": [
+      "paradigm",
+      "concurrency_model",
+      "type_safety",
+      "ownership_model"
+    ],
+    "generations": 40,
+    "seed_count": 12,
+    "open_axes": true,
+    "rng_seed": 1115
+  },
+  "operators": {
+    "mutations": [
+      {
+        "name": "axis_resample",
+        "kind": "single_axis",
+        "weight": 0.45
+      },
+      {
+        "name": "coherent_paradigm_shift",
+        "kind": "multi_axis_correlated",
+        "weight": 0.25
+      },
+      {
+        "name": "llm_proposal",
+        "kind": "llm_directed",
+        "weight": 0.25
+      },
+      {
+        "name": "llm_new_axis",
+        "kind": "llm_directed",
+        "weight": 0.05
+      }
+    ],
+    "crossovers": [
+      {
+        "name": "uniform",
+        "kind": "axis_uniform",
+        "weight": 0.5
+      },
+      {
+        "name": "one_point",
+        "kind": "schema_partition",
+        "weight": 0.5
+      },
+      {
+        "name": "llm_merge",
+        "kind": "llm_directed",
+        "weight": 0.0
+      }
+    ]
+  },
+  "evaluation": {
+    "tasks": [
+      "Phase11_TypeCheck",
+      "Phase12_EffectCheck",
+      "Phase13_Channels",
+      "Phase14_Linear",
+      "Phase15_Owned",
+      "Metacircular"
+    ],
+    "evaluator": "mock_v1",
+    "reviewers": [
+      {
+        "name": "SelfHostFeasibility",
+        "persona": "あなたは自己反映評価器の実装可能性レビュアーです。各候補実装が AIPL の現行構文 (record, tuple, array, function, actor, generic, union, linear, owned) で本当に書けるかを厳しく評価し, 'OK: <根拠>' / 'NG: <欠けている言語機能>' で 1 行返答してください。",
+        "weight": 0.3333333333333333
+      },
+      {
+        "name": "PhaseMonotonicity",
+        "persona": "あなたはフェーズ単調性レビュアーです。Phase N の実装が Phase N-1 の実装の真の拡張になっているか, 前フェーズの設計を破壊していないかを評価してください。'OK: <継承された抽象>' / 'NG: <破壊された invariant>' で答えてください。",
+        "weight": 0.3333333333333333
+      },
+      {
+        "name": "HostMinimality",
+        "persona": "あなたはホスト最小性レビュアーです。Python ランタイムのどの部分が AIPL 側に移譲され, どの部分がホストに残るかを 1 文で要約してください。'残置: <list>; 移譲: <list>' の形で返答。",
+        "weight": 0.3333333333333333
+      }
+    ]
+  },
+  "meta_fitness": {
+    "trend_alignment": 0.25,
+    "frontier_coverage": 0.15,
+    "novelty": 0.15,
+    "evolvability": 0.15,
+    "cross_task_generality": 0.2,
+    "implementability": 0.1
+  },
+  "ranking": {
+    "strategy": "pareto_then_pairwise",
+    "scenarios": [
+      "conservative",
+      "innovative",
+      "general_purpose"
+    ],
+    "scenario_weights": {
+      "conservative": {
+        "trend_alignment": 0.45,
+        "cross_task_generality": 0.2,
+        "implementability": 0.15,
+        "evolvability": 0.1,
+        "frontier_coverage": 0.05,
+        "novelty": 0.05
+      },
+      "innovative": {
+        "novelty": 0.35,
+        "frontier_coverage": 0.3,
+        "evolvability": 0.15,
+        "trend_alignment": 0.05,
+        "cross_task_generality": 0.1,
+        "implementability": 0.05
+      },
+      "general_purpose": {
+        "cross_task_generality": 0.4,
+        "implementability": 0.2,
+        "trend_alignment": 0.15,
+        "evolvability": 0.1,
+        "frontier_coverage": 0.1,
+        "novelty": 0.05
+      }
+    },
+    "top_k": 5
+  }
+}

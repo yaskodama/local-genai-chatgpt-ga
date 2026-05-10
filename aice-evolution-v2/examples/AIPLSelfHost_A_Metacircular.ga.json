@@ -1,0 +1,128 @@
+{
+  "name": "AIPLSelfHost_A_Metacircular",
+  "task": "AIPL で eval(ast, env) を実装し, AST レコードで表された AIPL 部分集合を実行できる最小のメタサーキュラ評価器を探索する. パーサ・型検査・スケジューラはホスト Python に残置し, 評価部のみを AIPL に移譲する.",
+  "schema_ref": "schemas/programming_paradigm.schema.json",
+  "search": {
+    "algorithm": "map_elites",
+    "cell_axes": [
+      "paradigm",
+      "type_safety"
+    ],
+    "generations": 20,
+    "seed_count": 6,
+    "open_axes": true,
+    "rng_seed": 161
+  },
+  "operators": {
+    "mutations": [
+      {
+        "name": "axis_resample",
+        "kind": "single_axis",
+        "weight": 0.45
+      },
+      {
+        "name": "coherent_paradigm_shift",
+        "kind": "multi_axis_correlated",
+        "weight": 0.25
+      },
+      {
+        "name": "llm_proposal",
+        "kind": "llm_directed",
+        "weight": 0.25
+      },
+      {
+        "name": "llm_new_axis",
+        "kind": "llm_directed",
+        "weight": 0.05
+      }
+    ],
+    "crossovers": [
+      {
+        "name": "uniform",
+        "kind": "axis_uniform",
+        "weight": 0.5
+      },
+      {
+        "name": "one_point",
+        "kind": "schema_partition",
+        "weight": 0.5
+      },
+      {
+        "name": "llm_merge",
+        "kind": "llm_directed",
+        "weight": 0.0
+      }
+    ]
+  },
+  "evaluation": {
+    "tasks": [
+      "EvalLiterals",
+      "EvalVariables",
+      "EvalBinop",
+      "EvalControl",
+      "EvalCallExpr",
+      "ASTRoundTrip"
+    ],
+    "evaluator": "mock_v1",
+    "reviewers": [
+      {
+        "name": "Feasibility",
+        "persona": "あなたはメタサーキュラ評価器の実装可能性レビュアーです。各候補実装が AIPL の record + function + recursion だけで書けるかを 1 文で 'OK: <根拠>' / 'NG: <欠けている機能>' で答えてください。",
+        "weight": 0.3333333333333333
+      },
+      {
+        "name": "ScopeMinimality",
+        "persona": "あなたはスコープレビュアーです。Level A は eval に集中すべきで, パーサや型検査を巻き込まないこと。スコープ漏れを 'OK: 評価のみ' / 'NG: <逸脱>' で 1 行で返答してください。",
+        "weight": 0.3333333333333333
+      },
+      {
+        "name": "EvolutionPath",
+        "persona": "あなたは将来拡張レビュアーです。この eval が Level B (フェーズ追随) でどう拡張されうるか, 抽象が破綻しないかを 1 文で評価してください。",
+        "weight": 0.3333333333333333
+      }
+    ]
+  },
+  "meta_fitness": {
+    "trend_alignment": 0.1,
+    "frontier_coverage": 0.1,
+    "novelty": 0.05,
+    "evolvability": 0.2,
+    "cross_task_generality": 0.2,
+    "implementability": 0.35
+  },
+  "ranking": {
+    "strategy": "pareto_then_pairwise",
+    "scenarios": [
+      "conservative",
+      "innovative",
+      "general_purpose"
+    ],
+    "scenario_weights": {
+      "conservative": {
+        "trend_alignment": 0.45,
+        "cross_task_generality": 0.2,
+        "implementability": 0.15,
+        "evolvability": 0.1,
+        "frontier_coverage": 0.05,
+        "novelty": 0.05
+      },
+      "innovative": {
+        "novelty": 0.35,
+        "frontier_coverage": 0.3,
+        "evolvability": 0.15,
+        "trend_alignment": 0.05,
+        "cross_task_generality": 0.1,
+        "implementability": 0.05
+      },
+      "general_purpose": {
+        "cross_task_generality": 0.4,
+        "implementability": 0.2,
+        "trend_alignment": 0.15,
+        "evolvability": 0.1,
+        "frontier_coverage": 0.1,
+        "novelty": 0.05
+      }
+    },
+    "top_k": 3
+  }
+}

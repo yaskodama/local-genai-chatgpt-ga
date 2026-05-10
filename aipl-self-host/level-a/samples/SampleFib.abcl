@@ -1,0 +1,58 @@
+// Sample 3 — recursive function call.
+//
+// Builds an AST for:
+//   function fib(n) {
+//     if (n < 2) { return n; }
+//     return fib(n-1) + fib(n-2);
+//   }
+//   print(fib(10));         // expected: 55
+//
+// Demonstrates that the metacircular evaluator supports user functions
+// and recursion: bind params -> args, run body, propagate Return.
+
+class Driver {
+  method run() {
+    print("=== Level A — SampleFib ===");
+
+    var fib_fn = {
+      params: ["n"],
+      body: [
+        {tag: "If",
+         cond: {tag: "Binop", op: "<",
+                lhs: {tag: "Var", name: "n"},
+                rhs: {tag: "Int", val: 2}},
+         then_body: [
+           {tag: "Return", expr: {tag: "Var", name: "n"}}
+         ],
+         else_body: []},
+        {tag: "Return",
+         expr: {tag: "Binop", op: "+",
+                lhs: {tag: "Call", name: "fib",
+                      args: [{tag: "Binop", op: "-",
+                              lhs: {tag: "Var", name: "n"},
+                              rhs: {tag: "Int", val: 1}}]},
+                rhs: {tag: "Call", name: "fib",
+                      args: [{tag: "Binop", op: "-",
+                              lhs: {tag: "Var", name: "n"},
+                              rhs: {tag: "Int", val: 2}}]}}}
+      ]
+    };
+
+    var prog = {
+      funcs: [("fib", fib_fn)],
+      main: [
+        {tag: "VarDecl", name: "r",
+         expr: {tag: "Call", name: "fib",
+                args: [{tag: "Int", val: 8}]}},
+        {tag: "Print", expr: {tag: "Var", name: "r"}}
+      ]
+    };
+
+    run_program(prog);
+    print("[fib] expected: 21");
+    print("=== done ===");
+  }
+}
+
+var d = new Driver();
+send d.run();

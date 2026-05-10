@@ -1,0 +1,55 @@
+// Sample 2 — control flow.
+//
+// Builds an AST for:
+//   var i = 0;
+//   var sum = 0;
+//   while (i < 5) {
+//     sum = sum + i;
+//     i = i + 1;
+//   }
+//   if (sum > 5) { print(sum); } else { print(-1); }
+//
+// Expected: 10  (0+1+2+3+4)
+
+class Driver {
+  method run() {
+    print("=== Level A — SampleControl ===");
+    var prog = {
+      funcs: [],
+      main: [
+        {tag: "VarDecl", name: "i",   expr: {tag: "Int", val: 0}},
+        {tag: "VarDecl", name: "sum", expr: {tag: "Int", val: 0}},
+        {tag: "While",
+         cond: {tag: "Binop", op: "<",
+                lhs: {tag: "Var", name: "i"},
+                rhs: {tag: "Int", val: 5}},
+         body: [
+           {tag: "Assign", name: "sum",
+            expr: {tag: "Binop", op: "+",
+                   lhs: {tag: "Var", name: "sum"},
+                   rhs: {tag: "Var", name: "i"}}},
+           {tag: "Assign", name: "i",
+            expr: {tag: "Binop", op: "+",
+                   lhs: {tag: "Var", name: "i"},
+                   rhs: {tag: "Int", val: 1}}}
+         ]},
+        {tag: "If",
+         cond: {tag: "Binop", op: ">",
+                lhs: {tag: "Var", name: "sum"},
+                rhs: {tag: "Int", val: 5}},
+         then_body: [
+           {tag: "Print", expr: {tag: "Var", name: "sum"}}
+         ],
+         else_body: [
+           {tag: "Print", expr: {tag: "Int", val: 0 - 1}}
+         ]}
+      ]
+    };
+    run_program(prog);
+    print("[control] expected: 10");
+    print("=== done ===");
+  }
+}
+
+var d = new Driver();
+send d.run();

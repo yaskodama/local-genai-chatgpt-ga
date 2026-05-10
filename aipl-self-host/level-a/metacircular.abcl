@@ -1,0 +1,216 @@
+// Level A — Metacircular Evaluator for AIPL.
+//
+// Implements eval_expr / eval_stmt / eval_stmt_list in pure AIPL.
+// AST nodes are records tagged by `.tag`:
+//   {tag: "Int",     val: 42}
+//   {tag: "Str",     val: "hi"}
+//   {tag: "Var",     name: "x"}
+//   {tag: "Binop",   op:  "+", lhs: ast, rhs: ast}
+//   {tag: "VarDecl", name: "x", expr: ast}
+//   {tag: "Assign",  name: "x", expr: ast}
+//   {tag: "Print",   expr: ast}
+//   {tag: "If",      cond: ast, then_body: [stmt...], else_body: [stmt...]}
+//   {tag: "While",   cond: ast, body: [stmt...]}
+//   {tag: "Call",    name: "fib", args: [ast...]}
+//   {tag: "Return",  expr: ast}
+//
+// Env is a mutable array of (name, value) tuples.  meta_env_get scans from
+// tail to head so the latest binding wins; meta_env_set always pushes a
+// new pair (no in-place rewrite — keeps the rep immutable per slot).
+//
+// Functions defined in the evaluated program are stored in a flat
+// `funcs` record keyed by literal name (so callers must register at
+// definition time via register_fn).  A function is a record:
+//   {params: ["a", "b"], body: [stmt...]}
+//
+// Phase 11+ idiom: typed surface where the static checker can keep
+// up; the AST is `any` since each tag carries different fields.
+
+// ---------- env helpers ----------
+
+function meta_env_get(env, name) {
+  var i: int = array_len(env) - 1;
+  while (i >= 0) do {
+    var pair = array_get(env, i);
+    if (pair[0] == name) {
+      return pair[1];
+    }
+    i = i - 1;
+  }
+  print("[meta] meta_env_get: undefined " + name);
+  return 0;
+}
+
+function meta_env_set(env, name, value) {
+  array_push(env, (name, value));
+  return value;
+}
+
+// ---------- function registry (flat for the demo) ----------
+
+function register_fn(funcs, name, fn) {
+  array_push(funcs, (name, fn));
+  return 0;
+}
+
+function lookup_fn(funcs, name) {
+  var i: int = array_len(funcs) - 1;
+  while (i >= 0) do {
+    var pair = array_get(funcs, i);
+    if (pair[0] == name) {
+      return pair[1];
+    }
+    i = i - 1;
+  }
+  print("[meta] lookup_fn: undefined function " + name);
+  return 0;
+}
+
+// ---------- Binop application ----------
+
+function apply_binop(op: string, a, b) {
+  if (op == "+")  { return a + b; }
+  if (op == "-")  { return a - b; }
+  if (op == "*")  { return a * b; }
+  if (op == "/")  { return a / b; }
+  if (op == "==") { if (a == b) { return 1; } return 0; }
+  if (op == "!=") { if (a != b) { return 1; } return 0; }
+  if (op == "<")  { if (a <  b) { return 1; } return 0; }
+  if (op == ">")  { if (a >  b) { return 1; } return 0; }
+  if (op == "<=") { if (a <= b) { return 1; } return 0; }
+  if (op == ">=") { if (a >= b) { return 1; } return 0; }
+  print("[meta] apply_binop: unknown op " + op);
+  return 0;
+}
+
+// ---------- eval_expr / eval_stmt ----------
+
+function eval_expr(ast, env, funcs) {
+  if (ast.tag == "Int") { return ast.val; }
+  if (ast.tag == "Str") { return ast.val; }
+  if (ast.tag == "Var") { return meta_env_get(env, ast.name); }
+  if (ast.tag == "Binop") {
+    var l = eval_expr(ast.lhs, env, funcs);
+    var r = eval_expr(ast.rhs, env, funcs);
+    return apply_binop(ast.op, l, r);
+  }
+  if (ast.tag == "Call") {
+    var fn = lookup_fn(funcs, ast.name);
+    // Each call gets a FRESH env so leaked bindings from previous calls
+    // can't shadow the current frame's parameters.  AIPL has no
+    // array_pop, and tail-first env_get isn't enough when recursion
+    // re-binds the same name in a sibling call before returning.
+    var call_env = [];
+    var i: int = 0;
+    var nparams: int = array_len(fn.params);
+    while (i < nparams) do {
+      var pname = array_get(fn.params, i);
+      // Argument expressions are evaluated in the CALLER's env.
+      var aval  = eval_expr(array_get(ast.args, i), env, funcs);
+      meta_env_set(call_env, pname, aval);
+      i = i + 1;
+    }
+    var marked = eval_stmt_list(fn.body, call_env, funcs);
+    return marked[1];
+  }
+  print("[meta] eval_expr: unknown tag " + ast.tag);
+  return 0;
+}
+
+function eval_stmt(ast, env, funcs) {
+  if (ast.tag == "VarDecl") {
+    var v = eval_expr(ast.expr, env, funcs);
+    meta_env_set(env, ast.name, v);
+    return v;
+  }
+  if (ast.tag == "Assign") {
+    var v = eval_expr(ast.expr, env, funcs);
+    meta_env_set(env, ast.name, v);
+    return v;
+  }
+  if (ast.tag == "Print") {
+    var v = eval_expr(ast.expr, env, funcs);
+    print(v);
+    return 0;
+  }
+  // For If/While we DO NOT return a value here — they may contain a
+  // Return inside a nested stmt-list, so we route them through the
+  // marker-returning eval_stmt_list and re-export its marker tuple.
+  // (eval_stmt itself never carries a Return marker; only eval_stmt_list
+  //  does, see below.)
+  print("[meta] eval_stmt: unknown tag " + ast.tag);
+  return 0;
+}
+
+// eval_stmt_list returns a (returned?, value) marker so a `Return`
+// nested inside an `If` / `While` body propagates all the way out to
+// the enclosing function's body list.  The marker is stripped by
+// eval_expr's Call branch.
+function eval_stmt_list(stmts, env, funcs) {
+  var rv = 0;
+  var i: int = 0;
+  var n: int = array_len(stmts);
+  while (i < n) do {
+    var s = array_get(stmts, i);
+    if (s.tag == "Return") {
+      return (1, eval_expr(s.expr, env, funcs));
+    }
+    if (s.tag == "If") {
+      var c = eval_expr(s.cond, env, funcs);
+      var inner = (0, 0);
+      if (c != 0) {
+        inner = eval_stmt_list(s.then_body, env, funcs);
+      } else {
+        inner = eval_stmt_list(s.else_body, env, funcs);
+      }
+      if (inner[0] == 1) { return inner; }
+      i = i + 1;
+    } else {
+      if (s.tag == "While") {
+        var cw = eval_expr(s.cond, env, funcs);
+        var early = (0, 0);
+        while (cw != 0) do {
+          var inner_w = eval_stmt_list(s.body, env, funcs);
+          if (inner_w[0] == 1) {
+            early = inner_w;
+            cw = 0;
+          } else {
+            cw = eval_expr(s.cond, env, funcs);
+          }
+        }
+        if (early[0] == 1) { return early; }
+        i = i + 1;
+      } else {
+        rv = eval_stmt(s, env, funcs);
+        i = i + 1;
+      }
+    }
+  }
+  return (0, rv);
+}
+
+// ---------- Program entry ----------
+//
+// A "program" is a record with two fields:
+//   funcs: list of (name, {params, body}) — functions
+//   main:  list of stmts to execute at top level
+//
+// run_program(prog) sets up env + funcs and dispatches main.
+
+function run_program(prog) {
+  var env = [];
+  var funcs = [];
+
+  // register functions first so forward refs work
+  var i: int = 0;
+  var n: int = array_len(prog.funcs);
+  while (i < n) do {
+    var fn_pair = array_get(prog.funcs, i);
+    register_fn(funcs, fn_pair[0], fn_pair[1]);
+    i = i + 1;
+  }
+
+  // run main
+  var rv = eval_stmt_list(prog.main, env, funcs);
+  return rv;
+}

@@ -1,0 +1,146 @@
+{
+  "name": "AIPLSelfHost_C_FullHost",
+  "task": "AIPL を完全に自己ホストする処理系の最適設計を探索する. パーサ, AST, 型/効果/linear/owned 検査, 評価器, アクタースケジューラ, メイルボックス, future, I/O ブリッジを全て AIPL で実装し, ホスト Python は 20 行以下の bootstrap loader のみに縮退させる.",
+  "schema_ref": "schemas/programming_paradigm.schema.json",
+  "search": {
+    "algorithm": "map_elites",
+    "cell_axes": [
+      "paradigm",
+      "state_representation",
+      "concurrency_model",
+      "type_safety",
+      "effect_handling",
+      "ownership_model"
+    ],
+    "generations": 60,
+    "seed_count": 16,
+    "open_axes": true,
+    "rng_seed": 314
+  },
+  "operators": {
+    "mutations": [
+      {
+        "name": "axis_resample",
+        "kind": "single_axis",
+        "weight": 0.45
+      },
+      {
+        "name": "coherent_paradigm_shift",
+        "kind": "multi_axis_correlated",
+        "weight": 0.25
+      },
+      {
+        "name": "llm_proposal",
+        "kind": "llm_directed",
+        "weight": 0.25
+      },
+      {
+        "name": "llm_new_axis",
+        "kind": "llm_directed",
+        "weight": 0.05
+      }
+    ],
+    "crossovers": [
+      {
+        "name": "uniform",
+        "kind": "axis_uniform",
+        "weight": 0.5
+      },
+      {
+        "name": "one_point",
+        "kind": "schema_partition",
+        "weight": 0.5
+      },
+      {
+        "name": "llm_merge",
+        "kind": "llm_directed",
+        "weight": 0.0
+      }
+    ]
+  },
+  "evaluation": {
+    "tasks": [
+      "Parser",
+      "AST_Roundtrip",
+      "Phase11_TypeCheck",
+      "Phase12_EffectCheck",
+      "Phase13_Channels",
+      "Phase14_Linear",
+      "Phase15_Owned",
+      "Phase16_Transient",
+      "Eval",
+      "Scheduler",
+      "Mailbox",
+      "Future",
+      "IO_Bridge",
+      "Bootstrap",
+      "FullSelfTypeCheck"
+    ],
+    "evaluator": "mock_v1",
+    "reviewers": [
+      {
+        "name": "HostMinimality",
+        "persona": "あなたはホスト最小性レビュアーです。bootstrap loader が何行で済むか, ホスト Python に残るコードが本当に bootstrap だけかを 1 文で評価し, '残置: <list>; 移譲: <list>' の形で返答してください。",
+        "weight": 0.25
+      },
+      {
+        "name": "Layering",
+        "persona": "あなたはレイヤリングレビュアーです。parser → AST → typeck → eval → scheduler → I/O の各層が独立に置換可能か, 循環依存が無いかを 'OK: <層>' / 'NG: <循環箇所>' で答えてください。",
+        "weight": 0.25
+      },
+      {
+        "name": "SchedulerCircularity",
+        "persona": "あなたはスケジューラ循環性レビュアーです。AIPL のアクタースケジューラを AIPL で書く際, 「スケジューラ自身を実行するスケジューラ」が必要にならないかを 1 文で評価してください。",
+        "weight": 0.25
+      },
+      {
+        "name": "FullSelfHostFeasibility",
+        "persona": "あなたは完全自己ホスト可能性レビュアーです。各候補が AIPL の Phase 11-16 機能だけで本当にここまで書けるか, 隠れた言語拡張要求 (例: weak ref, finalizer) が必要にならないかを評価してください。",
+        "weight": 0.25
+      }
+    ]
+  },
+  "meta_fitness": {
+    "trend_alignment": 0.15,
+    "frontier_coverage": 0.15,
+    "novelty": 0.15,
+    "evolvability": 0.1,
+    "cross_task_generality": 0.2,
+    "implementability": 0.25
+  },
+  "ranking": {
+    "strategy": "pareto_then_pairwise",
+    "scenarios": [
+      "conservative",
+      "innovative",
+      "general_purpose"
+    ],
+    "scenario_weights": {
+      "conservative": {
+        "trend_alignment": 0.45,
+        "cross_task_generality": 0.2,
+        "implementability": 0.15,
+        "evolvability": 0.1,
+        "frontier_coverage": 0.05,
+        "novelty": 0.05
+      },
+      "innovative": {
+        "novelty": 0.35,
+        "frontier_coverage": 0.3,
+        "evolvability": 0.15,
+        "trend_alignment": 0.05,
+        "cross_task_generality": 0.1,
+        "implementability": 0.05
+      },
+      "general_purpose": {
+        "cross_task_generality": 0.4,
+        "implementability": 0.2,
+        "trend_alignment": 0.15,
+        "evolvability": 0.1,
+        "frontier_coverage": 0.1,
+        "novelty": 0.05
+      }
+    },
+    "top_k": 7
+  }
+}

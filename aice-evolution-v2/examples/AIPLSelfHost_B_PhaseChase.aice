@@ -1,0 +1,74 @@
+// Level B — Phase-by-Phase Chase
+//
+// Level A で得た eval(ast, env) を土台に, Phase 11-15 の各検査器を
+// AIPL で順次再実装する. 各フェーズは前フェーズの真の拡張で, 自身が
+// 同じ検査器の下で型整合する (= 自己整合性).
+//
+// 規模感: フェーズあたり 1-2 日 × 5 = 約 1-2 週間. 1 ファイル/フェーズ.
+//
+// 価値:
+//   - 「AIPL の検査器を AIPL で書ける」ことの段階的実証
+//   - 各フェーズの設計が後フェーズで再利用される (前フェーズの型表現,
+//     env 構造, issue リストの shape, 等) を強制
+//   - ホスト Python の typeck/effect/linear/owned 検査が AIPL 側に
+//     段階的に移譲される
+//
+// 残置: parser, eval ランタイム, スケジューラ, transient cast (Phase 16)
+// 移譲: 5 つの検査器 (type / effect / channel / linear / owned)
+
+aice AIPLSelfHost_B_PhaseChase {
+  dialect = "aice_evolution_v2";
+
+  task = "Level A の eval を土台として, AIPL で Phase 11-15 の各検査器を順次再実装する. フェーズ間の単調性 (前フェーズの抽象が後フェーズに継承され破壊されない) と相互整合性 (検査器自身が自分の検査をパスする) を最大化する設計を探索する.";
+
+  gene_schema = "schemas/programming_paradigm.schema.json";
+
+  evaluation_tasks {
+    // フェーズ毎の検査器を一つずつタスクとして与える.
+    // 単調性レビュアーが前フェーズとの差分を見る.
+    task Phase11_TypeCheck   { spec = "AIPL で _compatible(expected, actual), _infer_type(value), generic 単一化を実装. issue list を返す."; }
+    task Phase12_EffectCheck { spec = "Phase 11 の typeck の上に, 効果集合 !{...} の伝播を実装. function call chain で上集合関係を検査."; }
+    task Phase13_Channels    { spec = "Phase 12 までを土台に, channel(N, T) 要素型整合 + capacity + send/recv/try_recv シグネチャを検査."; }
+    task Phase14_Linear      { spec = "Phase 13 までを土台に, linear T の use-after-move 検出. 制御フロー (if/return) 認識を含む."; }
+    task Phase15_Owned       { spec = "Phase 14 までを土台に, アクター field 可視性 (pub) と外部 write 禁止を検査."; }
+    task SelfConsistency     { spec = "上記 5 検査器自身が, 自分の Phase 検査をパスする (型整合 + 効果整合 + linear 整合 + owned 整合)."; }
+  }
+
+  search {
+    algorithm   = "map_elites";
+    // フェーズ追随では検査軸全体を見たい.
+    cell_axes   = "paradigm, concurrency_model, type_safety, ownership_model";
+    generations = 35;
+    seed_count  = 10;
+    open_axes   = true;
+    rng_seed    = 234;
+  }
+
+  meta_fitness {
+    // フェーズ単調性が最重要.
+    trend_alignment       = 0.35;
+    frontier_coverage     = 0.10;
+    novelty               = 0.10;
+    evolvability          = 0.15;
+    cross_task_generality = 0.20;
+    implementability      = 0.10;
+  }
+
+  ranking {
+    strategy  = "pareto_then_pairwise";
+    scenarios = ["conservative", "innovative", "general_purpose"];
+    top_k     = 5;
+  }
+
+  reviewers {
+    reviewer Monotonicity {
+      persona = "あなたはフェーズ単調性レビュアーです。各候補実装で, Phase N の検査器が Phase N-1 で確立された型表現/env 構造/issue shape をそのまま使っているか, それとも壊しているかを判定してください。'OK: <継承点>' / 'NG: <破壊点>' で 1 行返答。";
+    }
+    reviewer SelfConsistency {
+      persona = "あなたは自己整合性レビュアーです。各検査器自身が, 自分が課す検査をパスするか (例: Phase 12 の効果検査器自身が !{} で書かれている) を 1 文で評価してください。";
+    }
+    reviewer Reuse {
+      persona = "あなたは再利用性レビュアーです。Level A の eval(ast, env) と env 構造を各検査器が共有しているか, それとも独自実装が増殖しているかを評価してください。'OK: 共有' / 'NG: <重複箇所>' で答えてください。";
+    }
+  }
+}
