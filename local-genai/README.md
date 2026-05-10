@@ -24,8 +24,19 @@ local-genai/
 
 ## 実行
 
+進化ループ:
+
 ```sh
 python3 local-genai/evolve.py
+```
+
+学習済み n-gram と対話 (stage 1 の実機モデル):
+
+```sh
+python3 local-genai/chat.py                       # REPL
+python3 local-genai/chat.py "the early bird"      # 1 ショット
+python3 local-genai/chat.py -t 0.7 "absence makes"   # temperature
+python3 local-genai/chat.py --model bigram "practice" # 別モデル
 ```
 
 依存は標準ライブラリのみ。 PyTorch がない環境でも動くように、
