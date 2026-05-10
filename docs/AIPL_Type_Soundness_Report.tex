@@ -534,6 +534,10 @@ send some_actor.handle(fh);       // some_actor の handle 受け取りは linea
 \begin{enumerate}[leftmargin=1.5em]
 \item \textbf{transient cast の挿入}: 注釈境界で runtime check.
       最小コストで観測可能な不健全を捕える.
+      \textit{(2026-05-10 Phase 16 で実装済み: \code{--transient}
+      フラグで有効化,3 つの境界 (var-decl / メソッド引数 /
+      関数引数) で静的検査の \code{\_compatible} と同一規則で
+      ランタイム型チェック.)}
 \item \textbf{関数型構文}: \code{(T) -> U !\{eff\}} を導入し高階関数を
       検査対象に組み込む.
 \item \textbf{record の中のアクター参照を symbol\_owned で守る}.

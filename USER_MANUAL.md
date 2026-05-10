@@ -538,6 +538,50 @@ class Demo {
 
 サンプル: `src/python-aipl/samples/Typecheck11de.abcl`
 
+### 4.7p Phase 16 — Transient cast at any-boundary
+
+Phase 11–15 で導入された型注釈は静的検査だけでチェックしていた.
+Phase 16 では,Soundness Report で優先度 #1 と挙げられていた
+「`any -> T` 境界でのランタイム型キャスト」を入れる.静的検査が
+逃した値の型不整合を実行時に捕捉できる.
+
+**有効化**: `--transient` フラグ.
+
+```sh
+python3 aipl_main.py samples/Transient.abcl              # 通常実行
+python3 aipl_main.py samples/Transient.abcl --transient  # ランタイム検査入り
+```
+
+**検査箇所**: 注釈付きの 3 つの境界に runtime check を挿入する.
+
+```
+class C {
+  method tick(amount: int) -> int {   // ← (1) 引数境界
+    var local: int = amount + 1;       // ← (2) var-decl 境界
+    return local;
+  }
+}
+
+function square(x: int) -> int {       // ← (3) 関数引数境界
+  return x * x;
+}
+
+var n: int = ai_call("...");           // ✗ ai_call 戻り値は string
+                                       //    → transient cast error
+```
+
+`any` または無注釈の境界はチェックを行わない.静的検査の互換性
+判定 (`aipl_typeck._compatible`) をそのまま使うので,静的と
+ランタイムが同じ規則で判定する.
+
+**ゼロコスト**: `--transient` なしでは検査コードが一切実行されない.
+段階的型付けの「注釈はあるが必須ではない」性質を保ったまま,
+必要なときだけ強い保証を得られる設計.
+
+サンプル:
+- `samples/Transient.abcl` (clean)
+- `samples/Transient_violation.abcl` (`--transient` 時のみエラー)
+
 ### 4.7o Phase 15 — symbol_owned (アクターフィールドのカプセル化)
 
 Phase 9 の予測軸 `state_representation = symbol_owned` を完成させる。

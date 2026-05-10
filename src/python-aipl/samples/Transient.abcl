@@ -1,0 +1,54 @@
+// Phase 16 — transient cast at any-boundary.
+//
+// Run with:  python3 aipl_main.py samples/Transient.abcl --transient
+//
+// Without --transient the program runs as before (gradual no-op).
+// With --transient, the runtime inserts a type check at each `any -> T`
+// boundary.  This sample shows three boundaries:
+//   1. annotated method param  (Counter.tick(amount: int))
+//   2. annotated var-decl      (var n: int = ...)
+//   3. annotated function param (square(x: int) -> int)
+//
+// All three pass when callers supply ints, and raise
+// TransientCastError when the runtime sees an `any` value that does
+// not match (the static checker had to leave it as `any` because the
+// argument's source type was unknown).
+
+class Counter {
+  var n: int = 0;
+  method tick(amount: int) -> int {
+    n = n + amount;
+    return n;
+  }
+}
+
+function square(x: int) -> int {
+  return x * x;
+}
+
+class Demo {
+  method run() {
+    print("=== Phase 16 — transient cast (Python AIPL) ===");
+
+    var c = new Counter();
+
+    // (1) all values are int — boundary check passes
+    var r1: int = now c.tick(3);
+    print("after tick(3) -> ");
+    print(r1);
+
+    var r2: int = now c.tick(5);
+    print("after tick(5) -> ");
+    print(r2);
+
+    // (2) function call boundary
+    var sq: int = square(7);
+    print("square(7) -> ");
+    print(sq);
+
+    print("=== all boundaries crossed cleanly ===");
+  }
+}
+
+var d = new Demo();
+send d.run();

@@ -1,0 +1,28 @@
+// Phase 16 — transient cast violation sample.
+//
+// This program runs cleanly without --transient.  With --transient,
+// the runtime will raise a TransientCastError when the string from
+// ai_call (whose declared return type is `string`) crosses the
+// `var n: int = ...` boundary.
+//
+// Run:
+//   python3 aipl_main.py samples/Transient_violation.abcl
+//   python3 aipl_main.py samples/Transient_violation.abcl --transient
+
+class Demo {
+  method run() {
+    print("=== Phase 16 — transient violation (Python AIPL) ===");
+
+    // ai_call's signature is (string) -> string.  Forcing it into an
+    // int-annotated var violates the boundary contract.
+    var s: string = ai_call("just a placeholder prompt");
+    print("got string from ai_call");
+
+    var n: int = ai_call("another prompt");      // boundary violation
+    print("[unreachable under --transient]");
+    print(n);
+  }
+}
+
+var d = new Demo();
+send d.run();

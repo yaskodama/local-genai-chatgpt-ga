@@ -23,6 +23,28 @@ from aipl_ast import (
 from aipl_runtime import Actor, Future, Scheduler
 
 
+class TransientCastError(Exception):
+    """Phase 16: raised when a value crosses an `any -> T` boundary
+    with --transient enabled and the runtime check sees a mismatch."""
+    pass
+
+
+def _transient_check(value, declared_type, where: str) -> None:
+    """Phase 16 transient cast.  Raise TransientCastError if `value`
+    does not match `declared_type` when crossing an annotated boundary.
+    No-op when `declared_type` is None or `any`."""
+    if declared_type is None or declared_type == "any":
+        return
+    actual = _infer_type(value)
+    # Reuse the static checker's compatibility predicate so static and
+    # runtime decisions agree.
+    from aipl_typeck import _compatible
+    if not _compatible(declared_type, actual):
+        raise TransientCastError(
+            f"transient cast at {where}: expected {declared_type} but got {actual}"
+        )
+
+
 class Frame:
     """Lexical frame: locals chain back to a parent frame."""
     def __init__(
@@ -318,7 +340,7 @@ var AI = new AI();
 
 
 class Interpreter:
-    def __init__(self, program: Program):
+    def __init__(self, program: Program, transient_checks: bool = False):
         self.program = program
         self.classes: dict = {}      # name -> ClassDecl
         self.functions: dict = {}    # name -> FunctionDecl  (top-level user functions)
@@ -327,6 +349,11 @@ class Interpreter:
         self.scheduler = Scheduler()
         self._global_lock = threading.Lock()
         self._actor_counter = 0
+        # Phase 16: when True, every value crossing an `any -> T` boundary
+        # (annotated parameter, annotated var-decl rhs, annotated return)
+        # gets a runtime type check.  Off by default to keep the gradual
+        # contract zero-cost when not requested.
+        self.transient_checks = transient_checks
         # Optional persisted-fields + pending-mailbox snapshot loaded
         # once at startup; replay happens per-actor during spawn.
         try:
@@ -518,6 +545,13 @@ class Interpreter:
             if reply_future is not None:
                 reply_future.set(None)
             return
+        # Phase 16: transient cast at the call boundary.  Each annotated
+        # parameter checks its incoming arg here; an `any` annotation or
+        # an unannotated param skips the check.
+        if self.transient_checks:
+            param_annos = getattr(method, "param_annotations", None) or [None] * len(method.params)
+            for p, anno, v in zip(method.params, param_annos, args):
+                _transient_check(v, anno, f"{actor.cls.name}.{method_name}({p})")
         frame = Frame(actor=actor, sender=sender, reply_future=reply_future)
         for p, v in zip(method.params, args):
             frame.locals[p] = v
@@ -545,6 +579,10 @@ class Interpreter:
         kind = type(s)
         if kind is VarDecl:
             v = self.eval_expr(s.expr, frame)
+            # Phase 16: transient cast at the var-decl boundary.
+            if self.transient_checks:
+                _transient_check(v, getattr(s, "type_annotation", None),
+                                 f"var {s.name}")
             frame.locals[s.name] = v
         elif kind is VarNew:
             actor = self.spawn_actor(s.cls_name, [self.eval_expr(a, frame) for a in s.args], var_name=s.name)
@@ -766,6 +804,11 @@ class Interpreter:
         """Invoke a user-defined function. If `inherit_actor` is set, the
         function's frame sees that actor's fields and in-class siblings; this
         is used for in-class function calls. Top-level functions get None."""
+        # Phase 16: transient cast at the function-call boundary.
+        if self.transient_checks:
+            param_annos = getattr(decl, "param_annotations", None) or [None] * len(decl.params)
+            for p, anno, v in zip(decl.params, param_annos, args):
+                _transient_check(v, anno, f"{decl.name}({p})")
         f = Frame(actor=inherit_actor, sender=None)
         for i, p in enumerate(decl.params):
             f.locals[p] = args[i] if i < len(args) else None

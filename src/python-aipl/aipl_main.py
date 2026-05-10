@@ -30,6 +30,10 @@ def main():
                          "any issues to stderr (program still runs unless --strict)")
     ap.add_argument("--strict", action="store_true",
                     help="when combined with --type-check, abort on type errors")
+    ap.add_argument("--transient", action="store_true",
+                    help="(Phase 16) insert runtime type checks at every "
+                         "annotated boundary (call args, var-decl rhs); "
+                         "raise TransientCastError on any -> T mismatch")
     ap.add_argument("--dashboard", type=int, default=0, metavar="PORT",
                     help="serve a live AI-OS usage dashboard on http://127.0.0.1:PORT/")
     args = ap.parse_args()
@@ -69,7 +73,7 @@ def main():
         else:
             print("[type] no issues.", file=sys.stderr)
 
-    interp = Interpreter(program)
+    interp = Interpreter(program, transient_checks=args.transient)
     try:
         interp.run(idle_ms=args.idle_ms, timeout_s=args.timeout)
     except KeyboardInterrupt:
