@@ -46,6 +46,8 @@ def main():
     p.add_argument("--label-smoothing", type=float, default=0.0)
     p.add_argument("--min-lr-frac", type=float, default=0.1,
                    help="cosine final LR as fraction of base lr (default 0.1 = lr/10)")
+    p.add_argument("--pos-encoding", default="learned", choices=["learned", "rope"],
+                   help="positional encoding: learned absolute embedding or rotary (RoPE)")
     p.add_argument("--out-name", default="transformer_stage4.pt")
     args = p.parse_args()
 
@@ -77,6 +79,7 @@ def main():
         weight_decay=args.weight_decay,
         label_smoothing=args.label_smoothing,
         min_lr_frac=args.min_lr_frac,
+        pos_encoding=args.pos_encoding,
         verbose=True,
     )
 

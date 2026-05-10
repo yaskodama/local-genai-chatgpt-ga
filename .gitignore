@@ -62,3 +62,6 @@ src/python-aipl/out_site/
 *.log
 *.out
 *.toc
+
+# local-genai PG corpus build cache (regenerable)
+local-genai/.cache/

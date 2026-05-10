@@ -28,7 +28,7 @@ def parse_args():
     p = argparse.ArgumentParser()
     p.add_argument("--device", default="cpu",
                    choices=["cpu", "mps"])
-    p.add_argument("--corpus", default="10KB", choices=["10KB", "100KB", "1MB"])
+    p.add_argument("--corpus", default="10KB", choices=["10KB", "100KB", "1MB", "10MB"])
     p.add_argument("--out-name", default="charrnn_winner.pt",
                    help="checkpoint filename (use a unique name to avoid clobbering older winners)")
     return p.parse_args()

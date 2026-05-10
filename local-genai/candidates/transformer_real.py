@@ -50,6 +50,17 @@ class RMSNorm(nn.Module):
         return self.weight * x / rms
 
 
+def _apply_rope(x: torch.Tensor, cos: torch.Tensor, sin: torch.Tensor) -> torch.Tensor:
+    """Apply rotary positional embedding to x [B, h, T, dh].
+    cos/sin are precomputed [T, dh/2] (broadcast across batch+heads).
+    Splits last dim into two halves and rotates them as a complex pair."""
+    half = x.size(-1) // 2
+    x1, x2 = x[..., :half], x[..., half:]
+    cos = cos[: x.size(-2)]
+    sin = sin[: x.size(-2)]
+    return torch.cat([x1 * cos - x2 * sin, x1 * sin + x2 * cos], dim=-1)
+
+
 class MultiHeadAttention(nn.Module):
     def __init__(self, d_model: int, n_heads: int):
         super().__init__()
@@ -59,10 +70,14 @@ class MultiHeadAttention(nn.Module):
         self.qkv = nn.Linear(d_model, 3 * d_model, bias=False)
         self.proj = nn.Linear(d_model, d_model, bias=False)
 
-    def forward(self, x):
+    def forward(self, x, rope_cache=None):
         B, T, D = x.shape
         qkv = self.qkv(x).reshape(B, T, 3, self.h, self.dh).permute(2, 0, 3, 1, 4)
         q, k, v = qkv[0], qkv[1], qkv[2]
+        if rope_cache is not None:
+            cos, sin = rope_cache
+            q = _apply_rope(q, cos, sin)
+            k = _apply_rope(k, cos, sin)
         att = q @ k.transpose(-2, -1) / math.sqrt(self.dh)
         mask = torch.tril(torch.ones(T, T, device=x.device, dtype=torch.bool))
         att = att.masked_fill(~mask, float("-inf"))
@@ -83,8 +98,8 @@ class TransformerBlock(nn.Module):
             nn.Linear(ffn_mult * d_model, d_model),
         )
 
-    def forward(self, x):
-        x = x + self.attn(self.norm1(x))
+    def forward(self, x, rope_cache=None):
+        x = x + self.attn(self.norm1(x), rope_cache=rope_cache)
         x = x + self.ffn(self.norm2(x))
         return x
 
@@ -92,11 +107,25 @@ class TransformerBlock(nn.Module):
 class TinyTransformer(nn.Module):
     def __init__(self, d_model: int = 192, n_heads: int = 4,
                  ffn_mult: int = 4, ctx: int = 128, depth: int = 1,
-                 dropout: float = 0.0):
+                 dropout: float = 0.0,
+                 pos_encoding: str = "learned"):
         super().__init__()
         self.ctx = ctx
+        self.pos_encoding = pos_encoding
         self.embed = nn.Embedding(VOCAB, d_model)
-        self.pos = nn.Embedding(ctx, d_model)
+        if pos_encoding == "learned":
+            self.pos = nn.Embedding(ctx, d_model)
+        elif pos_encoding == "rope":
+            head_dim = d_model // n_heads
+            assert head_dim % 2 == 0, "RoPE needs even head_dim"
+            half = head_dim // 2
+            inv_freq = 10000.0 ** (-torch.arange(0, half).float() / half)
+            t = torch.arange(ctx).float()
+            angles = torch.outer(t, inv_freq)  # [ctx, half]
+            self.register_buffer("rope_cos", torch.cos(angles), persistent=False)
+            self.register_buffer("rope_sin", torch.sin(angles), persistent=False)
+        else:
+            raise ValueError(f"unknown pos_encoding: {pos_encoding}")
         self.drop = nn.Dropout(dropout) if dropout > 0 else nn.Identity()
         self.blocks = nn.ModuleList([
             TransformerBlock(d_model, n_heads, ffn_mult) for _ in range(depth)
@@ -105,10 +134,15 @@ class TinyTransformer(nn.Module):
 
     def forward(self, x):
         B, T = x.shape
-        pos_idx = torch.arange(T, device=x.device).unsqueeze(0).expand(B, T)
-        h = self.drop(self.embed(x) + self.pos(pos_idx))
+        if self.pos_encoding == "learned":
+            pos_idx = torch.arange(T, device=x.device).unsqueeze(0).expand(B, T)
+            h = self.drop(self.embed(x) + self.pos(pos_idx))
+            rope_cache = None
+        else:
+            h = self.drop(self.embed(x))
+            rope_cache = (self.rope_cos, self.rope_sin)
         for blk in self.blocks:
-            h = blk(h)
+            h = blk(h, rope_cache=rope_cache)
         h = self.norm(h)
         return h @ self.embed.weight.T
 
@@ -135,6 +169,7 @@ def train_and_eval(d_model: int, n_heads: int, ctx: int,
                    weight_decay: float | None = None,
                    label_smoothing: float = 0.0,
                    min_lr_frac: float | None = None,
+                   pos_encoding: str = "learned",
                    verbose: bool = False) -> dict:
     bptt = bptt or BPTT
     batch = batch or BATCH
@@ -154,7 +189,8 @@ def train_and_eval(d_model: int, n_heads: int, ctx: int,
 
     model = TinyTransformer(d_model=d_model, n_heads=n_heads,
                              ffn_mult=4, ctx=ctx, depth=depth,
-                             dropout=dropout).to(device)
+                             dropout=dropout,
+                             pos_encoding=pos_encoding).to(device)
     n_params = count_params(model)
     opt = torch.optim.AdamW(model.parameters(), lr=lr, weight_decay=wd)
 
@@ -230,7 +266,8 @@ def train_and_eval(d_model: int, n_heads: int, ctx: int,
                    "bptt": bptt, "batch": batch, "lr": lr,
                    "steps": steps, "warmup": warmup,
                    "weight_decay": wd, "label_smoothing": label_smoothing,
-                   "min_lr_frac": min_lr_frac},
+                   "min_lr_frac": min_lr_frac,
+                   "pos_encoding": pos_encoding},
     }
 
 

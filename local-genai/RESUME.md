@@ -22,19 +22,24 @@ origin/main と同期済み (push 済み)。
 
 ## チャンピオン (現状最強モデル)
 
-**Stage-4f-extend Transformer (181K params, 20000 step + 深 LR 減衰)** —
-共通 1MB tail holdout 上で ppl **5.200**
+**Stage-5-RoPE Transformer (165K params, RoPE で位置埋め込み排除)** —
+共通 1MB tail holdout 上で ppl **5.120**
 
 ```
-local-genai/out/transformer_stage4f_extend.pt
+local-genai/out/transformer_stage5_rope.pt
   TinyTransformer depth=3, d_model=64, n_heads=4, ctx=256, bptt=256
-  ffn_mult=4, RMSNorm, learned positional
+  ffn_mult=4, RMSNorm, **RoPE (rotary positional embedding)**
   dropout 0.1, label_smoothing 0.05, weight_decay 0.05
   warmup 1500, cosine 終端 LR=1e-5 (min_lr_frac=0.005)
-  TinyShakespeare-1MB 学習, 181,632 params
-  best ppl 5.200 @ step 19000 (20000 step 走破、ほぼ収束: 5.200 → 5.201)
-  訓練時間 697s (M2 MPS, ≈ 11.6 分)
+  TinyShakespeare-1MB 学習, 165,248 params (4f-extend 比 -9% = 学習可能 pos 撤去分)
+  best ppl 5.120 @ step 19500 (20000 step 走破、ほぼ収束)
+  訓練時間 777s (M2 MPS, ≈ 13 分)
 ```
+
+学習可能位置埋め込みを RoPE に置換するだけで、 Stage-4g (容量 2x、 同
+schedule) を超えた。 1MB が data-saturated だった**にもかかわらず**ppl が
+下がったのは、 RoPE の相対位置 invariance が学習可能 absolute pos より
+byte-level char modeling に適しているため。
 
 歴代 (1MB tail で評価):
 - Stage-4 (1.87M, dropout 0.1): ppl 5.929 — overfit peak step 3500
@@ -63,6 +68,15 @@ ppl
 ```
 - **Stage-4f-extend (181K, ppl 5.20)** が絶対 champion かつ Pareto 左下を
   完全制圧。 4f-mini と同サイズで 20000 step + 深 LR 減衰のみで -0.32 ppl。
+- **Stage-4g (383K, ppl 5.199)** は 4f-extend と統計的同点 (Δ=0.001)。
+  容量 2x で改善ゼロ → **1MB コーパスは data-saturated** が確定。
+  これ以上の ppl 改善は (a) アーキテクチャ刷新 (RoPE 等)、 (b) コーパス
+  拡張 (10MB) のいずれかが必要 → 仮説 (a) を Stage-5-RoPE で検証 → 成功。
+- **Stage-5-RoPE (165K, ppl 5.120)** は 4f-extend を **両方** で勝利:
+  ppl -0.080 (-1.5%), params -9% (= 学習可能位置埋め込み 16K 撤去)。
+  1MB が data-saturated でもアーキ刷新で更に下げられた事実は、 学習可能
+  absolute pos が byte-level char modeling では最適でなかったことを示す。
+  10MB 拡張時に RoPE は更に効く可能性が高い (Stage-6b で検証予定)。
 - 学習スケジュールが ppl にもたらす効果は容量 2× や正則化変更と同等以上。
 - LSTM 1MB (131K, ppl 6.17) は 0.97 ppl 差で完敗。 transformer が char-level
   1MB の **全帯域を制覇**。
@@ -178,7 +192,9 @@ cd aice-evolution-v2 && /opt/homebrew/bin/python3.13 -m src.cli \
 | 4d-orth (1MB) | Tx d=128 d4 + dropout 0.1 + ls 0.05 + wd 0.05 | 1MB | 855K | 5.30 | 5.30 |
 | **4e (1MB)** | **Tx d=96 d3 + dropout 0.1 + ls 0.05 + wd 0.05** | **1MB** | **383K** | **5.30** | **5.30 (champion)** |
 | 4f-mini (1MB) | Tx d=64 d3 + 直交正則化 (同上) | 1MB | 181K | 5.52 | 5.52 |
-| **4f-extend (1MB)** | **4f-mini + 20000 step + min_lr_frac=0.005** | **1MB** | **181K** | **5.20** | **5.20 (champion)** |
+| 4f-extend (1MB) | 4f-mini + 20000 step + min_lr_frac=0.005 | 1MB | 181K | 5.20 | 5.20 |
+| 4g (1MB) | 4e + 20000 step + min_lr_frac=0.005 | 1MB | 383K | 5.20 | 5.20 |
+| **5-RoPE (1MB)** | **4f-extend + RoPE** | **1MB** | **165K** | **5.12** | **5.12 (champion)** |
 
 教訓:
 - Stage-3 の transformer 敗北は ctx だけの問題ではなかった: BPTT < ctx
@@ -206,13 +222,16 @@ cd aice-evolution-v2 && /opt/homebrew/bin/python3.13 -m src.cli \
 
 ## 続行候補
 
-1. ~~**Stage-4f-mini**~~ — 完了 (181K, ppl 5.52)。
-2. ~~**Stage-4f-extend**~~ — 完了 (181K, ppl **5.20**, 絶対 champion)。
-3. **Stage-4g-long: 4e を延長** (4e も step 10000 で未収束だった)
-   - 同設定 (d=96, depth=3) で steps=20000 + min_lr_frac=0.005 → 5.0 切り狙い
-4. **Stage-4h-mini-extend: 4f-extend を更に延長**
-   - 4f-extend は step 19000 でほぼ収束したが、5.0 切りを狙うなら
-     d=64 → d=80 に微増 + steps=25000 が次の枝
+1. ~~**Stage-4f-mini / 4f-extend / 4g**~~ — 完了 (1MB は data-saturated 確認)
+2. ~~**Stage-5-RoPE**~~ — 完了 (165K, ppl **5.12**, 絶対 champion)
+3. **Stage-6 シリーズ (10MB 学習)** — 次の最重要ステップ
+   - **6a**: 4f-extend recipe + 10MB (181K, learned pos)  — baseline
+   - **6b**: 5-RoPE recipe + 10MB (~165K, RoPE)         — 最有力
+   - **6c**: 4d-orth recipe + 10MB (855K, learned pos)  — 容量 × データ
+   - **6d**: 4d-orth + RoPE + 10MB (~840K, RoPE)        — 全部入り
+4. **Stage-AIPL-revival**: 全 prior (容量, 正則化 3 種, schedule, RoPE) を
+   `.aice` に encode → AIPL evolution で人が見つけた Pareto を AI が更に
+   押し下げられるか
    - 同設定で steps=20000 + warmup=1500 + cosine 終端 LR=1e-5 で 5.0 切り狙い
 3. **Stage-5-RoPE: 位置埋め込みを刷新**
    - 4e サイズ + RoPE で learned pos を排除 → 汎化向上を期待
@@ -236,7 +255,22 @@ local-genai/.venv/bin/python local-genai/train_stage4.py \
 # 約 7 分 (M2 MPS), best ppl 5.302 @ step 10000 (収束未達)
 ```
 
-## Stage-4f-extend (現 absolute champion) を回す手順
+## Stage-5-RoPE (現 absolute champion) を回す手順
+
+```sh
+local-genai/.venv/bin/python local-genai/train_stage4.py \
+  --steps 20000 --eval-every 500 --warmup 1500 \
+  --batch 24 --bptt 256 --ctx 256 \
+  --depth 3 --d-model 64 --n-heads 4 \
+  --lr 2e-3 --dropout 0.1 \
+  --label-smoothing 0.05 --weight-decay 0.05 \
+  --min-lr-frac 0.005 \
+  --pos-encoding rope \
+  --out-name transformer_stage5_rope.pt
+# 約 13 分 (M2 MPS, 777s), 165K params, best ppl 5.120 @ step 19500 (収束)
+```
+
+## Stage-4f-extend (歴史的: learned positional 上限)
 
 ```sh
 local-genai/.venv/bin/python local-genai/train_stage4.py \
