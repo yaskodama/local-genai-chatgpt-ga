@@ -1,0 +1,555 @@
+% !TEX program = xelatex
+% AIPL 型システム健全性境界レポート (Phase 15 時点)
+
+\documentclass[11pt,a4paper]{article}
+
+\usepackage[a4paper,margin=22mm]{geometry}
+\usepackage{xeCJK}
+\usepackage{fontspec}
+\usepackage{amsmath,amssymb,amsthm}
+\usepackage{listings}
+\usepackage{xcolor}
+\usepackage{booktabs}
+\usepackage{tabularx}
+\usepackage{longtable}
+\usepackage{array}
+\usepackage{hyperref}
+\usepackage{enumitem}
+
+\setCJKmainfont{Hiragino Mincho ProN}
+\setCJKsansfont{Hiragino Sans}
+\setCJKmonofont{Hiragino Sans}
+\setmonofont{Menlo}[Scale=0.85]
+
+\hypersetup{
+  colorlinks=true,
+  linkcolor=black,
+  urlcolor=blue!60!black,
+  citecolor=black,
+  pdftitle={AIPL Type Soundness Report},
+  pdfauthor={Yasushi Kodama}
+}
+
+\definecolor{codebg}{RGB}{248,248,242}
+\definecolor{codecmt}{RGB}{120,120,120}
+\definecolor{codekw}{RGB}{30,80,160}
+\definecolor{codestr}{RGB}{160,40,40}
+
+\lstdefinelanguage{aipl}{
+  keywords={class, method, function, return, var, float, int, new, send, call, become,
+            if, else, while, do, self, sender, now, future, await, true, false, pub, linear},
+  keywordstyle=\color{codekw}\bfseries,
+  comment=[l]{//},
+  commentstyle=\color{codecmt}\itshape,
+  string=[b]",
+  stringstyle=\color{codestr},
+  morestring=[b]',
+  sensitive=true,
+  basicstyle=\ttfamily\small,
+  backgroundcolor=\color{codebg},
+  frame=single,
+  framesep=4pt,
+  xleftmargin=4pt,
+  xrightmargin=4pt,
+  breaklines=true,
+  showstringspaces=false,
+  literate={→}{{$\rightarrow$}}1
+           {✗}{{\textcolor{red!70!black}{\ttfamily X}}}1
+           {✓}{{\textcolor{green!50!black}{\ttfamily ok}}}1,
+}
+\lstset{language=aipl}
+
+\title{\bfseries AIPL 型システムの健全性境界レポート \\
+       \large Phase 11--15 を経た現時点 (2026-05-10) のスナップショット}
+\author{Yasushi Kodama (kodamay@)}
+\date{2026-05-10}
+
+\newcommand{\code}[1]{\texttt{\small #1}}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+本レポートは,アクター指向並列言語 \textbf{AIPL} (Actor-based Intelligent Parallel Language) の
+型システムが Phase 11--15 を経て現在カバーしている領域と,そうでない領域を整理する.
+AIPL の型システムは段階的型付け (gradual typing) を基礎に,Capability 効果系 (Phase 12),
+CSP チャネル (Phase 13),線形/借用型 (Phase 14),アクターフィールドのカプセル化
+(\code{symbol\_owned}, Phase 15) を順に積み上げてきた.
+それぞれの軸について「何を静的に保証できるか」,「どこで健全性が崩れるか」,
+「現在ランタイム監視がどこまで補完しているか」を述べる.
+結論として,\textbf{AIPL は注釈された宣言領域については局所健全であり,
+未注釈領域および動的反射機能との境界では健全性が成り立たない}という,
+gradual な処理系として典型的な特性を持つ.
+\end{abstract}
+
+\tableofcontents
+\bigskip
+
+%====================================================================
+\section{はじめに}
+\label{sec:intro}
+
+AIPL は OCaml と Python の二言語処理系を持つアクター指向並列言語である.
+本レポートが対象とするのは Python 実装に同梱された静的型検査器
+\code{aipl\_typeck.py} および対応するパーサ・AST・インタプリタである.
+
+健全性 (soundness) を本レポートでは以下の意味で用いる:
+
+\begin{description}[leftmargin=2em]
+  \item[Progress] 型付け済みのプログラムの実行は,型に起因する型不整合
+        (例: 文字列を数値演算する) で stuck しない.
+  \item[Preservation] 評価ステップを進めても,値の型は宣言された型と
+        互換である (\code{any} を含む単純な部分順序の下で).
+\end{description}
+
+ただし AIPL は段階的型付けであるから,「型付け済み」とは
+\emph{プログラム中の注釈された部分} を指す.未注釈の部分は \code{any}
+として扱われ,検査器は意図的に黙認する.この境界が健全性を
+緩める方向に作用するため,本レポートでは「どこで黙認しているか」を
+列挙することに重点を置く.
+
+%====================================================================
+\section{型システムの全体像}
+\label{sec:overview}
+
+\subsection{Phase ごとの型システム拡張}
+
+\begin{table}[htbp]
+\centering
+\small
+\begin{tabularx}{\linewidth}{l l X}
+\toprule
+\textbf{Phase} & \textbf{軸} & \textbf{追加された静的検査} \\
+\midrule
+11a & 関数注釈 & パラメータ・戻り値の型注釈と呼び出しサイト整合 \\
+11b & 共用体型 & \code{T1 \textbar{} T2} と \code{typeof} narrowing \\
+11c & ジェネリクス & 単一文字型変数の暗黙多相 (\code{T} \code{U} \code{V}\dots) \\
+11d & 構造的レコード & \code{record\{a:int, b:string\}} の field type 推論 \\
+11e & 長さ付き配列 & \code{array[T, N]} で要素アクセスの境界条件 \\
+12  & Capability 効果 & \code{!\{fs, ai, net, mut\}} の宣言と呼出連鎖伝播 \\
+13  & CSP チャネル & \code{channel[T, cap=N]} 要素型の send/recv 整合 \\
+14  & 線形/借用 & \code{linear T} の use-after-move 検出 \\
+15  & symbol\_owned & アクターフィールドの可視性 (\code{pub}) と外部書込禁止 \\
+\bottomrule
+\end{tabularx}
+\caption{Phase 11--15 で追加された静的検査の概要}
+\end{table}
+
+\subsection{設計原理: gradual + capability + linear + owned}
+
+AIPL の型システムは次の四つの \emph{独立した} 軸を組み合わせる:
+
+\begin{enumerate}
+  \item \textbf{Type axis}: 値が何の型か (\code{int} / \code{string} / \code{record\{\dots\}} など)
+  \item \textbf{Effect axis}: 関数が何の副作用を起こすか
+        (\code{fs}, \code{net}, \code{ai}, \code{mut})
+  \item \textbf{Linearity axis}: 値が何回使えるか
+        (\code{linear T} なら高々 1 回)
+  \item \textbf{Ownership axis}: 状態を誰が変更できるか
+        (アクターのフィールドはそのアクターのメソッドからのみ書込可)
+\end{enumerate}
+
+これらは互いに直交であり,検査器は同じ AST 走査の中で四つを並行に追跡する.
+\code{linear int} のような値は型 \code{int} かつ線形で,かつ \code{!\{mut\}}
+効果を持つ関数のみが消費するといった組合せが起きうる.
+
+%====================================================================
+\section{型推論できる部分 (健全性が成り立つ領域)}
+\label{sec:sound}
+
+%--------------------------------------------------------------------
+\subsection{宣言済み関数・メソッドの呼出サイト}
+
+注釈付きの関数は呼び出し時に厳格にチェックされる.
+
+\begin{lstlisting}
+function add(a: int, b: int) -> int { return a + b; }
+
+var x: int = add(3, 4);             // OK
+var y: int = add("3", 4);           // ✗ 型不整合
+var z: string = add(3, 4);          // ✗ 戻り値型不整合
+\end{lstlisting}
+
+\textbf{保証}: 関数本体・引数・戻り値の型が注釈と整合することを,
+呼出サイトで検査器が確認する.\code{any} を経由しない限り Preservation が
+成り立つ.
+
+%--------------------------------------------------------------------
+\subsection{ビルトイン演算と \code{typeof} narrowing}
+
+\code{+}, \code{-}, \code{*}, \code{/}, \code{==} などのビルトイン演算は
+オペランド型を推論する.\code{int + int = int}, \code{string + any = string}
+(連結) など,オーバーロード規則が \code{aipl\_typeck} に内蔵されている.
+
+\code{typeof} は値の動的型を文字列で返す.以下のような形は静的に
+narrowing される:
+
+\begin{lstlisting}
+var v: int | string = pick();
+if (typeof(v) == "int") {
+  var d: int = v + 1;     // OK: v は int に絞り込まれる
+} else {
+  var s: string = v;      // OK: v は string に絞り込まれる
+}
+\end{lstlisting}
+
+%--------------------------------------------------------------------
+\subsection{構造的レコード型・タプル型・固定長配列}
+
+\code{record\{a:int, b:string\}} のリテラルおよびフィールドアクセス
+は静的に型付けされる.
+
+\begin{lstlisting}
+var r = { name: "Alice", age: 30 };  // 推論: record{name:string, age:int}
+var n: string = r.name;              // OK
+var a: int = r.age;                  // OK
+var b: bool = r.name;                // ✗
+\end{lstlisting}
+
+長さ付き配列 \code{array[T, N]} については,要素アクセス \code{a[i]} の
+\code{i} がリテラル整数で \code{0 <= i < N} に収まるかを検査器が確認する
+(動的添字は静的不能なので \code{any} となり Preservation の保証から外れる).
+
+%--------------------------------------------------------------------
+\subsection{暗黙ジェネリクス (Phase 11c)}
+
+\code{array\_get(xs: array[T], i: int) -> T} のような注釈を,検査器は
+単一文字型変数 \code{T} を type variable として unify する.呼出サイトで
+\code{xs: array[int]} なら \code{T = int} に確定し,戻り値型は \code{int}.
+\textbf{Higher-rank polymorphism は無し} (引数として関数を受け取る関数は
+別途 \code{any} 扱い).
+
+%--------------------------------------------------------------------
+\subsection{Capability 効果系 (Phase 12)}
+
+関数宣言の \code{!\{fs, net\}} のような注釈は,呼出連鎖を通じて伝播する.
+
+\begin{lstlisting}
+function read_url(u: string) -> string !{net, fs} { ... }
+function load_cfg() -> string !{fs} {        // ✗ net が欠けている
+  return read_url("...");
+}
+\end{lstlisting}
+
+\textbf{保証}: 注釈付きの関数の宣言効果集合は,その関数本体が呼び出す
+注釈付き関数全ての効果集合を上集合として含む.
+
+\textbf{境界}: 未注釈関数 (\code{effects=None}) は伝播対象外.動的に
+合成される関数 (Section~\ref{sec:unsound}) も対象外.
+
+%--------------------------------------------------------------------
+\subsection{線形/借用 (Phase 14)}
+
+\code{linear T} を取る関数に変数を渡すと,その変数は \emph{moved} と
+マークされ,以降の参照は use-after-move エラー:
+
+\begin{lstlisting}
+var fh: linear int = open("x");
+var n  = write(fh, "hello");   // fh consumed
+close(fh);                     // ✗ use-after-move
+\end{lstlisting}
+
+\textbf{制御フロー認識}: \code{if} の then 枝が \code{return} で終了する
+場合,その枝で moved となった変数は post-if 時点では生きていると扱われる
+(各 return 経路で 1 回だけ消費されれば OK).
+
+\textbf{境界}:
+
+\begin{itemize}[leftmargin=1.5em]
+\item \code{while} ループ内での消費は,各反復で重複消費とならないよう
+      ループ全体を 1 回の摩耗とみなす保守的扱い.
+\item クロージャ・高階関数は未実装 (引数として linear 値を渡す関数を
+      間接的に渡す経路は無い).
+\item \code{send obj.method(linear\_val)} のような非同期送信における
+      所有権移譲は \emph{宣言上は consume} だが,送信先が消費しない場合の
+      検出は静的には不能 (受信側のメソッドの線形パラメータ宣言を
+      参照することで部分的に検査される).
+\end{itemize}
+
+%--------------------------------------------------------------------
+\subsection{symbol\_owned: アクターフィールドのカプセル化 (Phase 15)}
+
+アクターのフィールドは既定で外部不可視 (private).\code{pub} 修飾子
+を付けたものだけが外部から read 可能となり,\textbf{外部からの書込みは
+\code{pub}・private 問わず常に禁止} される.
+
+\begin{lstlisting}
+class Account {
+  var balance: int = 0;
+  pub var holder: string = "";
+  method deposit(n: int) -> int { balance = balance + n; return balance; }
+}
+class Bandit {
+  method run() {
+    var a = new Account();
+    var s = a.holder;     // OK
+    var b = a.balance;    // ✗ private read
+    a.balance = 999;      // ✗ external write (pub でも禁止)
+  }
+}
+\end{lstlisting}
+
+\textbf{保証}: アクターの不変条件 (例: \code{balance >= 0}) を破壊するには
+そのアクターのメソッドを通すしかなく,メソッド内で行う検査・補正が
+ステート整合性を担保できる.
+
+%====================================================================
+\section{型推論できない部分 (健全性が崩れる領域)}
+\label{sec:unsound}
+
+ここからは \textbf{健全性が静的には成り立たない} 領域を列挙する.
+gradual typing の代償として黙認しているもの,動的機能との境界で原理的に
+不能なもの,そして未実装のものに分類する.
+
+%--------------------------------------------------------------------
+\subsection{未注釈領域 (gradual の代償)}
+
+注釈の無い変数・パラメータ・戻り値は内部的に \code{any} 型を持ち,
+任意の操作・任意の型への代入を黙認する.
+
+\begin{lstlisting}
+function f(x) { return x + 1; }    // x は any
+var s: string = f("abc");          // OK 扱い (型整合の証明はない)
+var n: int    = f("abc");          // OK 扱い (実行時に型エラー)
+\end{lstlisting}
+
+\textbf{原因}: gradual typing の中核仕様.\textbf{現状の補完}: 無し
+(ランタイムキャスト未実装).\textbf{将来案}: \code{any} 境界で
+runtime check を挿入する Reticulated Python 流の transient soundness.
+
+%--------------------------------------------------------------------
+\subsection{動的コンパイル・メソッド注入・become}
+\label{sec:dyn}
+
+\begin{lstlisting}
+var src = "class Greeter { method hi(n) { print(\"hi \" + n); } }";
+var g = compile(src);              // 戻り値: 動的に作られたクラス参照
+var obj = new_instance(g);
+send obj.hi("Alice");              // メソッド hi の signature は不明
+\end{lstlisting}
+
+\code{compile()},\code{add\_method()},\code{remove\_method()},
+\code{become C()} はいずれも実行時にクラス形状を変更する.静的検査器は
+これらの呼び出し以降のオブジェクトの型を \code{any} に退化させる
+(または \code{actor(?)} のような unknown を保持する).
+
+\textbf{原因}: 動的反射 (reflective metaprogramming) と静的型付けは
+原理的に相容れない.\textbf{現状の補完}: 無し.
+
+%--------------------------------------------------------------------
+\subsection{動的メッセージ送信 (\code{send target.method(...)})}
+
+\code{send} は actor 変数の動的解決によって行われる:
+
+\begin{lstlisting}
+class Demo {
+  var partner = 0;          // 後で set される actor 参照
+  method run(other) {
+    partner = other;        // partner: any (actor 型の宣言がない)
+    send partner.tick();    // tick の signature は静的不明
+  }
+}
+\end{lstlisting}
+
+\code{partner} に注釈が無い限り受信側のクラスは決まらない.\code{now}
+呼び出しの場合は戻り値型も \code{any}.
+
+\textbf{現状の補完}: クラス内で \code{now self.method(args)} のように
+\code{self} に対する呼出は静的にメソッド辞書を引いて検査する.
+\code{var p: Counter = ...; now p.method(args)} のように \code{actor(C)}
+型注釈があれば呼び出しサイトで checking が働く.
+
+\textbf{境界例}:
+
+\begin{lstlisting}
+var x: actor(Counter) = new Counter();
+become OtherClass();          // x の実体クラスが入れ替わる可能性
+send x.tick();                // 静的型は actor(Counter) のまま
+\end{lstlisting}
+
+\code{become} は静的型注釈と実体型の乖離を生む典型例である.
+
+%--------------------------------------------------------------------
+\subsection{高階関数・クロージャ未対応}
+
+AIPL は関数値 (FunctionRef) は持つが,これを引数に取る注釈構文は
+未提供である.以下のような関数経由のコールバックは検査器を素通りする:
+
+\begin{lstlisting}
+function each(xs, f) { ... }       // 未注釈
+each([1,2,3], print);              // f の signature 検査なし
+\end{lstlisting}
+
+\textbf{原因}: 未実装.\textbf{将来案}: \code{(int) -> int !\{net\}}
+のような関数型構文を導入し,引数の型・効果集合を含めて unify する.
+
+%--------------------------------------------------------------------
+\subsection{再帰関数の効果推論}
+
+宣言された効果を持つ関数 \code{f} が \code{f} 自身を呼ぶ場合,
+検査器は単純な不動点を取らない.実装は「自分自身の効果を読みに行く」
+ため宣言効果に閉じる方向にバイアスされており,
+未注釈の再帰呼出経由で間接的に発生する効果は検出されない.
+
+%--------------------------------------------------------------------
+\subsection{配列添字の動的境界}
+
+固定長配列 \code{array[T, 3]} は \code{a[2]} までを許可するが,
+\code{a[i]} で \code{i: int} が動的値の場合は静的に範囲を確認できない.
+
+\begin{lstlisting}
+var a: array[int, 3] = [10, 20, 30];
+var i = read_int();           // any
+var v = a[i];                 // 境界外可能 (静的不能)
+\end{lstlisting}
+
+\textbf{現状の補完}: ランタイムは Python リストの境界例外でクラッシュ.
+\textbf{将来案}: 依存型 (i < N の証明) または refinement の導入.
+
+%--------------------------------------------------------------------
+\subsection{チャネル要素型の境界越え}
+
+\code{channel(0, "int")} のような注釈チャネルは,その変数の型として
+\code{channel[int]} を保持する.しかしこの変数を未注釈関数の引数に
+渡すと型情報が \code{any} に退化する:
+
+\begin{lstlisting}
+var ch = channel(0, "int");
+function relay(c) { channel_send(c, "abc"); }   // 注釈なし
+relay(ch);                    // ✗ 検出されない
+\end{lstlisting}
+
+\textbf{現状の補完}: ランタイムは type assertion で送信時に
+要素型をチェックする (\code{\_AiplChannel.send} 内部).静的+動的の
+混合保証.
+
+%--------------------------------------------------------------------
+\subsection{レコードに格納されたアクター参照}
+
+\code{symbol\_owned} (Phase 15) は \code{var a = new C(); a.field = ...}
+の形だけを取り締まる.以下のような迂回は検査器の対象外:
+
+\begin{lstlisting}
+class C { var k: int = 0; }
+class D {
+  method bad() {
+    var c = new C();
+    var box = { actor: c };
+    box.actor.k = 99;          // ✗ レコード経由の write
+  }
+}
+\end{lstlisting}
+
+実際にはランタイム側でも \code{record[attr]} は dict mutation として
+通ってしまうため,ここは \emph{静的にも動的にも} 防御がない.
+
+\textbf{将来案}: \code{FieldAssign} の base がレコードの場合に再帰的に
+アクター含有を検出する.
+
+%--------------------------------------------------------------------
+\subsection{\code{typeof} narrowing の限界}
+
+narrowing は \code{if (typeof(v) == "T")} の形でのみ動作する.
+複合条件・ネスト構造・ループ内変動は対応しない:
+
+\begin{lstlisting}
+var v: int | string = pick();
+if (typeof(v) == "int" && v > 0) {  // && 越しの narrowing なし
+  var d: int = v;                    // ✗ v は int|string のまま
+}
+\end{lstlisting}
+
+\textbf{将来案}: 条件式の構造解析を depth 制限付きで導入.
+
+%--------------------------------------------------------------------
+\subsection{AI 呼び出し・ファイル/画像 I/O の戻り値型}
+
+\code{ai\_call("...")} は実行時に LLM プロバイダから受け取る値であり,
+戻り値型は \code{any}.\code{file\_read}, \code{image\_open} 等も同様で,
+本質的に \code{any}-typed の境界となる.この境界をまたぐ値は以降
+gradual に類する黙認領域に入る.
+
+\textbf{現状の補完}: ビルトイン署名で部分的に \code{string} 等を
+固定しているもの (\code{file\_read\_text}: \code{(string) -> string}) は
+ある.
+
+%--------------------------------------------------------------------
+\subsection{Linear と動的ディスパッチの相互作用}
+
+線形値を非同期メッセージで送る場合,受信側のクラスが動的決定であれば
+消費の有無を静的に判定できない:
+
+\begin{lstlisting}
+var fh: linear int = open("x");
+send some_actor.handle(fh);       // some_actor の handle 受け取りは linear?
+\end{lstlisting}
+
+\code{some\_actor: actor(C)} の注釈があり,\code{C.handle} の宣言が
+\code{linear} パラメータを取ると注釈されていれば検査される.そうでなければ
+\code{fh} の moved 状態は決定できず保守的に moved とマークされる
+(false negative ではなく false positive 寄り).
+
+%====================================================================
+\section{ランタイム監視による補完}
+\label{sec:runtime}
+
+現状 AIPL は \emph{ランタイム型キャストを挿入していない}.
+すなわち gradual typing の中核要件である「\code{any} 境界での dynamic check」
+を持たない.ランタイムが補完しているのは以下に限定される:
+
+\begin{itemize}[leftmargin=1.5em]
+\item \textbf{算術演算}: Python の演算子例外で型不整合がクラッシュする.
+\item \textbf{配列境界}: Python リストの \code{IndexError} が伝搬する.
+\item \textbf{チャネル要素型}: \code{\_AiplChannel.send} で declared
+      element type に対する \code{isinstance} 確認.
+\item \textbf{メソッド未定義}: 動的ディスパッチで \code{KeyError} を
+      投げ,メッセージは drop される (Actor が再開可能).
+\item \textbf{レコードフィールド未定義}: \code{None} に退化 (例外なし).
+\end{itemize}
+
+これは \textbf{transient soundness にも届かない} 弱い保証であり,
+未注釈領域から注釈領域への型違反値の流入を確実には捕えられない.
+
+%====================================================================
+\section{まとめと今後}
+
+\subsection{健全性のステートメント (現状)}
+
+非形式的に述べる.\textbf{ローカル健全性 (local soundness)}: 注釈付きの
+関数 \code{f} の本体において,各局所変数の型は宣言と整合し,呼出サイトで
+渡される実引数も注釈と整合することを検査器は確認する.
+
+\textbf{大域健全性 (global soundness)} は成り立たない.以下の場合に
+注釈の意味から逸脱する値が観測されうる:
+
+\begin{itemize}[leftmargin=1.5em]
+\item 未注釈領域から注釈領域へ \code{any} 値が流入する.
+\item 動的反射 (compile / become / add\_method) でクラスの形状が変化する.
+\item 動的にディスパッチされる送信先の signature が宣言と乖離する.
+\item レコード経由でアクターのフィールドが書き換えられる.
+\end{itemize}
+
+\subsection{次に手を入れるべき優先順位}
+
+\begin{enumerate}[leftmargin=1.5em]
+\item \textbf{transient cast の挿入}: 注釈境界で runtime check.
+      最小コストで観測可能な不健全を捕える.
+\item \textbf{関数型構文}: \code{(T) -> U !\{eff\}} を導入し高階関数を
+      検査対象に組み込む.
+\item \textbf{record の中のアクター参照を symbol\_owned で守る}.
+\item \textbf{narrowing の合成条件対応} (\code{\&\&} 連鎖).
+\item \textbf{become に対するクラス変更追跡} (\code{actor(C)} 型を
+      become 後に \code{actor(C')} に更新).
+\end{enumerate}
+
+\subsection{結論}
+
+AIPL は Phase 15 をもって Phase 9 の言語進化シミュレーションが
+予測した 4 軸 (type / effect / concurrency / ownership) を全て実装した.
+個々の軸は局所健全に動くが,軸を横断する場面 (動的ディスパッチ越し,
+未注釈境界越し,反射機能経由) では保証が落ちる.gradual typing 言語と
+しては典型的な状況であり,次の段階は静的保証を諦める方向ではなく,
+\textbf{境界における runtime cast 挿入} と \textbf{反射機能と型情報の
+共存設計} に向けて進むのが望ましい.
+
+\end{document}
