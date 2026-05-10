@@ -1,0 +1,46 @@
+// Phase 17 — structured concurrency.
+//
+// `scope { ... }` is a block whose exit awaits every `spawn` issued
+// inside it.  This guarantees that no task escapes the scope: when
+// the closing brace is reached, all spawned futures have either
+// completed or been joined.
+//
+// Compared to plain `future`:
+//   var f = future w.work(3);
+//   ... // f may outlive the enclosing block, the runtime never
+//        // automatically joins it.
+//
+//   scope { spawn w.work(3); spawn w2.work(5); }
+//   // ↑ scope exit awaits both spawns; the outer code observes
+//   //   them as having completed before the next statement runs.
+
+class Worker {
+  pub var label: string = "?";
+  method init(l: string) { label = l; }
+  method work(x: int) -> int {
+    print("[" + label + "] x=" + x);
+    reply(x * x);
+  }
+}
+
+class Driver {
+  method run() {
+    print("=== Phase 17 — structured concurrency ===");
+    var a = new Worker("A");
+    var b = new Worker("B");
+    var c = new Worker("C");
+
+    print("--- before scope ---");
+    scope {
+      // Every `future` inside this scope is auto-registered on the
+      // scope's join-set; the closing brace blocks until all complete.
+      var f1 = future a.work(3);
+      var f2 = future b.work(5);
+      var f3 = future c.work(7);
+    }
+    print("--- after scope (all 3 workers joined) ---");
+  }
+}
+
+var d = new Driver();
+send d.run();

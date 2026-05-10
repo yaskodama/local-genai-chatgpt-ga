@@ -84,6 +84,7 @@ global_stmt: var_new_stmt
      | while_stmt
      | become_stmt
      | return_stmt
+     | scope_stmt
      | block
 
 return_stmt: "return" expr ";"   -> return_value
@@ -103,6 +104,14 @@ call_stmt: ("call")? NAME "(" args ")" ";"
 if_stmt: "if" "(" expr ")" stmt ("else" stmt)?
 while_stmt: "while" expr "do" stmt
 become_stmt: "become" NAME "(" args ")" ";"
+
+// Phase 17: structured concurrency.
+// `scope { ... }` is a block whose exit awaits every `future` issued
+// inside it.  No new spawn keyword is needed — every `future`
+// expression evaluated inside a scope is registered on the scope's
+// join-set automatically.
+scope_stmt: "scope" "{" stmt* "}"           -> scope_stmt
+
 block: "{" stmt* "}"
 
 args: (expr ("," expr)*)?
@@ -157,7 +166,7 @@ args: (expr ("," expr)*)?
 record_fields: record_field ("," record_field)* ","?
 record_field:  NAME ":" expr
 
-NAME: /(?!(class|method|function|return|var|float|int|new|send|call|become|if|else|while|do|self|sender|now|future|await|true|false|pub|linear)\b)[a-zA-Z_][a-zA-Z0-9_]*/
+NAME: /(?!(class|method|function|return|var|float|int|new|send|call|become|if|else|while|do|self|sender|now|future|await|true|false|pub|linear|scope)\b)[a-zA-Z_][a-zA-Z0-9_]*/
 INT: /[0-9]+(?!\.)/
 FLOAT: /[0-9]+\.[0-9]*|\.[0-9]+/
 STRING: /"([^"\\]|\\.)*"/

@@ -1,0 +1,50 @@
+// Sample 1 — `now` (synchronous send) + Reply.
+//
+// Calc actor exposes add(a, b) → reply(a+b).
+// Driver does v = now calc.add(3, 4); print(v).
+//
+// Demonstrates that the AIPL-side scheduler can drive itself
+// recursively to deliver a synchronous reply.
+
+class Driver {
+  method run() {
+    print("=== Level C-3 — SampleNow ===");
+
+    // Calc.add body:
+    //   reply(a + b);
+    var add_body = [
+      {tag: "Reply",
+       expr: {tag: "Binop", op: "+",
+              lhs: {tag: "Var", name: "a"},
+              rhs: {tag: "Var", name: "b"}}}
+    ];
+
+    var calc = actor_new("calc", "Calc", [],
+      [("add", {params: ["a", "b"], body: add_body})]);
+
+    // Driver.go body:
+    //   var v = now calc.add(3, 4);
+    //   print(v);
+    var go_body = [
+      {tag: "VarDecl", name: "v", expr:
+        {tag: "Now", target: "calc", meth: "add",
+         args: [{tag: "Int", val: 3}, {tag: "Int", val: 4}]}},
+      {tag: "Print", expr: {tag: "Var", name: "v"}}
+    ];
+
+    var drv = actor_new("drv", "Driver", [],
+      [("go", {params: [], body: go_body})]);
+
+    var sched = sched_new();
+    sched_register(sched, calc);
+    sched_register(sched, drv);
+
+    actor_enqueue(drv, {meth: "go", args: [], slot: 0});
+
+    sched_run(sched, 30);
+    print("[expected: 7]");
+  }
+}
+
+var d = new Driver();
+send d.run();

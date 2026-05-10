@@ -186,10 +186,29 @@ class Become:
 class Block:
     stmts: List['Stmt']
 
+# Phase 17: structured concurrency.
+# `scope { stmts; }` is a Block-like body whose runtime semantics
+# guarantee that every `spawn` issued inside it has joined (or been
+# cancelled) before the scope exits.  Statically: a `spawn` outside
+# any enclosing scope is flagged.
+@dataclass
+class Scope:
+    body: 'Block'
+
+@dataclass
+class Spawn:
+    """`spawn target.method(args)` — like `future`, but only legal
+    inside an enclosing `scope { ... }` block.  The runtime adds the
+    returned future to the scope's join-set so the scope's exit
+    awaits it."""
+    target: str
+    method: str
+    args: List[Expr]
+
 
 Stmt = Union[
     VarDecl, VarNew, Assign, Send, CallStmt,
-    If, While, Become, Block,
+    If, While, Become, Block, Scope,
 ]
 
 

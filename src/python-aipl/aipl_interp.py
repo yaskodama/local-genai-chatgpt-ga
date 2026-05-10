@@ -18,7 +18,7 @@ from aipl_ast import (
     If, While, Become, Block, Return,
     IntLit, FloatLit, StringLit, Var, Binop, Neg, New, CallExpr,
     ArrayLit, IndexExpr, ArraySized, RecordLit, FieldAccess, TupleLit,
-    NowCall, FutureCall,
+    NowCall, FutureCall, Scope, Spawn,
 )
 from aipl_runtime import Actor, Future, Scheduler
 
@@ -634,8 +634,39 @@ class Interpreter:
             raise ReturnSignal(v)
         elif kind is Block:
             self.exec_block(s, frame)
+        # Phase 17: structured concurrency.
+        elif kind is Scope:
+            self._do_scope(s, frame)
+        elif kind is Spawn:
+            self._do_spawn(s.target, s.method, s.args, frame)
         else:
             raise RuntimeError(f"unknown stmt: {s!r}")
+
+    def _do_scope(self, scope: 'Scope', frame: Frame):
+        """Phase 17: enter a structured-concurrency scope.  Spawns
+        inside register their futures on `frame.scope_futures`; on
+        exit we await every one so no task escapes the scope."""
+        prev = getattr(frame, "scope_futures", None)
+        frame.scope_futures = []
+        try:
+            self.exec_block(scope.body, frame)
+        finally:
+            for fut in frame.scope_futures:
+                try:
+                    fut.get(timeout=5.0)
+                except Exception as e:
+                    print(f"[scope] join failed: {e}", flush=True)
+            frame.scope_futures = prev
+
+    def _enclosing_scope_futures(self, frame: Frame):
+        """Walk up the frame chain looking for a scope_futures list."""
+        f = frame
+        while f is not None:
+            sf = getattr(f, "scope_futures", None)
+            if sf is not None:
+                return sf
+            f = getattr(f, "parent", None)
+        return None
 
     def _resolve_actor(self, target_name: str, frame: Frame) -> Optional[Actor]:
         if target_name == "self":
@@ -773,6 +804,11 @@ class Interpreter:
         args = [self.eval_expr(a, frame) for a in raw_args]
         fut = Future()
         tgt.send_method(method, args, sender=frame.actor, reply_future=fut)
+        # Phase 17: if any enclosing frame opened a `scope`, register
+        # this future on its join-set so the scope's exit awaits it.
+        sf = self._enclosing_scope_futures(frame)
+        if sf is not None:
+            sf.append(fut)
         return fut
 
     # ------------------------------------------------------------------

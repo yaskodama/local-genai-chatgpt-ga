@@ -13,7 +13,7 @@ from aipl_ast import (
     If, While, Become, Block, Return,
     IntLit, FloatLit, StringLit, Var, Binop, Neg, New, CallExpr,
     ArrayLit, IndexExpr, ArraySized, RecordLit, FieldAccess, TupleLit,
-    NowCall, FutureCall,
+    NowCall, FutureCall, Scope,
 )
 
 
@@ -171,6 +171,11 @@ class _Builder(Transformer):
 
     def become_stmt(self, cls, args):
         return Become(str(cls), list(args.children))
+
+    # Phase 17: structured concurrency.
+    @v_args(inline=False)
+    def scope_stmt(self, stmts):
+        return Scope(Block(list(stmts)))
 
     @v_args(inline=False)
     def block(self, stmts):

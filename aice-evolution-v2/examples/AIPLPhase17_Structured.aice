@@ -1,0 +1,62 @@
+// Phase 17 — Structured Concurrency Refinement Search.
+//
+// AIPLPostC2_NextGen.aice predicted concurrency_model=structured as
+// the dominant Phase 17 axis with trend +0.50.  This .aice narrows
+// the search to that axis: 4 evaluation tasks all centred on the
+// design questions structured concurrency raises (scope semantics,
+// cancellation propagation, future ownership, deadlock avoidance).
+//
+// We pin paradigm=ParallelOOP and fix concurrency_model=structured
+// in the seed-bias so the GA explores neighbour cells that share
+// the structured-concurrency anchor.
+
+aice AIPLPhase17_Structured {
+  dialect = "aice_evolution_v2";
+
+  task = "Phase 17 として導入する structured concurrency の設計選択肢 (scope の意味論 / cancellation 伝播 / future の所有権 / deadlock 防止) を MAP-Elites で深掘り探索する.";
+
+  gene_schema = "schemas/programming_paradigm.schema.json";
+
+  evaluation_tasks {
+    task ScopeJoin       { spec = "scope { ... } の出口で全 spawn 済 future が join される (Akka, Trio, Kotlin と一致する semantics)"; }
+    task CancelPropagate { spec = "scope 内の 1 task の panic / return が同 scope の他 task の cancel を引き起こす"; }
+    task FutureOwnership { spec = "future ハンドルが scope 外に逃げないことを linear 型で保証 (Phase 14 と直交合成)"; }
+    task DeadlockAvoid   { spec = "scope ネストでも循環待機が起きない設計 (parent → child の単方向 await のみ)"; }
+  }
+
+  search {
+    algorithm   = "map_elites";
+    cell_axes   = "concurrency_model, ownership_model, type_safety";
+    generations = 30;
+    seed_count  = 10;
+    open_axes   = true;
+    rng_seed    = 1717;
+  }
+
+  meta_fitness {
+    trend_alignment       = 0.20;
+    frontier_coverage     = 0.10;
+    novelty               = 0.10;
+    evolvability          = 0.20;
+    cross_task_generality = 0.30;     // 4 タスク全てで機能することが重要
+    implementability      = 0.10;
+  }
+
+  ranking {
+    strategy  = "pareto_then_pairwise";
+    scenarios = ["conservative", "innovative", "general_purpose"];
+    top_k     = 3;
+  }
+
+  reviewers {
+    reviewer ScopeSemantics {
+      persona = "あなたは scope semantics レビュアーです。候補が Akka / Trio / Kotlin の structured concurrency と互換な scope-exit-joins-all semantics を持つかを 1 文で評価してください。";
+    }
+    reviewer CancellationDesign {
+      persona = "あなたは cancellation 設計レビュアーです。child task の例外 / return が parent + sibling の自動 cancel を引き起こすか, signaling パスが明示されているかを 1 文で評価してください。";
+    }
+    reviewer LinearComposition {
+      persona = "あなたは Phase 14 (linear) との合成可能性レビュアーです。future ハンドルを linear T として宣言し, scope の出口で必ず consume されることを型で示せるかを 1 文で評価してください。";
+    }
+  }
+}
