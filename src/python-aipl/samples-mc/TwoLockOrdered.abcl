@@ -1,0 +1,58 @@
+// Fixed version of TwoLockDeadlock — both Phils now request
+// locks in the SAME order (l1 then l2).  The classic resource-
+// hierarchy fix breaks the circular wait, so the model checker
+// should report no deadlock states (only the natural halt where
+// both Phils have done=1).
+
+class Lock {
+  var held = 0;
+  var waiter = "";
+  method request() {
+    if (held == 0) {
+      held = 1;
+      send sender.granted();
+    } else {
+      waiter = sender;
+    }
+  }
+  method release() {
+    if (waiter != "") {
+      send waiter.granted();
+      waiter = "";
+    } else {
+      held = 0;
+    }
+  }
+}
+
+class Phil {
+  var first = "";
+  var second = "";
+  var got_first = 0;
+  var done = 0;
+  method init(f, s) {
+    first = f;
+    second = s;
+    send self.start();
+  }
+  method start() {
+    send first.request();
+  }
+  method granted() {
+    if (got_first == 0) {
+      got_first = 1;
+      send second.request();
+    } else {
+      send second.release();
+      send first.release();
+      got_first = 0;
+      done = 1;
+    }
+  }
+}
+
+var l1 = new Lock();
+var l2 = new Lock();
+// Both Phils acquire (l1, l2) in the same order → no circular wait.
+var pa = new Phil("l1", "l2");
+var pb = new Phil("l1", "l2");

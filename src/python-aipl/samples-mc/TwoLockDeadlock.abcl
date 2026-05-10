@@ -1,0 +1,60 @@
+// Two-lock deadlock — minimal AIPL program where the model
+// checker should find a stuck state.
+//
+// Lock has a single waiter slot.  Phil acquires `first` then
+// `second`; if two Phils request locks in *opposite* order they
+// each grab one lock and queue on the other, and the queueing
+// fork (Lock) never sends `granted` to anyone — both Phils stop
+// receiving messages, the system halts in a non-finished state.
+
+class Lock {
+  var held = 0;
+  var waiter = "";
+  method request() {
+    if (held == 0) {
+      held = 1;
+      send sender.granted();
+    } else {
+      waiter = sender;
+    }
+  }
+  method release() {
+    if (waiter != "") {
+      send waiter.granted();
+      waiter = "";
+    } else {
+      held = 0;
+    }
+  }
+}
+
+class Phil {
+  var first = "";
+  var second = "";
+  var got_first = 0;
+  var done = 0;
+  method init(f, s) {
+    first = f;
+    second = s;
+    send self.start();
+  }
+  method start() {
+    send first.request();
+  }
+  method granted() {
+    if (got_first == 0) {
+      got_first = 1;
+      send second.request();
+    } else {
+      send second.release();
+      send first.release();
+      got_first = 0;
+      done = 1;
+    }
+  }
+}
+
+var l1 = new Lock();
+var l2 = new Lock();
+var pa = new Phil("l1", "l2");
+var pb = new Phil("l2", "l1");

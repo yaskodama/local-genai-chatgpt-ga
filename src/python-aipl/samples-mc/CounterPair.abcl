@@ -1,0 +1,21 @@
+// Smoke test for aipl_modelcheck_load — minimal 2-actor
+// example.  The model checker should report no deadlocks: each
+// counter ticks itself 3 times and stops.
+
+class Counter {
+  var n = 0;
+  var limit = 3;
+  method init(l) {
+    limit = l;
+    send self.tick();
+  }
+  method tick() {
+    n = n + 1;
+    if (n < limit) {
+      send self.tick();
+    }
+  }
+}
+
+var c1 = new Counter(2);
+var c2 = new Counter(3);
