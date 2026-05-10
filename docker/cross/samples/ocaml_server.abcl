@@ -1,0 +1,28 @@
+// OCaml AIPL — remote-actor server.
+//
+// Exposes a Calc actor on :8080.  Wire-compatible with the Python
+// runtime so a Python client can also dispatch via:
+//   remote_now("ocserver:8080", "calc", "add", 3, 4)
+
+class Calc {
+  method init() {
+    print("[ocserver] calc actor ready");
+  }
+
+  method add(a, b) {
+    reply(a + b);
+  }
+
+  method square(n) {
+    reply(n * n);
+  }
+
+  method bump(n) {
+    reply(n + 1);
+  }
+}
+
+var calc = new Calc();
+web_listen(8080);
+web_expose("calc", "calc");
+print("[ocserver] calc exposed on :8080");

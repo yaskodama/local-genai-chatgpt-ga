@@ -1,0 +1,51 @@
+# OCaml AIPL container.
+#
+# Multi-stage: stage 1 builds the dune project; stage 2 ships only
+# the runtime binary + libsdl2 (linked dependency from tsdl).
+#
+# Build:
+#   docker build -f docker/cross/Dockerfile.ocaml -t aipl-ocaml:latest .
+#
+# Run server (exposes calc on :8080):
+#   docker run --rm --network aipl-net --name ocserver aipl-ocaml:latest \
+#     /app/samples-remote/ocaml_server.abcl
+
+# ---------- builder ----------
+FROM ocaml/opam:debian-12-ocaml-5.1 AS builder
+
+USER root
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        libsdl2-dev pkg-config libev-dev && \
+    rm -rf /var/lib/apt/lists/*
+USER opam
+
+WORKDIR /home/opam/app
+COPY --chown=opam:opam . .
+
+# tsdl + dune is the minimum we need; threads/unix come with OCaml.
+RUN opam install -y tsdl dune ocamlfind && \
+    eval $(opam env) && \
+    cd src && dune build
+
+# ---------- runtime ----------
+FROM debian:12-slim
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        libsdl2-2.0-0 ca-certificates && \
+    rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+
+COPY --from=builder /home/opam/app/_build/default/src/repl_thread.exe /usr/local/bin/aipl-ocaml
+COPY docker/cross/samples /app/samples-remote
+
+EXPOSE 8080
+
+# The OCaml REPL drives a script with `load <file>; compile`.
+# We bake a tiny wrapper that takes the .abcl path and synthesises
+# that script before invoking the binary.
+COPY docker/cross/ocaml_run.sh /usr/local/bin/ocaml_run.sh
+RUN chmod +x /usr/local/bin/ocaml_run.sh
+
+ENTRYPOINT ["/usr/local/bin/ocaml_run.sh"]
+CMD ["/app/samples-remote/ocaml_server.abcl"]

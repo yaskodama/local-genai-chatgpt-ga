@@ -1,0 +1,31 @@
+// Python AIPL — remote-actor server.
+//
+// Exposes a Counter actor on :8080.  Wire-compatible with the OCaml
+// runtime so an OCaml client can also dispatch via:
+//   now remote("pyserver:8080", "counter").tick()
+
+class Counter {
+  var n = 0;
+
+  method tick() {
+    n = n + 1;
+    print("[pyserver] tick -> n=" + n);
+    reply(n);
+  }
+
+  method get() {
+    print("[pyserver] get -> n=" + n);
+    reply(n);
+  }
+
+  method add(a, b) {
+    var sum = a + b;
+    print("[pyserver] add(" + a + "," + b + ") -> " + sum);
+    reply(sum);
+  }
+}
+
+var counter = new Counter();
+web_listen(8080);
+web_expose("counter", counter);
+print("[pyserver] counter exposed on :8080");

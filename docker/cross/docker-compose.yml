@@ -1,0 +1,68 @@
+# Cross-language remote-actor demo via docker compose.
+#
+# Servers:
+#   pyserver  — Python AIPL exposing  Counter actor on :8080
+#   ocserver  — OCaml  AIPL exposing  Calc    actor on :8080
+# Drivers run as one-shot containers on the same network and call
+# both servers in sequence over /api/json/call.
+#
+# Usage:
+#   docker compose -f docker/cross/docker-compose.yml up --build pyserver ocserver -d
+#   docker compose -f docker/cross/docker-compose.yml run --rm pydriver
+#   docker compose -f docker/cross/docker-compose.yml run --rm ocdriver
+#   docker compose -f docker/cross/docker-compose.yml down
+#
+# The wrapper script docker/cross/run-compose.sh chains all of these.
+
+services:
+
+  pyserver:
+    build:
+      context: ../..
+      dockerfile: docker/cross/Dockerfile.python
+    image: aipl-python:cross
+    container_name: pyserver
+    command: ["/app/samples-remote/python_server.abcl"]
+    networks: [aipl-net]
+    ports: ["8080:8080"]
+    healthcheck:
+      test: ["CMD", "python3", "-c",
+             "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8080/api/exposed', timeout=1).read()"]
+      interval: 2s
+      timeout: 1s
+      retries: 10
+
+  ocserver:
+    build:
+      context: ../..
+      dockerfile: docker/cross/Dockerfile.ocaml
+    image: aipl-ocaml:cross
+    container_name: ocserver
+    command: ["/app/samples-remote/ocaml_server.abcl"]
+    networks: [aipl-net]
+
+  pydriver:
+    image: aipl-python:cross
+    command: ["/app/samples-remote/python_driver.abcl"]
+    networks: [aipl-net]
+    depends_on:
+      pyserver:
+        condition: service_healthy
+      ocserver:
+        condition: service_started
+
+  ocdriver:
+    image: aipl-ocaml:cross
+    command: ["/app/samples-remote/ocaml_driver.abcl"]
+    environment:
+      AIPL_KEEPALIVE: "0"
+    networks: [aipl-net]
+    depends_on:
+      pyserver:
+        condition: service_healthy
+      ocserver:
+        condition: service_started
+
+networks:
+  aipl-net:
+    name: aipl-net

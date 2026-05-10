@@ -1,0 +1,51 @@
+// Python AIPL — cross-language remote driver.
+//
+// Calls the Python server (pyserver:8080) and the OCaml server
+// (ocserver:8080), both running in their own containers on the
+// shared `aipl-net` Docker network.  Demonstrates that the
+// Python `remote_now` and `remote_call` builtins talk to either
+// runtime identically over /api/json/call and /api/json/send.
+
+class Driver {
+  method run() {
+    print("[pydriver] === cross-language remote demo (Python driver) ===");
+
+    // Python -> Python: synchronous tick
+    print("[pydriver] -> pyserver.counter.tick()");
+    var t1 = remote_now("pyserver:8080", "counter", "tick");
+    print("[pydriver]    reply: " + t1);
+
+    print("[pydriver] -> pyserver.counter.tick()");
+    var t2 = remote_now("pyserver:8080", "counter", "tick");
+    print("[pydriver]    reply: " + t2);
+
+    // Python -> OCaml: synchronous add
+    print("[pydriver] -> ocserver.calc.add(3, 4)");
+    var s1 = remote_now("ocserver:8080", "calc", "add", 3, 4);
+    print("[pydriver]    reply: " + s1);
+
+    // Python -> OCaml: synchronous square
+    print("[pydriver] -> ocserver.calc.square(7)");
+    var s2 = remote_now("ocserver:8080", "calc", "square", 7);
+    print("[pydriver]    reply: " + s2);
+
+    // Python -> OCaml: synchronous bump
+    print("[pydriver] -> ocserver.calc.bump(99)");
+    var s3 = remote_now("ocserver:8080", "calc", "bump", 99);
+    print("[pydriver]    reply: " + s3);
+
+    // Final cross-call: Python's tick then OCaml's add of those tick values
+    print("[pydriver] -> pyserver.counter.tick()");
+    var t3 = remote_now("pyserver:8080", "counter", "tick");
+    print("[pydriver]    reply: " + t3);
+
+    print("[pydriver] -> ocserver.calc.add(<t1+t2>, <t3>)");
+    var combined = remote_now("ocserver:8080", "calc", "add", t1 + t2, t3);
+    print("[pydriver]    reply: " + combined);
+
+    print("[pydriver] === done ===");
+  }
+}
+
+var d = new Driver();
+send d.run();

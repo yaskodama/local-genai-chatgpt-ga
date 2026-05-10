@@ -1,0 +1,34 @@
+# Python AIPL container — used both as remote-actor server and as
+# remote-caller in the docker/cross/ cross-language demo.
+#
+# Build:
+#   docker build -f docker/cross/Dockerfile.python -t aipl-python:latest .
+#
+# Run server (exposes counter on :8080):
+#   docker run --rm --network aipl-net --name pyserver -p 8080:8080 \
+#     aipl-python:latest python_server.abcl
+#
+# Run driver:
+#   docker run --rm --network aipl-net aipl-python:latest python_driver.abcl
+FROM python:3.12-slim
+
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    AIPL_AI_PROVIDER=mock
+
+WORKDIR /app
+
+COPY src/python-aipl/requirements.txt /tmp/requirements.txt
+RUN pip install --no-cache-dir lark>=1.1.0
+
+COPY src/python-aipl /app/python-aipl
+COPY docker/cross/samples /app/samples-remote
+
+WORKDIR /app/python-aipl
+
+EXPOSE 8080
+
+# Default: runs whichever sample is passed as argv[1], resolved
+# relative to /app/samples-remote.
+ENTRYPOINT ["python3", "aipl_main.py"]
+CMD ["/app/samples-remote/python_server.abcl"]

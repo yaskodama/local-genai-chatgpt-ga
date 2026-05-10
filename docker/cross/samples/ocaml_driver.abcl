@@ -1,0 +1,40 @@
+// OCaml AIPL — cross-language remote driver.
+//
+// Calls both the OCaml server (ocserver:8080) and the Python server
+// (pyserver:8080) using the `now remote(...).method(args)` syntax,
+// which posts to /api/json/call and waits for the receiver's reply.
+
+class Driver {
+  method init() {
+    print("[ocdriver] === cross-language remote demo (OCaml driver) ===");
+  }
+
+  method run() {
+    // OCaml -> OCaml
+    var s1 = now remote("ocserver:8080", "calc").add(10, 20);
+    print("[ocdriver] ocserver.add(10,20) ->");
+    print(s1);
+
+    var s2 = now remote("ocserver:8080", "calc").square(8);
+    print("[ocdriver] ocserver.square(8) ->");
+    print(s2);
+
+    // OCaml -> Python
+    var t1 = now remote("pyserver:8080", "counter").tick();
+    print("[ocdriver] pyserver.tick() ->");
+    print(t1);
+
+    var t2 = now remote("pyserver:8080", "counter").tick();
+    print("[ocdriver] pyserver.tick() ->");
+    print(t2);
+
+    var t3 = now remote("pyserver:8080", "counter").get();
+    print("[ocdriver] pyserver.get() ->");
+    print(t3);
+
+    print("[ocdriver] === done ===");
+  }
+}
+
+var d = new Driver();
+send d.run();
