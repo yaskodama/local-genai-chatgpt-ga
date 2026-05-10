@@ -1,0 +1,312 @@
+// Level C-2 — Actor Scheduler + Mailbox in AIPL.
+//
+// Provides a single-threaded cooperative scheduler that:
+//   - holds a registry of actors (name -> actor record)
+//   - each actor has a private mailbox (FIFO array of message records)
+//   - scheduler_run() walks actors round-robin and pops one message
+//     per actor per iteration, evaluating its method body
+//
+// Actor representation:
+//   {name: "c1",
+//    class_name: "Counter",
+//    fields:  [(name, value), ...],   // mutable, tail-first lookup wins
+//    methods: [(name, {params, body}), ...],
+//    queue:   [{method, args}, ...]}
+//
+// Scheduler representation:
+//   {actors: [(name, actor), ...]}
+//
+// AST shape (extended from Level C):
+//   {tag:"Int",      val:N}
+//   {tag:"Str",      val:S}
+//   {tag:"Var",      name:X}              // looks up env first, then fields
+//   {tag:"Binop",    op, lhs, rhs}
+//   {tag:"VarDecl",  name, expr}
+//   {tag:"Assign",   name, expr}          // updates env if local, fields otherwise
+//   {tag:"Print",    expr}
+//   {tag:"If",       cond, then_body, else_body}
+//   {tag:"While",    cond, body}
+//   {tag:"Return",   expr}
+//   {tag:"Send",     target, method, args}    // NEW: enqueue on another actor
+//   {tag:"Self",     method, args}            // NEW: send to self
+//
+// The host runtime contributes only `print` and `array_push/get/len`
+// (and the outer driver that calls scheduler_run).
+
+// =================================================================
+// PART 1 — env helpers (carried over from Level A).
+// =================================================================
+
+function env_get_aipl(env, name) {
+  var i: int = array_len(env) - 1;
+  while (i >= 0) do {
+    var pair = array_get(env, i);
+    if (pair[0] == name) { return pair[1]; }
+    i = i - 1;
+  }
+  return 0;
+}
+
+function env_set_aipl(env, name, value) {
+  array_push(env, (name, value));
+  return value;
+}
+
+// =================================================================
+// PART 2 — actor / scheduler primitives.
+// =================================================================
+
+// Build a new actor record.  `fields_init` is an array of (name, value)
+// tuples; `methods` is an array of (name, {params, body}) tuples.
+function actor_new(name: string, class_name: string, fields_init, methods) {
+  return {name: name,
+          class_name: class_name,
+          fields: fields_init,
+          methods: methods,
+          queue: []};
+}
+
+// Look up a method by name on an actor.  Returns 0 if not found.
+function actor_method(actor, mname: string) {
+  var i: int = 0;
+  var n: int = array_len(actor.methods);
+  while (i < n) do {
+    var pair = array_get(actor.methods, i);
+    if (pair[0] == mname) { return pair[1]; }
+    i = i + 1;
+  }
+  return 0;
+}
+
+// Scheduler.
+function sched_new() {
+  return {actors: []};
+}
+
+function sched_register(sched, actor) {
+  array_push(sched.actors, (actor.name, actor));
+  return 0;
+}
+
+function sched_lookup(sched, name: string) {
+  var i: int = array_len(sched.actors) - 1;
+  while (i >= 0) do {
+    var pair = array_get(sched.actors, i);
+    if (pair[0] == name) { return pair[1]; }
+    i = i - 1;
+  }
+  return 0;
+}
+
+// Push a message onto an actor's queue.  Caller resolved the target
+// actor already; we mutate its queue in place.
+function actor_enqueue(actor, msg) {
+  array_push(actor.queue, msg);
+  return 0;
+}
+
+// Pop the head of an actor's queue.  Returns 0 if empty.
+// AIPL has no array_shift; we use a "consumed" index field on the
+// queue's first entry.  Easier: rebuild queue.
+function actor_dequeue(actor) {
+  var n: int = array_len(actor.queue);
+  if (n == 0) { return 0; }
+  var head = array_get(actor.queue, 0);
+  // rebuild without head
+  var rest = [];
+  var i: int = 1;
+  while (i < n) do {
+    array_push(rest, array_get(actor.queue, i));
+    i = i + 1;
+  }
+  actor.queue = rest;
+  return head;
+}
+
+// =================================================================
+// PART 3 — actor-aware evaluator.
+// =================================================================
+
+function apply_binop(op: string, a, b) {
+  if (op == "+")  { return a + b; }
+  if (op == "-")  { return a - b; }
+  if (op == "*")  { return a * b; }
+  if (op == "/")  { return a / b; }
+  if (op == "==") { if (a == b) { return 1; } return 0; }
+  if (op == "!=") { if (a != b) { return 1; } return 0; }
+  if (op == "<")  { if (a <  b) { return 1; } return 0; }
+  if (op == ">")  { if (a >  b) { return 1; } return 0; }
+  if (op == "<=") { if (a <= b) { return 1; } return 0; }
+  if (op == ">=") { if (a >= b) { return 1; } return 0; }
+  return 0;
+}
+
+// Resolve a name: env first, then fields.  (Tail-first scans.)
+function lookup_name(env, fields, name: string) {
+  var i: int = array_len(env) - 1;
+  while (i >= 0) do {
+    var pair = array_get(env, i);
+    if (pair[0] == name) { return pair[1]; }
+    i = i - 1;
+  }
+  var j: int = array_len(fields) - 1;
+  while (j >= 0) do {
+    var pair2 = array_get(fields, j);
+    if (pair2[0] == name) { return pair2[1]; }
+    j = j - 1;
+  }
+  return 0;
+}
+
+// Returns 1 if `name` is in env (local), 0 if it's only a field.
+function name_is_local(env, name: string) {
+  var i: int = array_len(env) - 1;
+  while (i >= 0) do {
+    var pair = array_get(env, i);
+    if (pair[0] == name) { return 1; }
+    i = i - 1;
+  }
+  return 0;
+}
+
+function eval_expr_actor(ast, env, fields, sched) {
+  if (ast.tag == "Int") { return ast.val; }
+  if (ast.tag == "Str") { return ast.val; }
+  if (ast.tag == "Var") { return lookup_name(env, fields, ast.name); }
+  if (ast.tag == "Binop") {
+    var l = eval_expr_actor(ast.lhs, env, fields, sched);
+    var r = eval_expr_actor(ast.rhs, env, fields, sched);
+    return apply_binop(ast.op, l, r);
+  }
+  return 0;
+}
+
+function eval_args(args_ast, env, fields, sched) {
+  var out = [];
+  var i: int = 0;
+  var n: int = array_len(args_ast);
+  while (i < n) do {
+    array_push(out, eval_expr_actor(array_get(args_ast, i), env, fields, sched));
+    i = i + 1;
+  }
+  return out;
+}
+
+function eval_stmt_actor(s, env, fields, sched) {
+  if (s.tag == "VarDecl") {
+    var v = eval_expr_actor(s.expr, env, fields, sched);
+    env_set_aipl(env, s.name, v);
+    return v;
+  }
+  if (s.tag == "Assign") {
+    var v = eval_expr_actor(s.expr, env, fields, sched);
+    if (name_is_local(env, s.name) == 1) {
+      env_set_aipl(env, s.name, v);
+    } else {
+      // mutate the actor field by appending — tail-first lookup wins.
+      array_push(fields, (s.name, v));
+    }
+    return v;
+  }
+  if (s.tag == "Print") {
+    var v = eval_expr_actor(s.expr, env, fields, sched);
+    print(v);
+    return 0;
+  }
+  if (s.tag == "If") {
+    var c = eval_expr_actor(s.cond, env, fields, sched);
+    if (c != 0) { return eval_stmt_list_actor(s.then_body, env, fields, sched); }
+    return eval_stmt_list_actor(s.else_body, env, fields, sched);
+  }
+  if (s.tag == "While") {
+    var c = eval_expr_actor(s.cond, env, fields, sched);
+    while (c != 0) do {
+      eval_stmt_list_actor(s.body, env, fields, sched);
+      c = eval_expr_actor(s.cond, env, fields, sched);
+    }
+    return 0;
+  }
+  if (s.tag == "Send") {
+    var arg_vals = eval_args(s.args, env, fields, sched);
+    var tgt = sched_lookup(sched, s.target);
+    if (tgt == 0) {
+      print("[sched] send: unknown actor `" + s.target + "`");
+      return 0;
+    }
+    // Send AST uses `meth` (not `method`, which is an AIPL keyword)
+    // for the method name field.
+    actor_enqueue(tgt, {meth: s.meth, args: arg_vals});
+    return 0;
+  }
+  if (s.tag == "Return") {
+    return eval_expr_actor(s.expr, env, fields, sched);
+  }
+  return 0;
+}
+
+function eval_stmt_list_actor(stmts, env, fields, sched) {
+  var i: int = 0;
+  var n: int = array_len(stmts);
+  while (i < n) do {
+    eval_stmt_actor(array_get(stmts, i), env, fields, sched);
+    i = i + 1;
+  }
+  return 0;
+}
+
+// =================================================================
+// PART 4 — scheduler step / run.
+// =================================================================
+
+// Process one message on `actor`.  Returns 1 if a message was
+// processed, 0 if the queue was empty.
+function actor_step_one(actor, sched) {
+  if (array_len(actor.queue) == 0) { return 0; }
+  var msg = actor_dequeue(actor);
+  var m = actor_method(actor, msg.meth);
+  if (m == 0) {
+    print("[sched] " + actor.name + ": unknown method `" + msg.meth + "`");
+    return 1;
+  }
+  // bind params -> args in a fresh env
+  var env = [];
+  var i: int = 0;
+  var nparams: int = array_len(m.params);
+  while (i < nparams) do {
+    env_set_aipl(env, array_get(m.params, i), array_get(msg.args, i));
+    i = i + 1;
+  }
+  eval_stmt_list_actor(m.body, env, actor.fields, sched);
+  return 1;
+}
+
+// One round: each actor processes up to 1 message.  Returns total
+// messages processed this round.
+function sched_step(sched) {
+  var processed: int = 0;
+  var i: int = 0;
+  var n: int = array_len(sched.actors);
+  while (i < n) do {
+    var pair = array_get(sched.actors, i);
+    var a = pair[1];
+    processed = processed + actor_step_one(a, sched);
+    i = i + 1;
+  }
+  return processed;
+}
+
+// Run until idle or max_steps elapsed.
+function sched_run(sched, max_steps: int) {
+  var step: int = 0;
+  var done: int = 0;
+  while (done == 0) do {
+    if (step >= max_steps) { done = 1; }
+    else {
+      var n = sched_step(sched);
+      if (n == 0) { done = 1; }
+      step = step + 1;
+    }
+  }
+  print("[sched] ran " + step + " round(s)");
+  return step;
+}

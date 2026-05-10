@@ -1,0 +1,74 @@
+// Sample 5 — Producer / Consumer.
+//
+// Equivalent AIPL source:
+//   class Producer {
+//     var i = 0;
+//     var limit = 4;
+//     method run() {
+//       if (i < limit) {
+//         i = i + 1;
+//         send cons.put(i);
+//         send self.run();
+//       }
+//     }
+//   }
+//   class Consumer {
+//     var sum = 0;
+//     method put(v) { sum = sum + v; print(sum); }
+//   }
+//   send prod.run();
+//
+// Producer self-sends to drain a counter; each tick enqueues a
+// `put(i)` on the Consumer.  Final `sum` should be 1+2+3+4 = 10
+// (printed after each accumulation as 1, 3, 6, 10).
+
+class Driver {
+  method run() {
+    print("=== Level C-2 — SampleProducerConsumer ===");
+
+    var prod_body = [
+      {tag: "If",
+       cond: {tag: "Binop", op: "<",
+              lhs: {tag: "Var", name: "i"},
+              rhs: {tag: "Var", name: "limit"}},
+       then_body: [
+         {tag: "Assign", name: "i",
+          expr: {tag: "Binop", op: "+",
+                 lhs: {tag: "Var", name: "i"},
+                 rhs: {tag: "Int", val: 1}}},
+         {tag: "Send", target: "cons", meth: "put",
+          args: [{tag: "Var", name: "i"}]},
+         {tag: "Send", target: "prod", meth: "run", args: []}
+       ],
+       else_body: []}
+    ];
+
+    var put_body = [
+      {tag: "Assign", name: "sum",
+       expr: {tag: "Binop", op: "+",
+              lhs: {tag: "Var", name: "sum"},
+              rhs: {tag: "Var", name: "v"}}},
+      {tag: "Print", expr: {tag: "Var", name: "sum"}}
+    ];
+
+    var prod = actor_new("prod", "Producer",
+      [("i", 0), ("limit", 4)],
+      [("run", {params: [], body: prod_body})]);
+
+    var cons = actor_new("cons", "Consumer",
+      [("sum", 0)],
+      [("put", {params: ["v"], body: put_body})]);
+
+    var sched = sched_new();
+    sched_register(sched, prod);
+    sched_register(sched, cons);
+
+    actor_enqueue(prod, {meth: "run", args: []});
+
+    sched_run(sched, 30);
+    print("[expected: 1 3 6 10]");
+  }
+}
+
+var d = new Driver();
+send d.run();

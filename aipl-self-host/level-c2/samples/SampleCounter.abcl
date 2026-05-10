@@ -1,0 +1,53 @@
+// Sample 1 — Counter actor (built and run on the AIPL-side scheduler).
+//
+// Equivalent AIPL source (parsable by Level C):
+//
+//   class Counter {
+//     var count = 0;
+//     method tick() { count = count + 1; print(count); }
+//   }
+//   var c = new Counter();
+//   send c.tick();
+//   send c.tick();
+//   send c.tick();
+//
+// We hand-build the Counter actor and a Driver actor; the
+// AIPL-side scheduler executes the messages in order.
+
+class Driver {
+  method run() {
+    print("=== Level C-2 — SampleCounter ===");
+
+    // ---- method bodies as AST records ----
+    var tick_body = [
+      {tag: "Assign", name: "count",
+       expr: {tag: "Binop", op: "+",
+              lhs: {tag: "Var", name: "count"},
+              rhs: {tag: "Int", val: 1}}},
+      {tag: "Print", expr: {tag: "Var", name: "count"}}
+    ];
+
+    var counter = actor_new(
+      "c",
+      "Counter",
+      [("count", 0)],
+      [("tick", {params: [], body: tick_body})]
+    );
+
+    // The driver_send_method just enqueues "tick" 3 times — no body
+    // needed, we do it imperatively from Driver below.
+    var sched = sched_new();
+    sched_register(sched, counter);
+
+    // Initial sends from Driver (host side, AIPL function calls):
+    actor_enqueue(counter, {meth: "tick", args: []});
+    actor_enqueue(counter, {meth: "tick", args: []});
+    actor_enqueue(counter, {meth: "tick", args: []});
+
+    sched_run(sched, 10);
+    print("[expected: 1, 2, 3]");
+  }
+}
+
+var d = new Driver();
+send d.run();

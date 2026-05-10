@@ -1,0 +1,70 @@
+// Sample 2 — PingPong on the AIPL-side scheduler.
+//
+// Pinger sends ping to Ponger; Ponger sends pong back; Pinger
+// decrements `left` until 0.  The scheduler's send dispatch is
+// what's exercised here — both actors live in the AIPL-side
+// scheduler with no host actor primitives involved.
+//
+// Equivalent AIPL source (parsable by Level C):
+//   class Pinger {
+//     var left = 3;
+//     method ping_back() {
+//       print(left);
+//       left = left - 1;
+//       if (left > 0) { send pong.go(); }
+//     }
+//   }
+//   class Ponger {
+//     method go() { send ping.ping_back(); }
+//   }
+
+class Driver {
+  method run() {
+    print("=== Level C-2 — SamplePingPong ===");
+
+    // Pinger.ping_back body:
+    //   print(left); left = left - 1;
+    //   if (left > 0) { send pong.go(); }
+    var ping_back_body = [
+      {tag: "Print", expr: {tag: "Var", name: "left"}},
+      {tag: "Assign", name: "left",
+       expr: {tag: "Binop", op: "-",
+              lhs: {tag: "Var", name: "left"},
+              rhs: {tag: "Int", val: 1}}},
+      {tag: "If",
+       cond: {tag: "Binop", op: ">",
+              lhs: {tag: "Var", name: "left"},
+              rhs: {tag: "Int", val: 0}},
+       then_body: [
+         {tag: "Send", target: "pong", meth: "go", args: []}
+       ],
+       else_body: []}
+    ];
+
+    var pinger = actor_new("ping", "Pinger",
+      [("left", 3)],
+      [("ping_back", {params: [], body: ping_back_body})]);
+
+    // Ponger.go body:  send ping.ping_back();
+    var go_body = [
+      {tag: "Send", target: "ping", meth: "ping_back", args: []}
+    ];
+
+    var ponger = actor_new("pong", "Ponger",
+      [],
+      [("go", {params: [], body: go_body})]);
+
+    var sched = sched_new();
+    sched_register(sched, pinger);
+    sched_register(sched, ponger);
+
+    // kick off: send ping.ping_back();
+    actor_enqueue(pinger, {meth: "ping_back", args: []});
+
+    sched_run(sched, 30);
+    print("[expected: 3, 2, 1]");
+  }
+}
+
+var d = new Driver();
+send d.run();

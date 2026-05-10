@@ -1,0 +1,53 @@
+// Sample 3 — actor sending messages to itself.
+//
+// Equivalent AIPL source (parsable by Level C):
+//   class Counter {
+//     var n = 0;
+//     var limit = 5;
+//     method tick() {
+//       n = n + 1;
+//       print(n);
+//       if (n < limit) { send self.tick(); }
+//     }
+//   }
+//   var c = new Counter();
+//   send c.tick();
+//
+// The Send AST uses target = "c" (the actor's own registered name)
+// — Level C-2's scheduler looks it up the same way as cross-actor
+// sends, so self-send works for free.
+
+class Driver {
+  method run() {
+    print("=== Level C-2 — SampleSelfSend ===");
+
+    var tick_body = [
+      {tag: "Assign", name: "n",
+       expr: {tag: "Binop", op: "+",
+              lhs: {tag: "Var", name: "n"},
+              rhs: {tag: "Int", val: 1}}},
+      {tag: "Print", expr: {tag: "Var", name: "n"}},
+      {tag: "If",
+       cond: {tag: "Binop", op: "<",
+              lhs: {tag: "Var", name: "n"},
+              rhs: {tag: "Var", name: "limit"}},
+       then_body: [
+         {tag: "Send", target: "c", meth: "tick", args: []}
+       ],
+       else_body: []}
+    ];
+
+    var c = actor_new("c", "Counter",
+      [("n", 0), ("limit", 5)],
+      [("tick", {params: [], body: tick_body})]);
+
+    var sched = sched_new();
+    sched_register(sched, c);
+    actor_enqueue(c, {meth: "tick", args: []});
+    sched_run(sched, 30);
+    print("[expected: 1 2 3 4 5]");
+  }
+}
+
+var d = new Driver();
+send d.run();

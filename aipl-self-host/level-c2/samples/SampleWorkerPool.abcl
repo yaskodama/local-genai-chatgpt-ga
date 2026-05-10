@@ -1,0 +1,70 @@
+// Sample 6 — Coordinator fans out work to 3 Worker actors.
+//
+// Equivalent AIPL source:
+//   class Worker {
+//     var id = 0;
+//     method work(x) { print(id * 100 + x * x); }   // tag with id
+//   }
+//   class Coordinator {
+//     method dispatch() {
+//       send w1.work(2);
+//       send w2.work(3);
+//       send w3.work(5);
+//     }
+//   }
+//   send coord.dispatch();
+//
+// Each worker prints `(id * 100 + x*x)` so output identifies which
+// worker handled which job.  Expected: 104, 209, 325 (in scheduler
+// round-robin order — workers w1/w2/w3 each pop their queued work
+// in turn).
+
+class Driver {
+  method run() {
+    print("=== Level C-2 — SampleWorkerPool ===");
+
+    var work_body = [
+      {tag: "Print",
+       expr: {tag: "Binop", op: "+",
+              lhs: {tag: "Binop", op: "*",
+                    lhs: {tag: "Var", name: "id"},
+                    rhs: {tag: "Int", val: 100}},
+              rhs: {tag: "Binop", op: "*",
+                    lhs: {tag: "Var", name: "x"},
+                    rhs: {tag: "Var", name: "x"}}}}
+    ];
+
+    var w1 = actor_new("w1", "Worker", [("id", 1)],
+      [("work", {params: ["x"], body: work_body})]);
+    var w2 = actor_new("w2", "Worker", [("id", 2)],
+      [("work", {params: ["x"], body: work_body})]);
+    var w3 = actor_new("w3", "Worker", [("id", 3)],
+      [("work", {params: ["x"], body: work_body})]);
+
+    var disp_body = [
+      {tag: "Send", target: "w1", meth: "work",
+       args: [{tag: "Int", val: 2}]},
+      {tag: "Send", target: "w2", meth: "work",
+       args: [{tag: "Int", val: 3}]},
+      {tag: "Send", target: "w3", meth: "work",
+       args: [{tag: "Int", val: 5}]}
+    ];
+
+    var coord = actor_new("coord", "Coordinator", [],
+      [("dispatch", {params: [], body: disp_body})]);
+
+    var sched = sched_new();
+    sched_register(sched, coord);
+    sched_register(sched, w1);
+    sched_register(sched, w2);
+    sched_register(sched, w3);
+
+    actor_enqueue(coord, {meth: "dispatch", args: []});
+
+    sched_run(sched, 10);
+    print("[expected: 104 209 325]");
+  }
+}
+
+var d = new Driver();
+send d.run();

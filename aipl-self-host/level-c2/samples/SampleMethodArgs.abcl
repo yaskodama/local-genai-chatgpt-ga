@@ -1,0 +1,51 @@
+// Sample 4 — methods with parameters.
+//
+// Equivalent AIPL source:
+//   class Calc {
+//     var last = 0;
+//     method add(a, b) { last = a + b; print(last); }
+//     method square(x) { last = x * x;  print(last); }
+//   }
+//   send calc.add(3, 4);     // 7
+//   send calc.square(6);     // 36
+//   send calc.add(10, 20);   // 30
+
+class Driver {
+  method run() {
+    print("=== Level C-2 — SampleMethodArgs ===");
+
+    var add_body = [
+      {tag: "Assign", name: "last",
+       expr: {tag: "Binop", op: "+",
+              lhs: {tag: "Var", name: "a"},
+              rhs: {tag: "Var", name: "b"}}},
+      {tag: "Print", expr: {tag: "Var", name: "last"}}
+    ];
+
+    var sq_body = [
+      {tag: "Assign", name: "last",
+       expr: {tag: "Binop", op: "*",
+              lhs: {tag: "Var", name: "x"},
+              rhs: {tag: "Var", name: "x"}}},
+      {tag: "Print", expr: {tag: "Var", name: "last"}}
+    ];
+
+    var calc = actor_new("calc", "Calc",
+      [("last", 0)],
+      [("add",    {params: ["a", "b"], body: add_body}),
+       ("square", {params: ["x"],      body: sq_body})]);
+
+    var sched = sched_new();
+    sched_register(sched, calc);
+
+    actor_enqueue(calc, {meth: "add",    args: [3, 4]});
+    actor_enqueue(calc, {meth: "square", args: [6]});
+    actor_enqueue(calc, {meth: "add",    args: [10, 20]});
+
+    sched_run(sched, 10);
+    print("[expected: 7 36 30]");
+  }
+}
+
+var d = new Driver();
+send d.run();
