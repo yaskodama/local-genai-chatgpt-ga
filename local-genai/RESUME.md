@@ -22,41 +22,41 @@ origin/main と同期済み (push 済み)。
 
 ## チャンピオン (現状最強モデル)
 
-**Stage-6d Transformer (823K params, 4d-orth recipe + RoPE + 10MB)** — **ultimate champion**
+**Stage-7-deeper Transformer (1.22M params, depth=6, RoPE + 10MB)** — **ultimate champion**
 
 ```
-local-genai/out/transformer_stage6d_large_rope.pt
-  TinyTransformer depth=4, d_model=128, n_heads=4, ctx=256, bptt=256
-  ffn_mult=4, RMSNorm, **RoPE (rotary positional embedding)**
+local-genai/out/transformer_stage7_deeper.pt
+  TinyTransformer depth=6, d_model=128, n_heads=4, ctx=256, bptt=256
+  ffn_mult=4, RMSNorm, RoPE
   dropout 0.1, label_smoothing 0.05, weight_decay 0.05
   warmup 1500, cosine 終端 LR=1e-5 (min_lr_frac=0.005)
-  TinyShakespeare+KJV-10MB 学習, 822,912 params (6c 比 -3.8% = 学習可能 pos 撤去分)
-  best ppl 4.191 @ step 19500 (20000 step 走破; ほぼ収束)
-  訓練時間 1708s (M2 MPS, ≈ 28.5 分; RoPE 計算で +14% 増)
+  TinyShakespeare+KJV-10MB 学習, 1,217,920 params (= 6d depth 4 → 6)
+  best ppl 4.064 @ step 19500 (20000 step 走破; まだ微更新中で未収束)
+  訓練時間 3472s (M2 MPS, ≈ 57.9 分; depth=6 で 6d の 2x)
 ```
 
 **両ベンチで最強の単一モデル**:
 
-| stage | params | trained on | **1MB tail** | **10MB tail** |
-|---|---:|---|---:|---:|
-| 5-RoPE | 165K | 1MB | 5.120 | 7.005 |
-| 6b | 165K | 10MB | 5.289 | 4.725 |
-| 6c | 855K | 10MB | 4.765 | 4.249 |
-| **6d** | **823K** | **10MB** | **4.646** | **4.191** |
+| stage | params | trained on | **1MB tail** | **10MB tail** | 時間 |
+|---|---:|---|---:|---:|---:|
+| 5-RoPE | 165K | 1MB | 5.120 | 7.005 | 13 分 |
+| 6b | 165K | 10MB | 5.289 | 4.725 | 13 分 |
+| 6c | 855K | 10MB | 4.765 | 4.249 | 25 分 |
+| 6d | 823K | 10MB | 4.646 | 4.191 | 28.5 分 |
+| **7-deeper** | **1.22M** | **10MB** | **4.543** | **4.064** | **57.9 分** |
 
-**4 つの発見の統合**:
-1. 直交 3 種正則化 (dropout 0.1 + label_smoothing 0.05 + weight_decay 0.05): Stage-4d-orth で発見
-2. 深 cosine schedule (20000 step + min_lr_frac 0.005): Stage-4f-extend
-3. RoPE (相対位置 invariance): Stage-5-RoPE
-4. 10MB データ + 855K 容量: Stage-6c
+**5 つの発見の統合**:
+1. 直交 3 種正則化 (Stage-4d-orth)
+2. 深 cosine schedule (Stage-4f-extend)
+3. RoPE (Stage-5-RoPE)
+4. 10MB データ + 大容量 (Stage-6c, 6d)
+5. **深さ depth=4 → 6** (Stage-7-deeper)
 
-これらを全部組み合わせた Stage-6d が **両ベンチで champion**:
-- 1MB tail で 5-RoPE 比 -0.47 ppl (-9%)
-- 10MB tail で 6c 比 -0.06 ppl + params -3.8%
-- 容量 5x, データ 10x, 訓練 2x で 1MB-only 専門家を圧倒
+各軸が独立に効くため、 4.064 ppl は **5 つを全て同時に**揃えてのみ
+到達可能。 1MB / 1.87M / depth=4 / learned-pos / dropout 単独の組み合わせ
+(Stage-4) との差は 5.929 → 4.064 = **-1.87 ppl (-31%)**。
 
-容量 × データ × アーキ × schedule の **全軸を同時に押す**と、 一つでも
-欠ければ達成できない地点に到達できる。
+Stage-7-deeper も step 19500 で best (まだ微更新中) → 延長で更に下げ得る。
 
 **Stage-6b Transformer (165K params, 軽量 champion)** — 165K で達成可能な
 最良が 1MB tail 5.289 / 10MB tail 4.725:
@@ -251,7 +251,8 @@ cd aice-evolution-v2 && /opt/homebrew/bin/python3.13 -m src.cli \
 | **5-RoPE (1MB)** | **4f-extend + RoPE** | **1MB** | **165K** | **5.12** | **5.12 (1MB tail champion)** |
 | 6b (10MB) | 5-RoPE recipe + 10MB | 10MB | 165K | 4.73 | 4.73 (軽量 leader) |
 | 6c (10MB) | 4d-orth recipe + 10MB | 10MB | 855K | 4.25 | 4.25 (1MB tail 4.77 / 10MB tail 4.25) |
-| **6d (10MB)** | **4d-orth + RoPE + 10MB** | **10MB** | **823K** | **4.19** | **4.19 (ultimate champion: 1MB tail 4.65 / 10MB tail 4.19)** |
+| 6d (10MB) | 4d-orth + RoPE + 10MB | 10MB | 823K | 4.19 | 4.19 (1MB tail 4.65 / 10MB tail 4.19) |
+| **7-deeper (10MB)** | **6d + depth 4→6** | **10MB** | **1.22M** | **4.06** | **4.06 (ultimate champion: 1MB tail 4.54 / 10MB tail 4.06)** |
 
 教訓:
 - Stage-3 の transformer 敗北は ctx だけの問題ではなかった: BPTT < ctx
@@ -287,9 +288,10 @@ cd aice-evolution-v2 && /opt/homebrew/bin/python3.13 -m src.cli \
    - ~~**6d**~~ — 完了 (823K, ppl **4.191** @ 10MB / **4.646** @ 1MB; **ultimate champion**)
    - 6a: 4f-extend recipe + 10MB は未実行 (RoPE 効果 165K 上で再確認用)
 4. **Stage-7 シリーズ (Stage-6d を超える)**
-   - **7-deeper**: depth=6 + d=128 RoPE → 1.5M params で 4.0 切り狙い
-   - **7-extend**: 6d を steps=40000 で延長 — まだ微更新中
-   - **7-bpe**: byte → BPE トークナイザに切替 (実効 ctx 4x)
+   - ~~**7-deeper**~~ — 完了 (1.22M, ppl **4.064** @ 10MB / **4.543** @ 1MB; **ultimate champion**)
+   - **7-deeper-extend**: 7-deeper を steps=40000 で延長 — まだ未収束で 4.0 切り狙える
+   - **7-wider**: depth=4, d=192, RoPE → 容量 vs 深さ
+   - **7-bpe**: byte → BPE トークナイザに切替 (実効 ctx 4x、大改修)
    - **7-AIPL-revival**: 全 prior を AIPL .abcl に encode して進化計算へ
 4. **Stage-AIPL-revival**: 全 prior (容量, 正則化 3 種, schedule, RoPE) を
    `.aice` に encode → AIPL evolution で人が見つけた Pareto を AI が更に
@@ -317,7 +319,24 @@ local-genai/.venv/bin/python local-genai/train_stage4.py \
 # 約 7 分 (M2 MPS), best ppl 5.302 @ step 10000 (収束未達)
 ```
 
-## Stage-6d (ultimate champion, 両ベンチで champion) を回す手順
+## Stage-7-deeper (ultimate champion, 両ベンチで champion) を回す手順
+
+```sh
+local-genai/.venv/bin/python local-genai/train_stage4.py \
+  --corpus 10MB \
+  --steps 20000 --eval-every 500 --warmup 1500 \
+  --batch 24 --bptt 256 --ctx 256 \
+  --depth 6 --d-model 128 --n-heads 4 \
+  --lr 2e-3 --dropout 0.1 \
+  --label-smoothing 0.05 --weight-decay 0.05 \
+  --min-lr-frac 0.005 \
+  --pos-encoding rope \
+  --out-name transformer_stage7_deeper.pt
+# 約 58 分 (M2 MPS, 3472s), 1.22M params,
+# best ppl 4.064 @ step 19500 (10MB tail), 4.543 (1MB tail) — 未収束
+```
+
+## Stage-6d (10MB, RoPE, depth=4) を回す手順
 
 ```sh
 local-genai/.venv/bin/python local-genai/train_stage4.py \

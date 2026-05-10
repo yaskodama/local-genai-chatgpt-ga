@@ -78,6 +78,7 @@ TRANSFORMER_CHECKPOINTS = [
     ("transformer_stage6b_rope.pt", "Stage6b_RoPE"),
     ("transformer_stage6c_large.pt", "Stage6c_large"),
     ("transformer_stage6d_large_rope.pt", "Stage6d_large_RoPE"),
+    ("transformer_stage7_deeper.pt", "Stage7_deeper"),
 ]
 
 LSTM_CHECKPOINTS = [
