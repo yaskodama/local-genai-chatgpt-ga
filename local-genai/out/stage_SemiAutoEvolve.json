@@ -48,12 +48,11 @@
       "quality": {
         "reviewer": "Quality",
         "axes": {
-          "ppl_score": 2,
+          "ppl_score_class_aware": 3,
           "loss_trajectory_plausibility": 3,
-          "degeneracy_resistance": 3,
           "generation_appropriate_size": 2
         },
-        "total": 10,
+        "total": 8,
         "max": 12
       },
       "efficiency": {
@@ -81,7 +80,7 @@
         "total": 10,
         "max": 10
       },
-      "normalized_total": 2.6667
+      "normalized_total": 2.5
     }
   },
   "all_candidates": [
@@ -131,12 +130,11 @@
         "quality": {
           "reviewer": "Quality",
           "axes": {
-            "ppl_score": 2,
+            "ppl_score_class_aware": 3,
             "loss_trajectory_plausibility": 3,
-            "degeneracy_resistance": 3,
             "generation_appropriate_size": 2
           },
-          "total": 10,
+          "total": 8,
           "max": 12
         },
         "efficiency": {
@@ -164,7 +162,7 @@
           "total": 10,
           "max": 10
         },
-        "normalized_total": 2.6667
+        "normalized_total": 2.5
       }
     },
     {
@@ -213,12 +211,11 @@
         "quality": {
           "reviewer": "Quality",
           "axes": {
-            "ppl_score": 2,
+            "ppl_score_class_aware": 3,
             "loss_trajectory_plausibility": 3,
-            "degeneracy_resistance": 3,
             "generation_appropriate_size": 2
           },
-          "total": 10,
+          "total": 8,
           "max": 12
         },
         "efficiency": {
@@ -246,7 +243,7 @@
           "total": 10,
           "max": 10
         },
-        "normalized_total": 2.6667
+        "normalized_total": 2.5
       }
     },
     {
@@ -295,12 +292,11 @@
         "quality": {
           "reviewer": "Quality",
           "axes": {
-            "ppl_score": 2,
+            "ppl_score_class_aware": 3,
             "loss_trajectory_plausibility": 3,
-            "degeneracy_resistance": 3,
             "generation_appropriate_size": 2
           },
-          "total": 10,
+          "total": 8,
           "max": 12
         },
         "efficiency": {
@@ -328,7 +324,7 @@
           "total": 10,
           "max": 10
         },
-        "normalized_total": 2.6667
+        "normalized_total": 2.5
       }
     }
   ]

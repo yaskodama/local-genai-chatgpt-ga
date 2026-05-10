@@ -10,25 +10,36 @@ Each reviewer returns a dict with axis-level scores and a total.
 from __future__ import annotations
 
 
+# Per param-class soft upper bound for "ok" perplexity.  Values come from
+# the .aice expected_delta tables, scaled for the 9.5KB corpus.
+EXPECTED_PPL_MAX = {
+    "32K":  16.0,
+    "100K":  8.0,
+    "1M":    5.5,
+    "3M":    4.5,
+    "10M":   4.2,
+}
+
+
 def quality_review(estimate: dict, genome: dict) -> dict:
+    pc = genome.get("param_class", "1M")
+    max_ok = EXPECTED_PPL_MAX.get(pc, 6.0)
     ppl = estimate["expected_holdout_ppl"]
-    if   ppl < 3.5: ppl_score = 3
-    elif ppl < 4.5: ppl_score = 2
-    elif ppl < 6.0: ppl_score = 1
-    else:           ppl_score = 0
+    # Class-aware ppl score (0-6).
+    if   ppl < max_ok * 0.4: ppl_score = 6
+    elif ppl < max_ok * 0.6: ppl_score = 5
+    elif ppl < max_ok * 0.8: ppl_score = 4
+    elif ppl < max_ok:       ppl_score = 3
+    elif ppl < max_ok * 1.3: ppl_score = 2
+    elif ppl < max_ok * 2.0: ppl_score = 1
+    else:                    ppl_score = 0
 
     plausible = 3
-    if genome.get("regularization") == "dropout" and genome.get("param_class") == "100K":
+    if genome.get("regularization") == "dropout" and pc in ("32K", "100K"):
         plausible -= 1
     if genome.get("normalization") == "none" and genome["model_family"] not in (
             "ngram_count", "char_rnn"):
         plausible -= 1
-
-    degeneracy = 3
-    if genome.get("regularization") == "none" and genome.get("param_class") in ("3M", "10M"):
-        degeneracy -= 1
-    if genome.get("ctx", 128) > 512:
-        degeneracy -= 1
 
     size_appropriate = 3
     if estimate["over_budget"]:
@@ -36,13 +47,12 @@ def quality_review(estimate: dict, genome: dict) -> dict:
     elif estimate["params"] < estimate["param_budget"] * 0.4:
         size_appropriate = 2
 
-    total = ppl_score + plausible + degeneracy + size_appropriate
+    total = ppl_score + plausible + size_appropriate
     return {
         "reviewer": "Quality",
         "axes": {
-            "ppl_score": ppl_score,
+            "ppl_score_class_aware": ppl_score,
             "loss_trajectory_plausibility": plausible,
-            "degeneracy_resistance": degeneracy,
             "generation_appropriate_size": size_appropriate,
         },
         "total": total,

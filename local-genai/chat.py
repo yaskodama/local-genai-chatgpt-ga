@@ -1,18 +1,20 @@
-"""Interactive chat with the stage-1 n-gram LLM.
+"""Interactive chat with a trained local-genai LLM.
 
-Trains a trigram-with-bigram-backoff model on the pinned corpus and
-samples a continuation from the prompt the user types.
+Default backend is the stage-1 n-gram (stdlib only).  If
+out/charrnn_winner.pt exists, --model charrnn loads the trained
+GRU/LSTM from stage 2 and samples through it.
 
 Usage:
-    python3 local-genai/chat.py                       # interactive REPL
-    python3 local-genai/chat.py "the early bird"      # single shot
-    python3 local-genai/chat.py -t 0.7 -m 200 "..."   # temperature, max chars
+    python3 local-genai/chat.py                       # n-gram REPL
+    python3 local-genai/chat.py "the early bird"      # one-shot n-gram
+    local-genai/.venv/bin/python local-genai/chat.py --model charrnn
+    local-genai/.venv/bin/python local-genai/chat.py --model charrnn -t 0.7 "absence makes"
 
 Flags:
-    -t, --temperature  sampling temperature (default 1.0; <1 sharper, >1 flatter)
+    -t, --temperature  sampling temperature (default 1.0)
     -m, --max-chars    max bytes generated (default 200)
     -s, --seed         RNG seed (default 0)
-    --model            'trigram_backoff' (default) | 'bigram'
+    --model            'trigram_backoff' (default) | 'bigram' | 'charrnn'
 """
 
 from __future__ import annotations
@@ -39,7 +41,34 @@ def build_model(kind: str):
         m = NGram(2, alpha=1.0)
         m.train(train)
         return m, "bigram laplace (alpha=1.0)"
+    if kind == "charrnn":
+        return _load_charrnn()
     raise ValueError(f"unknown model kind: {kind}")
+
+
+def _load_charrnn():
+    try:
+        import torch
+    except ImportError:
+        raise RuntimeError(
+            "charrnn requires torch.  Run: "
+            "local-genai/.venv/bin/python local-genai/chat.py --model charrnn")
+    from candidates.charrnn_real import CharRNN, generate as _gen
+
+    ckpt_path = HERE / "out" / "charrnn_winner.pt"
+    if not ckpt_path.exists():
+        raise RuntimeError(
+            "no charrnn checkpoint at out/charrnn_winner.pt — "
+            "run train_stage2.py first")
+    ckpt = torch.load(ckpt_path, weights_only=False, map_location="cpu")
+    cfg = ckpt["config"]
+    model = CharRNN(hidden=cfg["hidden"], cell=cfg["cell"],
+                    dropout=0.0, tied=cfg["tied"])
+    model.load_state_dict(ckpt["state_dict"])
+    model.eval()
+    label = (f"CharRNN {ckpt['name']} ({ckpt['style']}) "
+             f"params={ckpt['params']:,} ppl={ckpt['holdout_ppl']:.2f}")
+    return ("__charrnn__", model, _gen), label
 
 
 def _next_byte(model, ctx_bytes: bytes, rng: random.Random,
@@ -70,6 +99,14 @@ def _next_byte(model, ctx_bytes: bytes, rng: random.Random,
 
 def generate(model, prompt: str, max_chars: int = 200,
              temperature: float = 1.0, seed: int = 0) -> str:
+    # CharRNN backend: model is a tuple (sentinel, torch_model, gen_fn).
+    if isinstance(model, tuple) and len(model) == 3 and model[0] == "__charrnn__":
+        _, torch_model, gen_fn = model
+        seed_bytes = prompt.encode("utf-8") or b". "
+        out_bytes = gen_fn(torch_model, seed_bytes, max_chars=max_chars,
+                           temperature=temperature, seed=seed, device="cpu")
+        return out_bytes.decode("utf-8", errors="replace")
+
     rng = random.Random(seed)
     seed_bytes = prompt.encode("utf-8") or b". "
     out = bytearray(seed_bytes)
@@ -89,7 +126,7 @@ def parse_args():
     p.add_argument("-t", "--temperature", type=float, default=1.0)
     p.add_argument("-m", "--max-chars", type=int, default=200)
     p.add_argument("-s", "--seed", type=int, default=0)
-    p.add_argument("--model", choices=["trigram_backoff", "bigram"],
+    p.add_argument("--model", choices=["trigram_backoff", "bigram", "charrnn"],
                    default="trigram_backoff")
     return p.parse_args()
 

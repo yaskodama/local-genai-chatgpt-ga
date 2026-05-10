@@ -24,22 +24,46 @@ local-genai/
 
 ## 実行
 
-進化ループ:
+進化ループ (推定スコアで全 7 stage):
 
 ```sh
 python3 local-genai/evolve.py
 ```
 
-学習済み n-gram と対話 (stage 1 の実機モデル):
+Stage 1 の n-gram と対話 (stdlib のみ):
 
 ```sh
 python3 local-genai/chat.py                       # REPL
 python3 local-genai/chat.py "the early bird"      # 1 ショット
-python3 local-genai/chat.py -t 0.7 "absence makes"   # temperature
-python3 local-genai/chat.py --model bigram "practice" # 別モデル
+python3 local-genai/chat.py -t 0.7 "absence makes"
 ```
 
-依存は標準ライブラリのみ。 PyTorch がない環境でも動くように、
+Stage 2 (CharRNN) の実機学習と対話 (PyTorch + venv):
+
+```sh
+# venv 作成 (一度だけ)
+python3 -m venv local-genai/.venv
+local-genai/.venv/bin/pip install torch numpy
+
+# CharRNN 3 候補を実機学習し、 勝者を out/charrnn_winner.pt に保存
+local-genai/.venv/bin/python local-genai/train_stage2.py
+
+# 対話
+local-genai/.venv/bin/python local-genai/chat.py --model charrnn -t 0.8 "the early bird"
+```
+
+進化の効果 (実測):
+
+| stage | model | holdout ppl | 例 |
+|---|---|---|---|
+| 1 | trigram backoff | 15.52 | `absence makes and is nin eaut kin at in the a make...` |
+| 2 | CharRNN R2 (LSTM) | **4.48** | `absence makes temp.` (短いが文法的) |
+
+stage 2 で 3.4× の品質改善、 生成も明らかに英語に近づく。
+
+## ハイブリッド設計
+
+依存は基本標準ライブラリのみ。
 
 - **stage 1 NGramFreq** だけは実機学習 (numpy なし、 stdlib のみ) で
   本物の bigram/trigram/unigram を訓練し、 holdout perplexity を測る。
