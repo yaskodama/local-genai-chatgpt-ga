@@ -1,0 +1,222 @@
+// LocalGenAIScaledEvolutionJP.aice から自動変換した AIPL(AIPL) プログラム。
+// 入力 dialect: aice_evolution_v1
+// 形式チェックは外部工程。このプログラムは進化計算、3候補生成、3レビュー、選択、アーカイブ出力を行う。
+
+class LocalGenAIScaledEvolutionJP {
+  var task = "ローカル MacBook (M2, MPS) で動く byte 単位生成 AI を、 (corpus_size, param_class) を 対 として進化させる. 直前世代 (Stage 2 LSTM, 9.5KB, 198K params, ppl 4.48) を出発点にし、 コーパスを 10KB → 100KB → 500KB → 1MB と段階拡大しながら、 同じスケールで params を 200K → 700K → 2M → 5M へ伸ばす. 各世代で 'data_per_param が 50-200 byte/param 内' を必須条件とする. 終端は SemiAutoEvolveLocalLLM: ローカル LLM (Ollama 等) が次の mutation 候補を 3 案起草し、 人間が 1 案選ぶ半自動ループ. 全段階で実機学習は M2 MPS 30 分以内に終わらなければならない.";
+  var generator_persona = "あなたは進化計算の候補生成器です。指定された世代、親、遺伝子、突然変異、交叉に合う短い候補プログラムを1つ生成してください。説明は日本語で、候補コードは指定パラダイムに合わせて書いてください。最後に IMPROVES 行を1行だけ付けてください。";
+  var reviewer1_persona = "あなたは言語品質レビュアーです. 候補ジェノムから (corpus_size, params) ペアを確認し、 holdout ppl 期待値が data_per_param 比に整合しているかを見ます. data_per_param < 50 は overfit_warning. 採点は 4 軸 [holdout_ppl が世代の expected レンジ内か / 学習 loss 推移の合理性 / 退化モード耐性 / data_per_param が健全] それぞれ 0-3 点、 計 0-12 点. 期待 ppl レンジ (実測ベース) は (10KB,100K=4.0-5.5), (100KB,500K=2.8-3.5), (500KB,2M=2.2-2.8), (1MB,5M=1.9-2.4). 最後に最良候補番号を 1 行で返します.";
+  var reviewer2_persona = "あなたは効率レビュアーです. data_per_param 比 (50-200 byte/param) と train_time_estimate (M2 MPS 30 分以内) を最重視します. 採点は 4 軸 [data_per_param 比が 50-200 範囲 / params が世代上限内 / train_time<=30min / 推論最適化 (KV キャッシュ等)] それぞれ 0-3 点、 計 0-12 点. 世代上限は (Stage1-2: 200K, Stage3: 500K, Stage4: 1M, Stage5: 3M, Stage6: 6M, Stage7: 6M). 最後に最良候補番号を 1 行で返します.";
+  var reviewer3_persona = "あなたは再現性レビュアーです. 採点は 6 軸 [seed 固定 / corpus が SHA-256 ロック / corpus が公知ソース / 外部 API 不使用 / 依存最小 / 単一スクリプト + checkpoint 保存] それぞれ 0-2 点、 計 0-12 点 (本世代は項目を 1 つ増やす). ローカル LLM 利用は外部 API ではないので減点しない. 最後に最良候補番号を 1 行で返します.";
+  var selector_persona = "あなたは選択器です。3つの候補と3つのレビューを読み、最良候補を1つ選んでください。出力は 1|2|3 のどれかだけにしてください。";
+  var weights = "expected_holdout_ppl=0.30, data_per_param_health=0.20, train_time_budget=0.10, inference_efficiency=0.05, reproducibility=0.20, self_evolution_capability=0.10, evolvability=0.05";
+
+  method run() {
+    print("===== LocalGenAIScaledEvolutionJP =====");
+    print("dialect = aice_evolution_v1");
+    print("経路 = TinyBigram10KB_Inherited -> TinyCharRNN10KB_Inherited -> MidCharRNN100KB -> MidTransformer100KB -> fork { BigTransformer1MB -> DistilledMid1MB } -> SemiAutoEvolveLocalLLM");
+    print("候補数 = 3");
+    print("レビュアー数 = 3");
+    print("評価重み = " + weights);
+    print("");
+
+    print("===== 世代1: TinyBigram10KB_Inherited =====");
+    print("branch: main");
+    print("遺伝子: model_family=ngram_count; n=2; alpha=1.0; param_class=32K; corpus_size_class=10KB; data_per_param=27.0; engine=stdlib_only; expected_holdout_ppl=15.5; status=already_real_trained_in_LocalGenAIEvolutionJP");
+    print("突然変異: なし");
+    print("交叉: なし");
+    var tinybigram10kb_inherited_base = task + "\n\n世代: TinyBigram10KB_Inherited\nbranch: main\narchive: TinyBigram10KBWinner\n遺伝子: model_family=ngram_count; n=2; alpha=1.0; param_class=32K; corpus_size_class=10KB; data_per_param=27.0; engine=stdlib_only; expected_holdout_ppl=15.5; status=already_real_trained_in_LocalGenAIEvolutionJP\n突然変異: なし\n交叉: なし\n評価観点: reproducibility, baseline_anchor";
+    var tinybigram10kb_inherited_1 = ai_call_with_system(generator_persona, tinybigram10kb_inherited_base + "\n候補1 id=B1 style=char_bigram_laplace_existing。[B1] 既存の N1 を継承. 訓練済 counts は再計算可能. 9.5KB / 357 entries = data_per_param 27 byte/entry.");
+    var tinybigram10kb_inherited_2 = ai_call_with_system(generator_persona, tinybigram10kb_inherited_base + "\n候補2 id=B2 style=char_bigram_laplace_alpha05。[B2] alpha=1.0 を 0.5 にして smoothing を弱める. 期待 ppl 16-17 (hold out にレアな bigram があるとペナルティ).");
+    var tinybigram10kb_inherited_3 = ai_call_with_system(generator_persona, tinybigram10kb_inherited_base + "\n候補3 id=B3 style=char_bigram_kneser_ney。[B3] Kneser-Ney 風の discount + interpolation. 期待 ppl 14-15.5. stdlib のみで 50 行以内.");
+    print("--- TinyBigram10KB_Inherited candidate 1 ---"); print(tinybigram10kb_inherited_1);
+    print("--- TinyBigram10KB_Inherited candidate 2 ---"); print(tinybigram10kb_inherited_2);
+    print("--- TinyBigram10KB_Inherited candidate 3 ---"); print(tinybigram10kb_inherited_3);
+    var tinybigram10kb_inherited_payload = "世代 TinyBigram10KB_Inherited\\n候補:\\n1:\\n" + tinybigram10kb_inherited_1 + "\n\n2:\n" + tinybigram10kb_inherited_2 + "\n\n3:\n" + tinybigram10kb_inherited_3;
+    var tinybigram10kb_inherited_r1 = ai_call_with_system(reviewer1_persona, tinybigram10kb_inherited_payload);
+    var tinybigram10kb_inherited_r2 = ai_call_with_system(reviewer2_persona, tinybigram10kb_inherited_payload);
+    var tinybigram10kb_inherited_r3 = ai_call_with_system(reviewer3_persona, tinybigram10kb_inherited_payload);
+    print("[review QualityReviewer TinyBigram10KB_Inherited]"); print(tinybigram10kb_inherited_r1);
+    print("[review EfficiencyReviewer TinyBigram10KB_Inherited]"); print(tinybigram10kb_inherited_r2);
+    print("[review ReproducibilityReviewer TinyBigram10KB_Inherited]"); print(tinybigram10kb_inherited_r3);
+    var tinybigram10kb_inherited_pick = ai_call_with_system(selector_persona, tinybigram10kb_inherited_payload + "\n\nレビュー:\n" + tinybigram10kb_inherited_r1 + "\n" + tinybigram10kb_inherited_r2 + "\n" + tinybigram10kb_inherited_r3);
+    var TinyBigram10KBWinner = tinybigram10kb_inherited_1;
+    if (tinybigram10kb_inherited_pick == "2") { TinyBigram10KBWinner = tinybigram10kb_inherited_2; }
+    if (tinybigram10kb_inherited_pick == "3") { TinyBigram10KBWinner = tinybigram10kb_inherited_3; }
+    print("[selector picked TinyBigram10KB_Inherited: " + tinybigram10kb_inherited_pick + "]");
+    print("[aice/archive] BEGIN TinyBigram10KBWinner"); print(TinyBigram10KBWinner); print("[aice/archive] END TinyBigram10KBWinner");
+    print("");
+
+    print("===== 世代2: TinyCharRNN10KB_Inherited =====");
+    print("branch: main");
+    print("遺伝子: model_family=char_rnn; cell=LSTM; embed_dim=128; hidden_dim=128; tied=false; dropout=0; param_class=200K; corpus_size_class=10KB; data_per_param=0.05_byte_per_param; engine=pytorch_cpu; expected_holdout_ppl=4.5; status=already_real_trained_R2_winner; checkpoint=local-genai/out/charrnn_winner.pt; warning=overfit_data_per_param_below_50");
+    print("突然変異: M1_NGram_to_CharRNN inherited");
+    print("交叉: なし");
+    var tinycharrnn10kb_inherited_base = task + "\n\n世代: TinyCharRNN10KB_Inherited\nbranch: main\narchive: TinyCharRNN10KBWinner\n遺伝子: model_family=char_rnn; cell=LSTM; embed_dim=128; hidden_dim=128; tied=false; dropout=0; param_class=200K; corpus_size_class=10KB; data_per_param=0.05_byte_per_param; engine=pytorch_cpu; expected_holdout_ppl=4.5; status=already_real_trained_R2_winner; checkpoint=local-genai/out/charrnn_winner.pt; warning=overfit_data_per_param_below_50\n突然変異: M1_NGram_to_CharRNN inherited\n交叉: なし\n評価観点: expected_holdout_ppl, baseline_for_scaling\n親: TinyBigram10KBWinner" + "\n\n親 TinyBigram10KBWinner:\n" + TinyBigram10KBWinner;
+    var tinycharrnn10kb_inherited_1 = ai_call_with_system(generator_persona, tinycharrnn10kb_inherited_base + "\n候補1 id=C1 style=lstm_untied_existing_winner。[C1] 既存 R2 を継承. 学習済 checkpoint あり. ppl 4.48. 注: data_per_param=0.05 は厳しい overfit 領域. 次世代でコーパス拡大が必須.");
+    var tinycharrnn10kb_inherited_2 = ai_call_with_system(generator_persona, tinycharrnn10kb_inherited_base + "\n候補2 id=TinyCharRNN10KB_Inherited2 style=variant_2。この世代に合う別案を生成する。");
+    var tinycharrnn10kb_inherited_3 = ai_call_with_system(generator_persona, tinycharrnn10kb_inherited_base + "\n候補3 id=TinyCharRNN10KB_Inherited3 style=variant_3。この世代に合う別案を生成する。");
+    print("--- TinyCharRNN10KB_Inherited candidate 1 ---"); print(tinycharrnn10kb_inherited_1);
+    print("--- TinyCharRNN10KB_Inherited candidate 2 ---"); print(tinycharrnn10kb_inherited_2);
+    print("--- TinyCharRNN10KB_Inherited candidate 3 ---"); print(tinycharrnn10kb_inherited_3);
+    var tinycharrnn10kb_inherited_payload = "世代 TinyCharRNN10KB_Inherited\\n候補:\\n1:\\n" + tinycharrnn10kb_inherited_1 + "\n\n2:\n" + tinycharrnn10kb_inherited_2 + "\n\n3:\n" + tinycharrnn10kb_inherited_3;
+    var tinycharrnn10kb_inherited_r1 = ai_call_with_system(reviewer1_persona, tinycharrnn10kb_inherited_payload);
+    var tinycharrnn10kb_inherited_r2 = ai_call_with_system(reviewer2_persona, tinycharrnn10kb_inherited_payload);
+    var tinycharrnn10kb_inherited_r3 = ai_call_with_system(reviewer3_persona, tinycharrnn10kb_inherited_payload);
+    print("[review QualityReviewer TinyCharRNN10KB_Inherited]"); print(tinycharrnn10kb_inherited_r1);
+    print("[review EfficiencyReviewer TinyCharRNN10KB_Inherited]"); print(tinycharrnn10kb_inherited_r2);
+    print("[review ReproducibilityReviewer TinyCharRNN10KB_Inherited]"); print(tinycharrnn10kb_inherited_r3);
+    var tinycharrnn10kb_inherited_pick = ai_call_with_system(selector_persona, tinycharrnn10kb_inherited_payload + "\n\nレビュー:\n" + tinycharrnn10kb_inherited_r1 + "\n" + tinycharrnn10kb_inherited_r2 + "\n" + tinycharrnn10kb_inherited_r3);
+    var TinyCharRNN10KBWinner = tinycharrnn10kb_inherited_1;
+    if (tinycharrnn10kb_inherited_pick == "2") { TinyCharRNN10KBWinner = tinycharrnn10kb_inherited_2; }
+    if (tinycharrnn10kb_inherited_pick == "3") { TinyCharRNN10KBWinner = tinycharrnn10kb_inherited_3; }
+    print("[selector picked TinyCharRNN10KB_Inherited: " + tinycharrnn10kb_inherited_pick + "]");
+    print("[aice/archive] BEGIN TinyCharRNN10KBWinner"); print(TinyCharRNN10KBWinner); print("[aice/archive] END TinyCharRNN10KBWinner");
+    print("");
+
+    print("===== fork from TinyCharRNN10KBWinner =====");
+    print("");
+
+    print("===== 世代3: MidCharRNN100KB =====");
+    print("branch: main");
+    print("遺伝子: model_family=char_rnn; cell=LSTM; embed_dim=128; hidden_dim=128; tied=false; dropout=0.05; param_class=200K; corpus_size_class=100KB; data_per_param=0.5_byte_per_param; engine=pytorch_cpu_or_mps; expected_holdout_ppl=3.5-4.0; expected_train_time_min=10");
+    print("突然変異: M1_Scale_Corpus_10x");
+    print("交叉: なし");
+    var midcharrnn100kb_base = task + "\n\n世代: MidCharRNN100KB\nbranch: main\narchive: MidCharRNN100KBWinner\n遺伝子: model_family=char_rnn; cell=LSTM; embed_dim=128; hidden_dim=128; tied=false; dropout=0.05; param_class=200K; corpus_size_class=100KB; data_per_param=0.5_byte_per_param; engine=pytorch_cpu_or_mps; expected_holdout_ppl=3.5-4.0; expected_train_time_min=10\n突然変異: M1_Scale_Corpus_10x\n交叉: なし\n評価観点: expected_holdout_ppl, data_per_param_health\n親: TinyCharRNN10KBWinner" + "\n\n親 TinyCharRNN10KBWinner:\n" + TinyCharRNN10KBWinner;
+    var midcharrnn100kb_1 = ai_call_with_system(generator_persona, midcharrnn100kb_base + "\n候補1 id=M1A style=same_lstm_more_data。[M1A same_lstm_more_data] arch: 既存 R2 LSTM そのまま (hidden=128, untied). corpus: tinyshakespeare 最初 100KB (PG2700 由来 / SHA-256 ロック). レシピ: AdamW(lr=2e-3, wd=0.01), batch=64, BPTT=128, steps=4000, warmup=200, MPS, dropout=0.05. 期待: params=198K 不変, ppl=3.7, train=12 min. データ 10x で過学習が緩和され ppl 4.5 -> 3.7 を狙う.");
+    var midcharrnn100kb_2 = ai_call_with_system(generator_persona, midcharrnn100kb_base + "\n候補2 id=M1B style=lstm_with_dropout_010。[M1B lstm_with_dropout_010] M1A と同じだが dropout=0.10 に上げる. 期待: train_ppl 上昇 +0.5, holdout_ppl=3.6 (汎化向上). 100KB データではまだ dropout が効く.");
+    var midcharrnn100kb_3 = ai_call_with_system(generator_persona, midcharrnn100kb_base + "\n候補3 id=M1C style=smaller_lstm_hidden_96。[M1C smaller_lstm_hidden_96] arch: hidden=96 に縮小. params=130K, data_per_param=0.77 byte/param へ改善. 期待: ppl=3.9 (微悪化) だが効率レビュアーが評価.");
+    print("--- MidCharRNN100KB candidate 1 ---"); print(midcharrnn100kb_1);
+    print("--- MidCharRNN100KB candidate 2 ---"); print(midcharrnn100kb_2);
+    print("--- MidCharRNN100KB candidate 3 ---"); print(midcharrnn100kb_3);
+    var midcharrnn100kb_payload = "世代 MidCharRNN100KB\\n候補:\\n1:\\n" + midcharrnn100kb_1 + "\n\n2:\n" + midcharrnn100kb_2 + "\n\n3:\n" + midcharrnn100kb_3;
+    var midcharrnn100kb_r1 = ai_call_with_system(reviewer1_persona, midcharrnn100kb_payload);
+    var midcharrnn100kb_r2 = ai_call_with_system(reviewer2_persona, midcharrnn100kb_payload);
+    var midcharrnn100kb_r3 = ai_call_with_system(reviewer3_persona, midcharrnn100kb_payload);
+    print("[review QualityReviewer MidCharRNN100KB]"); print(midcharrnn100kb_r1);
+    print("[review EfficiencyReviewer MidCharRNN100KB]"); print(midcharrnn100kb_r2);
+    print("[review ReproducibilityReviewer MidCharRNN100KB]"); print(midcharrnn100kb_r3);
+    var midcharrnn100kb_pick = ai_call_with_system(selector_persona, midcharrnn100kb_payload + "\n\nレビュー:\n" + midcharrnn100kb_r1 + "\n" + midcharrnn100kb_r2 + "\n" + midcharrnn100kb_r3);
+    var MidCharRNN100KBWinner = midcharrnn100kb_1;
+    if (midcharrnn100kb_pick == "2") { MidCharRNN100KBWinner = midcharrnn100kb_2; }
+    if (midcharrnn100kb_pick == "3") { MidCharRNN100KBWinner = midcharrnn100kb_3; }
+    print("[selector picked MidCharRNN100KB: " + midcharrnn100kb_pick + "]");
+    print("[aice/archive] BEGIN MidCharRNN100KBWinner"); print(MidCharRNN100KBWinner); print("[aice/archive] END MidCharRNN100KBWinner");
+    print("");
+
+    print("===== 世代4: MidTransformer100KB =====");
+    print("branch: main");
+    print("遺伝子: model_family=multi_block_transformer; depth=4; n_heads=4; d_model=128; ffn_mult=4; vocab=256; ctx=128; positional=rope; normalization=rmsnorm; tied=true; dropout=0.05; param_class=500K; corpus_size_class=100KB; data_per_param=0.20_byte_per_param; engine=pytorch_mps; expected_holdout_ppl=2.9-3.4; expected_train_time_min=15");
+    print("突然変異: M2_Add_Transformer_Block, M3_Add_Dropout_For_Generalization, M4_RoPE_Plus_RMSNorm, M5_Add_KVCache_Inference");
+    print("交叉: なし");
+    var midtransformer100kb_base = task + "\n\n世代: MidTransformer100KB\nbranch: main\narchive: MidTransformer100KBWinner\n遺伝子: model_family=multi_block_transformer; depth=4; n_heads=4; d_model=128; ffn_mult=4; vocab=256; ctx=128; positional=rope; normalization=rmsnorm; tied=true; dropout=0.05; param_class=500K; corpus_size_class=100KB; data_per_param=0.20_byte_per_param; engine=pytorch_mps; expected_holdout_ppl=2.9-3.4; expected_train_time_min=15\n突然変異: M2_Add_Transformer_Block, M3_Add_Dropout_For_Generalization, M4_RoPE_Plus_RMSNorm, M5_Add_KVCache_Inference\n交叉: なし\n評価観点: expected_holdout_ppl, parameter_efficiency, inference_efficiency\n親: MidCharRNN100KBWinner" + "\n\n親 MidCharRNN100KBWinner:\n" + MidCharRNN100KBWinner;
+    var midtransformer100kb_1 = ai_call_with_system(generator_persona, midtransformer100kb_base + "\n候補1 id=T4A style=depth4_h4_d128_rope_rmsnorm_drop005。[T4A] arch: depth=4, n_heads=4, d_model=128, ffn_mult=4, RoPE, RMSNorm, tied, dropout=0.05, KV cache. params ≒ 2*256*128 + 4*(4*128^2 + 2*128*4*128) ≒ 100K + 525K - 32K(tied) ≒ 593K. レシピ: AdamW(lr=3e-4 -> cosine 3e-5), batch=32, ctx=128, steps=4000, warmup=400, MPS. 期待: ppl=3.0, train=14 min, infer x4 KV. 出力: tx_train.py + tx_chat.py.");
+    var midtransformer100kb_2 = ai_call_with_system(generator_persona, midtransformer100kb_base + "\n候補2 id=T4B style=depth6_h4_d96_thinner。[T4B] depth=6 にしつつ d_model=96 で params を 530K に抑える. data_per_param=0.19. 期待: ppl=3.1 (深さで稼ぐ), train=16 min.");
+    var midtransformer100kb_3 = ai_call_with_system(generator_persona, midtransformer100kb_base + "\n候補3 id=T4C style=depth4_h8_d96_more_heads。[T4C] n_heads=8 (head_dim=12) で頭ごと専門化. d_model=96, params=350K. data_per_param=0.29. 期待: ppl=3.2, train=12 min, 効率が高い.");
+    print("--- MidTransformer100KB candidate 1 ---"); print(midtransformer100kb_1);
+    print("--- MidTransformer100KB candidate 2 ---"); print(midtransformer100kb_2);
+    print("--- MidTransformer100KB candidate 3 ---"); print(midtransformer100kb_3);
+    var midtransformer100kb_payload = "世代 MidTransformer100KB\\n候補:\\n1:\\n" + midtransformer100kb_1 + "\n\n2:\n" + midtransformer100kb_2 + "\n\n3:\n" + midtransformer100kb_3;
+    var midtransformer100kb_r1 = ai_call_with_system(reviewer1_persona, midtransformer100kb_payload);
+    var midtransformer100kb_r2 = ai_call_with_system(reviewer2_persona, midtransformer100kb_payload);
+    var midtransformer100kb_r3 = ai_call_with_system(reviewer3_persona, midtransformer100kb_payload);
+    print("[review QualityReviewer MidTransformer100KB]"); print(midtransformer100kb_r1);
+    print("[review EfficiencyReviewer MidTransformer100KB]"); print(midtransformer100kb_r2);
+    print("[review ReproducibilityReviewer MidTransformer100KB]"); print(midtransformer100kb_r3);
+    var midtransformer100kb_pick = ai_call_with_system(selector_persona, midtransformer100kb_payload + "\n\nレビュー:\n" + midtransformer100kb_r1 + "\n" + midtransformer100kb_r2 + "\n" + midtransformer100kb_r3);
+    var MidTransformer100KBWinner = midtransformer100kb_1;
+    if (midtransformer100kb_pick == "2") { MidTransformer100KBWinner = midtransformer100kb_2; }
+    if (midtransformer100kb_pick == "3") { MidTransformer100KBWinner = midtransformer100kb_3; }
+    print("[selector picked MidTransformer100KB: " + midtransformer100kb_pick + "]");
+    print("[aice/archive] BEGIN MidTransformer100KBWinner"); print(MidTransformer100KBWinner); print("[aice/archive] END MidTransformer100KBWinner");
+    print("");
+
+    print("===== 世代5: BigTransformer1MB =====");
+    print("branch: scale_path");
+    print("遺伝子: model_family=multi_block_transformer; depth=6; n_heads=8; d_model=192; ffn_mult=4; vocab=256; ctx=256; positional=rope; normalization=rmsnorm; tied=true; dropout=0.05; param_class=3M; corpus_size_class=1MB; data_per_param=0.30_byte_per_param; engine=pytorch_mps; expected_holdout_ppl=2.0-2.4; expected_train_time_min=25");
+    print("突然変異: M1_Scale_Corpus_10x, M2_Add_Transformer_Block");
+    print("交叉: なし");
+    var bigtransformer1mb_base = task + "\n\n世代: BigTransformer1MB\nbranch: scale_path\narchive: BigTransformer1MBWinner\n遺伝子: model_family=multi_block_transformer; depth=6; n_heads=8; d_model=192; ffn_mult=4; vocab=256; ctx=256; positional=rope; normalization=rmsnorm; tied=true; dropout=0.05; param_class=3M; corpus_size_class=1MB; data_per_param=0.30_byte_per_param; engine=pytorch_mps; expected_holdout_ppl=2.0-2.4; expected_train_time_min=25\n突然変異: M1_Scale_Corpus_10x, M2_Add_Transformer_Block\n交叉: なし\n評価観点: expected_holdout_ppl, parameter_efficiency, train_time_budget\n親: MidTransformer100KBWinner" + "\n\n親 MidTransformer100KBWinner:\n" + MidTransformer100KBWinner;
+    var bigtransformer1mb_1 = ai_call_with_system(generator_persona, bigtransformer1mb_base + "\n候補1 id=B5A style=depth6_h8_d192_ctx256。[B5A] arch: depth=6, n_heads=8 (head_dim=24), d_model=192, ffn_mult=4, RoPE, RMSNorm, tied, dropout=0.05, KV cache, ctx=256. params ≒ 2*256*192 + 6*(4*192^2 + 2*192*4*192) - 49K(tied) ≒ 3.4M. corpus=tinyshakespeare 1.1MB full. レシピ: AdamW(lr=3e-4 cosine 3e-5), batch=32, ctx=256, steps=8000, warmup=800, MPS, bf16. 期待: ppl=2.2, train=24 min, infer x5 KV. data_per_param=0.32.");
+    var bigtransformer1mb_2 = ai_call_with_system(generator_persona, bigtransformer1mb_base + "\n候補2 id=B5B style=depth8_h4_d160_thinner。[B5B] depth=8, d_model=160. params=2.7M, data_per_param=0.41. 期待: ppl=2.3 (深さで稼ぐ), train=27 min.");
+    var bigtransformer1mb_3 = ai_call_with_system(generator_persona, bigtransformer1mb_base + "\n候補3 id=B5C style=depth4_h8_d256_wider。[B5C] depth=4, d_model=256. params=3.2M, data_per_param=0.34. wide-shallow. 期待: ppl=2.4, train=22 min, 推論は遅め.");
+    print("--- BigTransformer1MB candidate 1 ---"); print(bigtransformer1mb_1);
+    print("--- BigTransformer1MB candidate 2 ---"); print(bigtransformer1mb_2);
+    print("--- BigTransformer1MB candidate 3 ---"); print(bigtransformer1mb_3);
+    var bigtransformer1mb_payload = "世代 BigTransformer1MB\\n候補:\\n1:\\n" + bigtransformer1mb_1 + "\n\n2:\n" + bigtransformer1mb_2 + "\n\n3:\n" + bigtransformer1mb_3;
+    var bigtransformer1mb_r1 = ai_call_with_system(reviewer1_persona, bigtransformer1mb_payload);
+    var bigtransformer1mb_r2 = ai_call_with_system(reviewer2_persona, bigtransformer1mb_payload);
+    var bigtransformer1mb_r3 = ai_call_with_system(reviewer3_persona, bigtransformer1mb_payload);
+    print("[review QualityReviewer BigTransformer1MB]"); print(bigtransformer1mb_r1);
+    print("[review EfficiencyReviewer BigTransformer1MB]"); print(bigtransformer1mb_r2);
+    print("[review ReproducibilityReviewer BigTransformer1MB]"); print(bigtransformer1mb_r3);
+    var bigtransformer1mb_pick = ai_call_with_system(selector_persona, bigtransformer1mb_payload + "\n\nレビュー:\n" + bigtransformer1mb_r1 + "\n" + bigtransformer1mb_r2 + "\n" + bigtransformer1mb_r3);
+    var BigTransformer1MBWinner = bigtransformer1mb_1;
+    if (bigtransformer1mb_pick == "2") { BigTransformer1MBWinner = bigtransformer1mb_2; }
+    if (bigtransformer1mb_pick == "3") { BigTransformer1MBWinner = bigtransformer1mb_3; }
+    print("[selector picked BigTransformer1MB: " + bigtransformer1mb_pick + "]");
+    print("[aice/archive] BEGIN BigTransformer1MBWinner"); print(BigTransformer1MBWinner); print("[aice/archive] END BigTransformer1MBWinner");
+    print("");
+
+    print("===== 世代6: DistilledMid1MB =====");
+    print("branch: scale_path");
+    print("遺伝子: model_family=multi_block_transformer_compact; depth=4; n_heads=4; d_model=160; ffn_mult=4; vocab=256; ctx=256; positional=rope; normalization=rmsnorm; tied=true; dropout=0.05; param_class=2M; corpus_size_class=1MB; data_per_param=0.55_byte_per_param; engine=pytorch_mps; teacher=BigTransformer1MBWinner; distill_temperature=2.0; loss_mix=alpha=0.5; expected_holdout_ppl=2.2-2.5; expected_train_time_min=20");
+    print("突然変異: M6_Distill_From_Teacher, M5_Add_KVCache_Inference");
+    print("交叉: C1_Distill_From_BigTransformer");
+    var distilledmid1mb_base = task + "\n\n世代: DistilledMid1MB\nbranch: scale_path\narchive: DistilledMid1MBWinner\n遺伝子: model_family=multi_block_transformer_compact; depth=4; n_heads=4; d_model=160; ffn_mult=4; vocab=256; ctx=256; positional=rope; normalization=rmsnorm; tied=true; dropout=0.05; param_class=2M; corpus_size_class=1MB; data_per_param=0.55_byte_per_param; engine=pytorch_mps; teacher=BigTransformer1MBWinner; distill_temperature=2.0; loss_mix=alpha=0.5; expected_holdout_ppl=2.2-2.5; expected_train_time_min=20\n突然変異: M6_Distill_From_Teacher, M5_Add_KVCache_Inference\n交叉: C1_Distill_From_BigTransformer\n評価観点: expected_holdout_ppl, parameter_efficiency, inference_efficiency\n親: BigTransformer1MBWinner, MidTransformer100KBWinner" + "\n\n親 BigTransformer1MBWinner:\n" + BigTransformer1MBWinner + "\n\n親 MidTransformer100KBWinner:\n" + MidTransformer100KBWinner;
+    var distilledmid1mb_1 = ai_call_with_system(generator_persona, distilledmid1mb_base + "\n候補1 id=D6A style=soft_label_T2_alpha05。[D6A] arch: depth=4, h=4, d=160 の 2M-param 生徒. 教師=BigTransformer1MB winner (state dict をロード). T=2.0, alpha=0.5, AdamW lr=3e-4, batch=32, steps=4500, MPS. 期待: ppl=2.3 (教師にほぼ追いつく), train=18 min. inference_throughput は教師比 x1.7 (params 2/3).");
+    var distilledmid1mb_2 = ai_call_with_system(generator_persona, distilledmid1mb_base + "\n候補2 id=D6B style=intermediate_layer_match。[D6B] D6A + 各層の hidden state MSE を加える (FitNets 風). beta=0.2. 教師と生徒の depth が一致 (4=4) なので層対応可. 期待: ppl=2.25, train=21 min.");
+    var distilledmid1mb_3 = ai_call_with_system(generator_persona, distilledmid1mb_base + "\n候補3 id=D6C style=data_only_distill_no_logits。[D6C] 教師に追加で 1MB 生成させ、 生徒は素直に CE 学習. logits は使わない. 期待: ppl=2.4 (D6A より 0.1 悪い), train=18 min + 教師生成 5 min. 単純さ.");
+    print("--- DistilledMid1MB candidate 1 ---"); print(distilledmid1mb_1);
+    print("--- DistilledMid1MB candidate 2 ---"); print(distilledmid1mb_2);
+    print("--- DistilledMid1MB candidate 3 ---"); print(distilledmid1mb_3);
+    var distilledmid1mb_payload = "世代 DistilledMid1MB\\n候補:\\n1:\\n" + distilledmid1mb_1 + "\n\n2:\n" + distilledmid1mb_2 + "\n\n3:\n" + distilledmid1mb_3;
+    var distilledmid1mb_r1 = ai_call_with_system(reviewer1_persona, distilledmid1mb_payload);
+    var distilledmid1mb_r2 = ai_call_with_system(reviewer2_persona, distilledmid1mb_payload);
+    var distilledmid1mb_r3 = ai_call_with_system(reviewer3_persona, distilledmid1mb_payload);
+    print("[review QualityReviewer DistilledMid1MB]"); print(distilledmid1mb_r1);
+    print("[review EfficiencyReviewer DistilledMid1MB]"); print(distilledmid1mb_r2);
+    print("[review ReproducibilityReviewer DistilledMid1MB]"); print(distilledmid1mb_r3);
+    var distilledmid1mb_pick = ai_call_with_system(selector_persona, distilledmid1mb_payload + "\n\nレビュー:\n" + distilledmid1mb_r1 + "\n" + distilledmid1mb_r2 + "\n" + distilledmid1mb_r3);
+    var DistilledMid1MBWinner = distilledmid1mb_1;
+    if (distilledmid1mb_pick == "2") { DistilledMid1MBWinner = distilledmid1mb_2; }
+    if (distilledmid1mb_pick == "3") { DistilledMid1MBWinner = distilledmid1mb_3; }
+    print("[selector picked DistilledMid1MB: " + distilledmid1mb_pick + "]");
+    print("[aice/archive] BEGIN DistilledMid1MBWinner"); print(DistilledMid1MBWinner); print("[aice/archive] END DistilledMid1MBWinner");
+    print("");
+
+    print("===== 世代7: SemiAutoEvolveLocalLLM =====");
+    print("branch: join");
+    print("遺伝子: model_family=multi_block_transformer_compact_self_evolving; depth=4; n_heads=4; d_model=160; ffn_mult=4; param_class=2M; corpus_size_class=1MB; data_per_param=0.55_byte_per_param; engine=pytorch_mps; training_paradigm=continue_distill_with_self_proposed_mutation; self_evolution=local_ollama_proposes_3_mutations; loop_protocol={input=[full_aice_history, mutation_log, reviewer_scores_per_stage, fitness_trajectory, current_archive], output=[3_mutation_blocks_in_aice_format_with_expected_delta], filtering=human_picks_one, regression_guard=next_holdout_ppl_must_not_increase_by_more_than_0.2}; ollama_model_default=gemma2:2b; expected_holdout_ppl=2.1-2.4");
+    print("突然変異: M7_Local_LLM_Proposes_Mutations");
+    print("交叉: C2_LLMProposal_Plus_Reviewer_History");
+    var semiautoevolvelocalllm_base = task + "\n\n世代: SemiAutoEvolveLocalLLM\nbranch: join\narchive: SemiAutoEvolveLocalLLMWinner\n遺伝子: model_family=multi_block_transformer_compact_self_evolving; depth=4; n_heads=4; d_model=160; ffn_mult=4; param_class=2M; corpus_size_class=1MB; data_per_param=0.55_byte_per_param; engine=pytorch_mps; training_paradigm=continue_distill_with_self_proposed_mutation; self_evolution=local_ollama_proposes_3_mutations; loop_protocol={input=[full_aice_history, mutation_log, reviewer_scores_per_stage, fitness_trajectory, current_archive], output=[3_mutation_blocks_in_aice_format_with_expected_delta], filtering=human_picks_one, regression_guard=next_holdout_ppl_must_not_increase_by_more_than_0.2}; ollama_model_default=gemma2:2b; expected_holdout_ppl=2.1-2.4\n突然変異: M7_Local_LLM_Proposes_Mutations\n交叉: C2_LLMProposal_Plus_Reviewer_History\n評価観点: self_evolution_capability, evolvability, reproducibility\n親: DistilledMid1MBWinner, BigTransformer1MBWinner" + "\n\n親 DistilledMid1MBWinner:\n" + DistilledMid1MBWinner + "\n\n親 BigTransformer1MBWinner:\n" + BigTransformer1MBWinner;
+    var semiautoevolvelocalllm_1 = ai_call_with_system(generator_persona, semiautoevolvelocalllm_base + "\n候補1 id=SE7A style=ollama_drafts_three_mutations。[SE7A] 入力 = [本 .aice 全文, 既存 mutation list, 各世代の 3 reviewer 累積点数, 現 archive の checkpoint metadata]. プロセス: ローカル Ollama (デフォルト gemma2:2b) に system prompt として 'aice mutation block 形式で 3 案を起草. 既存 M1-M7 と名前重複禁止. 各 mutation に kind/changes/expected_delta/reason を 1 行ずつ. 提案後、 dry-run estimator で overfit_warning が出る案は自動除外して残りを human に提示.' 出力 = mutation ブロック x3. 人間は 1 案を選んで .aice に追記.");
+    var semiautoevolvelocalllm_2 = ai_call_with_system(generator_persona, semiautoevolvelocalllm_base + "\n候補2 id=SE7B style=ollama_writes_full_next_stage。[SE7B] SE7A をさらに進めて、 mutation だけでなく次の stage 全体 (genome + 3 candidates + 期待 fitness + 親 archive) を 1 つ起草する. regression_guard: dry-run で次世代 holdout_ppl が現 archive より 0.2 以上悪化する設計は自動拒否. リスクは aice 編集規模, 利点は 1 案=次世代まるごと.");
+    var semiautoevolvelocalllm_3 = ai_call_with_system(generator_persona, semiautoevolvelocalllm_base + "\n候補3 id=SE7C style=ollama_critiques_then_proposes。[SE7C] 前世代 (DistilledMid1MB) の最良候補の弱点を Ollama に 3 行で自己批評させ、 その弱点だけを埋める変異を 3 案提案する. 多様性は減るが提案精度は上がる. 過去 reviewer 採点で伸び悩んだ軸 (例: data_per_param_health) を狙い撃ちにできる.");
+    print("--- SemiAutoEvolveLocalLLM candidate 1 ---"); print(semiautoevolvelocalllm_1);
+    print("--- SemiAutoEvolveLocalLLM candidate 2 ---"); print(semiautoevolvelocalllm_2);
+    print("--- SemiAutoEvolveLocalLLM candidate 3 ---"); print(semiautoevolvelocalllm_3);
+    var semiautoevolvelocalllm_payload = "世代 SemiAutoEvolveLocalLLM\\n候補:\\n1:\\n" + semiautoevolvelocalllm_1 + "\n\n2:\n" + semiautoevolvelocalllm_2 + "\n\n3:\n" + semiautoevolvelocalllm_3;
+    var semiautoevolvelocalllm_r1 = ai_call_with_system(reviewer1_persona, semiautoevolvelocalllm_payload);
+    var semiautoevolvelocalllm_r2 = ai_call_with_system(reviewer2_persona, semiautoevolvelocalllm_payload);
+    var semiautoevolvelocalllm_r3 = ai_call_with_system(reviewer3_persona, semiautoevolvelocalllm_payload);
+    print("[review QualityReviewer SemiAutoEvolveLocalLLM]"); print(semiautoevolvelocalllm_r1);
+    print("[review EfficiencyReviewer SemiAutoEvolveLocalLLM]"); print(semiautoevolvelocalllm_r2);
+    print("[review ReproducibilityReviewer SemiAutoEvolveLocalLLM]"); print(semiautoevolvelocalllm_r3);
+    var semiautoevolvelocalllm_pick = ai_call_with_system(selector_persona, semiautoevolvelocalllm_payload + "\n\nレビュー:\n" + semiautoevolvelocalllm_r1 + "\n" + semiautoevolvelocalllm_r2 + "\n" + semiautoevolvelocalllm_r3);
+    var SemiAutoEvolveLocalLLMWinner = semiautoevolvelocalllm_1;
+    if (semiautoevolvelocalllm_pick == "2") { SemiAutoEvolveLocalLLMWinner = semiautoevolvelocalllm_2; }
+    if (semiautoevolvelocalllm_pick == "3") { SemiAutoEvolveLocalLLMWinner = semiautoevolvelocalllm_3; }
+    print("[selector picked SemiAutoEvolveLocalLLM: " + semiautoevolvelocalllm_pick + "]");
+    print("[aice/archive] BEGIN SemiAutoEvolveLocalLLMWinner"); print(SemiAutoEvolveLocalLLMWinner); print("[aice/archive] END SemiAutoEvolveLocalLLMWinner");
+    print("");
+
+    print("===== レポート =====");
+    print("final_archive: SemiAutoEvolveLocalLLMWinner");
+    print(ai_usage());
+  }
+}
+
+var coordinator = new LocalGenAIScaledEvolutionJP();
+send coordinator.run();

@@ -1,0 +1,211 @@
+{
+  "name": "LocalGenAIScaledEvolutionJP",
+  "dialect": "aice_evolution_v1",
+  "runtime": "ocaml_abcl_cplus",
+  "input": "aice-z-evolution/examples/LocalGenAIScaledEvolutionJP.aice",
+  "abcl": "aice-z-evolution/out/LocalGenAIScaledEvolutionJP.abcl",
+  "report": "aice-z-evolution/out/LocalGenAIScaledEvolutionJP.report.md",
+  "final_archive": "SemiAutoEvolveLocalLLMWinner",
+  "stages": [
+    {
+      "name": "TinyBigram10KB_Inherited",
+      "order": 1,
+      "branch": "main",
+      "parents": [],
+      "archive": "TinyBigram10KBWinner",
+      "genome": "model_family=ngram_count; n=2; alpha=1.0; param_class=32K; corpus_size_class=10KB; data_per_param=27.0; engine=stdlib_only; expected_holdout_ppl=15.5; status=already_real_trained_in_LocalGenAIEvolutionJP",
+      "mutations": "",
+      "crossover": "",
+      "focus": "reproducibility, baseline_anchor",
+      "candidates": [
+        {
+          "name": "B1",
+          "style": "char_bigram_laplace_existing",
+          "prompt": "[B1] 既存の N1 を継承. 訓練済 counts は再計算可能. 9.5KB / 357 entries = data_per_param 27 byte/entry."
+        },
+        {
+          "name": "B2",
+          "style": "char_bigram_laplace_alpha05",
+          "prompt": "[B2] alpha=1.0 を 0.5 にして smoothing を弱める. 期待 ppl 16-17 (hold out にレアな bigram があるとペナルティ)."
+        },
+        {
+          "name": "B3",
+          "style": "char_bigram_kneser_ney",
+          "prompt": "[B3] Kneser-Ney 風の discount + interpolation. 期待 ppl 14-15.5. stdlib のみで 50 行以内."
+        }
+      ]
+    },
+    {
+      "name": "TinyCharRNN10KB_Inherited",
+      "order": 2,
+      "branch": "main",
+      "parents": [
+        "TinyBigram10KBWinner"
+      ],
+      "archive": "TinyCharRNN10KBWinner",
+      "genome": "model_family=char_rnn; cell=LSTM; embed_dim=128; hidden_dim=128; tied=false; dropout=0; param_class=200K; corpus_size_class=10KB; data_per_param=0.05_byte_per_param; engine=pytorch_cpu; expected_holdout_ppl=4.5; status=already_real_trained_R2_winner; checkpoint=local-genai/out/charrnn_winner.pt; warning=overfit_data_per_param_below_50",
+      "mutations": "M1_NGram_to_CharRNN inherited",
+      "crossover": "",
+      "focus": "expected_holdout_ppl, baseline_for_scaling",
+      "candidates": [
+        {
+          "name": "C1",
+          "style": "lstm_untied_existing_winner",
+          "prompt": "[C1] 既存 R2 を継承. 学習済 checkpoint あり. ppl 4.48. 注: data_per_param=0.05 は厳しい overfit 領域. 次世代でコーパス拡大が必須."
+        }
+      ]
+    },
+    {
+      "name": "MidCharRNN100KB",
+      "order": 3,
+      "branch": "main",
+      "parents": [
+        "TinyCharRNN10KBWinner"
+      ],
+      "archive": "MidCharRNN100KBWinner",
+      "genome": "model_family=char_rnn; cell=LSTM; embed_dim=128; hidden_dim=128; tied=false; dropout=0.05; param_class=200K; corpus_size_class=100KB; data_per_param=0.5_byte_per_param; engine=pytorch_cpu_or_mps; expected_holdout_ppl=3.5-4.0; expected_train_time_min=10",
+      "mutations": "M1_Scale_Corpus_10x",
+      "crossover": "",
+      "focus": "expected_holdout_ppl, data_per_param_health",
+      "candidates": [
+        {
+          "name": "M1A",
+          "style": "same_lstm_more_data",
+          "prompt": "[M1A same_lstm_more_data] arch: 既存 R2 LSTM そのまま (hidden=128, untied). corpus: tinyshakespeare 最初 100KB (PG2700 由来 / SHA-256 ロック). レシピ: AdamW(lr=2e-3, wd=0.01), batch=64, BPTT=128, steps=4000, warmup=200, MPS, dropout=0.05. 期待: params=198K 不変, ppl=3.7, train=12 min. データ 10x で過学習が緩和され ppl 4.5 -> 3.7 を狙う."
+        },
+        {
+          "name": "M1B",
+          "style": "lstm_with_dropout_010",
+          "prompt": "[M1B lstm_with_dropout_010] M1A と同じだが dropout=0.10 に上げる. 期待: train_ppl 上昇 +0.5, holdout_ppl=3.6 (汎化向上). 100KB データではまだ dropout が効く."
+        },
+        {
+          "name": "M1C",
+          "style": "smaller_lstm_hidden_96",
+          "prompt": "[M1C smaller_lstm_hidden_96] arch: hidden=96 に縮小. params=130K, data_per_param=0.77 byte/param へ改善. 期待: ppl=3.9 (微悪化) だが効率レビュアーが評価."
+        }
+      ]
+    },
+    {
+      "name": "MidTransformer100KB",
+      "order": 4,
+      "branch": "main",
+      "parents": [
+        "MidCharRNN100KBWinner"
+      ],
+      "archive": "MidTransformer100KBWinner",
+      "genome": "model_family=multi_block_transformer; depth=4; n_heads=4; d_model=128; ffn_mult=4; vocab=256; ctx=128; positional=rope; normalization=rmsnorm; tied=true; dropout=0.05; param_class=500K; corpus_size_class=100KB; data_per_param=0.20_byte_per_param; engine=pytorch_mps; expected_holdout_ppl=2.9-3.4; expected_train_time_min=15",
+      "mutations": "M2_Add_Transformer_Block, M3_Add_Dropout_For_Generalization, M4_RoPE_Plus_RMSNorm, M5_Add_KVCache_Inference",
+      "crossover": "",
+      "focus": "expected_holdout_ppl, parameter_efficiency, inference_efficiency",
+      "candidates": [
+        {
+          "name": "T4A",
+          "style": "depth4_h4_d128_rope_rmsnorm_drop005",
+          "prompt": "[T4A] arch: depth=4, n_heads=4, d_model=128, ffn_mult=4, RoPE, RMSNorm, tied, dropout=0.05, KV cache. params ≒ 2*256*128 + 4*(4*128^2 + 2*128*4*128) ≒ 100K + 525K - 32K(tied) ≒ 593K. レシピ: AdamW(lr=3e-4 -> cosine 3e-5), batch=32, ctx=128, steps=4000, warmup=400, MPS. 期待: ppl=3.0, train=14 min, infer x4 KV. 出力: tx_train.py + tx_chat.py."
+        },
+        {
+          "name": "T4B",
+          "style": "depth6_h4_d96_thinner",
+          "prompt": "[T4B] depth=6 にしつつ d_model=96 で params を 530K に抑える. data_per_param=0.19. 期待: ppl=3.1 (深さで稼ぐ), train=16 min."
+        },
+        {
+          "name": "T4C",
+          "style": "depth4_h8_d96_more_heads",
+          "prompt": "[T4C] n_heads=8 (head_dim=12) で頭ごと専門化. d_model=96, params=350K. data_per_param=0.29. 期待: ppl=3.2, train=12 min, 効率が高い."
+        }
+      ]
+    },
+    {
+      "name": "BigTransformer1MB",
+      "order": 5,
+      "branch": "scale_path",
+      "parents": [
+        "MidTransformer100KBWinner"
+      ],
+      "archive": "BigTransformer1MBWinner",
+      "genome": "model_family=multi_block_transformer; depth=6; n_heads=8; d_model=192; ffn_mult=4; vocab=256; ctx=256; positional=rope; normalization=rmsnorm; tied=true; dropout=0.05; param_class=3M; corpus_size_class=1MB; data_per_param=0.30_byte_per_param; engine=pytorch_mps; expected_holdout_ppl=2.0-2.4; expected_train_time_min=25",
+      "mutations": "M1_Scale_Corpus_10x, M2_Add_Transformer_Block",
+      "crossover": "",
+      "focus": "expected_holdout_ppl, parameter_efficiency, train_time_budget",
+      "candidates": [
+        {
+          "name": "B5A",
+          "style": "depth6_h8_d192_ctx256",
+          "prompt": "[B5A] arch: depth=6, n_heads=8 (head_dim=24), d_model=192, ffn_mult=4, RoPE, RMSNorm, tied, dropout=0.05, KV cache, ctx=256. params ≒ 2*256*192 + 6*(4*192^2 + 2*192*4*192) - 49K(tied) ≒ 3.4M. corpus=tinyshakespeare 1.1MB full. レシピ: AdamW(lr=3e-4 cosine 3e-5), batch=32, ctx=256, steps=8000, warmup=800, MPS, bf16. 期待: ppl=2.2, train=24 min, infer x5 KV. data_per_param=0.32."
+        },
+        {
+          "name": "B5B",
+          "style": "depth8_h4_d160_thinner",
+          "prompt": "[B5B] depth=8, d_model=160. params=2.7M, data_per_param=0.41. 期待: ppl=2.3 (深さで稼ぐ), train=27 min."
+        },
+        {
+          "name": "B5C",
+          "style": "depth4_h8_d256_wider",
+          "prompt": "[B5C] depth=4, d_model=256. params=3.2M, data_per_param=0.34. wide-shallow. 期待: ppl=2.4, train=22 min, 推論は遅め."
+        }
+      ]
+    },
+    {
+      "name": "DistilledMid1MB",
+      "order": 6,
+      "branch": "scale_path",
+      "parents": [
+        "BigTransformer1MBWinner",
+        "MidTransformer100KBWinner"
+      ],
+      "archive": "DistilledMid1MBWinner",
+      "genome": "model_family=multi_block_transformer_compact; depth=4; n_heads=4; d_model=160; ffn_mult=4; vocab=256; ctx=256; positional=rope; normalization=rmsnorm; tied=true; dropout=0.05; param_class=2M; corpus_size_class=1MB; data_per_param=0.55_byte_per_param; engine=pytorch_mps; teacher=BigTransformer1MBWinner; distill_temperature=2.0; loss_mix=alpha=0.5; expected_holdout_ppl=2.2-2.5; expected_train_time_min=20",
+      "mutations": "M6_Distill_From_Teacher, M5_Add_KVCache_Inference",
+      "crossover": "C1_Distill_From_BigTransformer",
+      "focus": "expected_holdout_ppl, parameter_efficiency, inference_efficiency",
+      "candidates": [
+        {
+          "name": "D6A",
+          "style": "soft_label_T2_alpha05",
+          "prompt": "[D6A] arch: depth=4, h=4, d=160 の 2M-param 生徒. 教師=BigTransformer1MB winner (state dict をロード). T=2.0, alpha=0.5, AdamW lr=3e-4, batch=32, steps=4500, MPS. 期待: ppl=2.3 (教師にほぼ追いつく), train=18 min. inference_throughput は教師比 x1.7 (params 2/3)."
+        },
+        {
+          "name": "D6B",
+          "style": "intermediate_layer_match",
+          "prompt": "[D6B] D6A + 各層の hidden state MSE を加える (FitNets 風). beta=0.2. 教師と生徒の depth が一致 (4=4) なので層対応可. 期待: ppl=2.25, train=21 min."
+        },
+        {
+          "name": "D6C",
+          "style": "data_only_distill_no_logits",
+          "prompt": "[D6C] 教師に追加で 1MB 生成させ、 生徒は素直に CE 学習. logits は使わない. 期待: ppl=2.4 (D6A より 0.1 悪い), train=18 min + 教師生成 5 min. 単純さ."
+        }
+      ]
+    },
+    {
+      "name": "SemiAutoEvolveLocalLLM",
+      "order": 7,
+      "branch": "join",
+      "parents": [
+        "DistilledMid1MBWinner",
+        "BigTransformer1MBWinner"
+      ],
+      "archive": "SemiAutoEvolveLocalLLMWinner",
+      "genome": "model_family=multi_block_transformer_compact_self_evolving; depth=4; n_heads=4; d_model=160; ffn_mult=4; param_class=2M; corpus_size_class=1MB; data_per_param=0.55_byte_per_param; engine=pytorch_mps; training_paradigm=continue_distill_with_self_proposed_mutation; self_evolution=local_ollama_proposes_3_mutations; loop_protocol={input=[full_aice_history, mutation_log, reviewer_scores_per_stage, fitness_trajectory, current_archive], output=[3_mutation_blocks_in_aice_format_with_expected_delta], filtering=human_picks_one, regression_guard=next_holdout_ppl_must_not_increase_by_more_than_0.2}; ollama_model_default=gemma2:2b; expected_holdout_ppl=2.1-2.4",
+      "mutations": "M7_Local_LLM_Proposes_Mutations",
+      "crossover": "C2_LLMProposal_Plus_Reviewer_History",
+      "focus": "self_evolution_capability, evolvability, reproducibility",
+      "candidates": [
+        {
+          "name": "SE7A",
+          "style": "ollama_drafts_three_mutations",
+          "prompt": "[SE7A] 入力 = [本 .aice 全文, 既存 mutation list, 各世代の 3 reviewer 累積点数, 現 archive の checkpoint metadata]. プロセス: ローカル Ollama (デフォルト gemma2:2b) に system prompt として 'aice mutation block 形式で 3 案を起草. 既存 M1-M7 と名前重複禁止. 各 mutation に kind/changes/expected_delta/reason を 1 行ずつ. 提案後、 dry-run estimator で overfit_warning が出る案は自動除外して残りを human に提示.' 出力 = mutation ブロック x3. 人間は 1 案を選んで .aice に追記."
+        },
+        {
+          "name": "SE7B",
+          "style": "ollama_writes_full_next_stage",
+          "prompt": "[SE7B] SE7A をさらに進めて、 mutation だけでなく次の stage 全体 (genome + 3 candidates + 期待 fitness + 親 archive) を 1 つ起草する. regression_guard: dry-run で次世代 holdout_ppl が現 archive より 0.2 以上悪化する設計は自動拒否. リスクは aice 編集規模, 利点は 1 案=次世代まるごと."
+        },
+        {
+          "name": "SE7C",
+          "style": "ollama_critiques_then_proposes",
+          "prompt": "[SE7C] 前世代 (DistilledMid1MB) の最良候補の弱点を Ollama に 3 行で自己批評させ、 その弱点だけを埋める変異を 3 案提案する. 多様性は減るが提案精度は上がる. 過去 reviewer 採点で伸び悩んだ軸 (例: data_per_param_health) を狙い撃ちにできる."
+        }
+      ]
+    }
+  ]
+}
