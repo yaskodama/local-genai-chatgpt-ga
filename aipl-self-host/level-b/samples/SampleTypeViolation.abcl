@@ -1,0 +1,50 @@
+// Sample 3 — type-mismatch violations.
+//
+//   function double(x: int) -> int { return x + x; }
+//   var a: int = double("not an int");   // arg type mismatch → flagged
+//   var b: string = 42;                  // var-decl mismatch → flagged
+//
+// (Both lines should be caught by tc_check_program.)
+
+class Driver {
+  method run() {
+    print("=== Level B-1 — SampleTypeViolation ===");
+
+    var double_fn = {
+      name: "double",
+      params: [{name: "x", type: "int"}],
+      return_type: "int",
+      body: [
+        {tag: "Return",
+         expr: {tag: "Binop", op: "+",
+                lhs: {tag: "Var", name: "x"},
+                rhs: {tag: "Var", name: "x"}}}
+      ]
+    };
+
+    var prog = {
+      fns: [double_fn],
+      main: [
+        // Violation #1: pass a string to an int-typed param.
+        {tag: "VarDecl", name: "a", type: "int",
+         expr: {tag: "Call", name: "double",
+                args: [{tag: "Str", val: "not an int"}]}},
+        // Violation #2: assign an int rhs to a string-typed var.
+        {tag: "VarDecl", name: "b", type: "string",
+         expr: {tag: "Int", val: 42}}
+      ]
+    };
+
+    var issues = tc_check_program(prog);
+    print("issues=" + array_len(issues));
+    var i = 0;
+    while (i < array_len(issues)) do {
+      print("  - " + array_get(issues, i));
+      i = i + 1;
+    }
+    print("(expected: 2 issues — arg mismatch + initializer mismatch)");
+  }
+}
+
+var d = new Driver();
+send d.run();

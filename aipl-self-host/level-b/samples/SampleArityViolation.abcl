@@ -1,0 +1,48 @@
+// Sample 2 — arity violation.
+//
+//   function add(a: int, b: int) -> int { return a + b; }
+//   var x: int = add(1);                   // missing arg → flagged
+//   var y: int = add(1, 2, 3);             // extra arg → flagged
+
+class Driver {
+  method run() {
+    print("=== Level B-1 — SampleArityViolation ===");
+
+    var add_fn = {
+      name: "add",
+      params: [{name: "a", type: "int"}, {name: "b", type: "int"}],
+      return_type: "int",
+      body: [
+        {tag: "Return",
+         expr: {tag: "Binop", op: "+",
+                lhs: {tag: "Var", name: "a"},
+                rhs: {tag: "Var", name: "b"}}}
+      ]
+    };
+
+    var prog = {
+      fns: [add_fn],
+      main: [
+        {tag: "VarDecl", name: "x", type: "int",
+         expr: {tag: "Call", name: "add", args: [{tag: "Int", val: 1}]}},
+        {tag: "VarDecl", name: "y", type: "int",
+         expr: {tag: "Call", name: "add",
+                args: [{tag: "Int", val: 1},
+                       {tag: "Int", val: 2},
+                       {tag: "Int", val: 3}]}}
+      ]
+    };
+
+    var issues = tc_check_program(prog);
+    print("issues=" + array_len(issues));
+    var i = 0;
+    while (i < array_len(issues)) do {
+      print("  - " + array_get(issues, i));
+      i = i + 1;
+    }
+    print("(expected: 2 issues, both arity)");
+  }
+}
+
+var d = new Driver();
+send d.run();

@@ -1,0 +1,47 @@
+// Sample 1 — clean program.
+// Typed AST that should produce zero issues.
+//
+//   function sq(x: int) -> int { return x * x; }
+//   var a: int = 7;
+//   var b: int = sq(a);
+//   print(b);
+
+class Driver {
+  method run() {
+    print("=== Level B-1 — SampleClean ===");
+
+    var sq_fn = {
+      name: "sq",
+      params: [{name: "x", type: "int"}],
+      return_type: "int",
+      body: [
+        {tag: "Return",
+         expr: {tag: "Binop", op: "*",
+                lhs: {tag: "Var", name: "x"},
+                rhs: {tag: "Var", name: "x"}}}
+      ]
+    };
+
+    var prog = {
+      fns: [sq_fn],
+      main: [
+        {tag: "VarDecl", name: "a", type: "int", expr: {tag: "Int", val: 7}},
+        {tag: "VarDecl", name: "b", type: "int",
+         expr: {tag: "Call", name: "sq", args: [{tag: "Var", name: "a"}]}},
+        {tag: "Print", expr: {tag: "Var", name: "b"}}
+      ]
+    };
+
+    var issues = tc_check_program(prog);
+    print("issues=" + array_len(issues));
+    var i = 0;
+    while (i < array_len(issues)) do {
+      print("  - " + array_get(issues, i));
+      i = i + 1;
+    }
+    print("(expected: issues=0)");
+  }
+}
+
+var d = new Driver();
+send d.run();

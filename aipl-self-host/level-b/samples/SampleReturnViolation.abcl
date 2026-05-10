@@ -1,0 +1,38 @@
+// Sample 4 — return-type violation.
+//
+//   function bad() -> int { return "oops"; }
+//
+// The function declares int return, but the Return expr is a string —
+// the type checker must flag it.
+
+class Driver {
+  method run() {
+    print("=== Level B-1 — SampleReturnViolation ===");
+
+    var bad_fn = {
+      name: "bad",
+      params: [],
+      return_type: "int",
+      body: [
+        {tag: "Return", expr: {tag: "Str", val: "oops"}}
+      ]
+    };
+
+    var prog = {
+      fns: [bad_fn],
+      main: []
+    };
+
+    var issues = tc_check_program(prog);
+    print("issues=" + array_len(issues));
+    var i = 0;
+    while (i < array_len(issues)) do {
+      print("  - " + array_get(issues, i));
+      i = i + 1;
+    }
+    print("(expected: 1 issue — return type mismatch)");
+  }
+}
+
+var d = new Driver();
+send d.run();

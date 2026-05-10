@@ -1,0 +1,54 @@
+// Sample 5 — union type compatibility.
+//
+//   function describe(x: int | string) -> string { return "v"; }
+//   describe(42);          // OK   — int matches int|string
+//   describe("hi");        // OK   — string matches int|string
+//   describe(3.14);        // ✗    — float matches neither
+
+class Driver {
+  method run() {
+    print("=== Level B-1 — SampleUnion ===");
+
+    var desc_fn = {
+      name: "describe",
+      params: [{name: "x", type: "int | string"}],
+      return_type: "string",
+      body: [
+        {tag: "Return", expr: {tag: "Str", val: "v"}}
+      ]
+    };
+
+    var prog = {
+      fns: [desc_fn],
+      main: [
+        {tag: "Print",
+         expr: {tag: "Call", name: "describe",
+                args: [{tag: "Int", val: 42}]}},
+        {tag: "Print",
+         expr: {tag: "Call", name: "describe",
+                args: [{tag: "Str", val: "hi"}]}},
+        // Approximate float as the result of int / int — the inferer
+        // doesn't promote here, so use the explicit Binop pattern that
+        // forces a float in real AIPL.  In B-1's simple inferer this
+        // returns "int", so to actually trigger the union-mismatch we
+        // pass a Var whose type was annotated as float earlier.
+        {tag: "VarDecl", name: "f", type: "float", expr: {tag: "Int", val: 0}},
+        {tag: "Print",
+         expr: {tag: "Call", name: "describe",
+                args: [{tag: "Var", name: "f"}]}}
+      ]
+    };
+
+    var issues = tc_check_program(prog);
+    print("issues=" + array_len(issues));
+    var i = 0;
+    while (i < array_len(issues)) do {
+      print("  - " + array_get(issues, i));
+      i = i + 1;
+    }
+    print("(expected: 1 issue — float not in union int|string)");
+  }
+}
+
+var d = new Driver();
+send d.run();
