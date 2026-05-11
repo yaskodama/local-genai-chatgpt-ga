@@ -273,6 +273,7 @@ cd aice-evolution-v2 && /opt/homebrew/bin/python3.13 -m src.cli \
 | 7-deeper (10MB) | 6d + depth 4→6 | 10MB | 1.22M | 4.06 | 4.06 (1MB tail 4.54 / 10MB tail 4.06) |
 | **7-deeper-extend (10MB)** | **7-deeper + steps=40000** | **10MB** | **1.22M** | **4.04** | **4.04 (ultimate champion: 1MB tail 4.23 / 10MB tail 4.04)** |
 | 8-wider (10MB) | depth=4, d=192 (width 試行) | 10MB | 1.82M | 4.23 | 4.23 (1MB tail 5.21 / 10MB tail 4.23 — params +50% で 7-deeper に負け) |
+| 8-deeper-plus (10MB) | depth=8, d=128 RoPE 20K step | 10MB | 1.61M | 4.04 | 4.04 (1MB tail 4.36 / 10MB tail 4.04 — 7-deeper-extend と並ぶが超えず) |
 
 教訓:
 - Stage-3 の transformer 敗北は ctx だけの問題ではなかった: BPTT < ctx
@@ -310,13 +311,21 @@ cd aice-evolution-v2 && /opt/homebrew/bin/python3.13 -m src.cli \
 4. **Stage-7 シリーズ (Stage-6d を超える)**
    - ~~7-deeper~~ — 完了 (1.22M, 1MB 4.54 / 10MB 4.06)
    - ~~**7-deeper-extend**~~ — 完了 (1.22M, 1MB **4.23** / 10MB **4.04**; **ultimate champion**)
-5. **Stage-8 シリーズ (4.0 切り突破)**
-   - ~~8-wider~~ — 完了 (1.82M, depth=4 d=192, ppl 4.232 @ 10MB / 5.206 @ 1MB; **負け**)。
-     →**depth >> width** が確定: 同 params 予算なら深さに投資すべき。
-   - **8-deeper-plus**: depth=8, d=128, RoPE, 10MB, 20000 step (~1.6M params) — 更に深く
-   - **8-bpe**: byte → BPE トークナイザに切替 (実効 ctx 4x、大改修)
-   - **8-AIPL-revival**: 全 prior を AIPL .abcl に encode して進化計算へ
+5. **Stage-8 シリーズ (4.0 切り探索)**
+   - ~~8-wider~~ — 失敗 (1.82M, ppl 4.23/5.21; depth >> width 確定)
+   - ~~8-deeper-plus~~ — 完了 (1.61M, depth=8 20K step, ppl 4.04/4.36;
+     7-deeper-extend に並ぶが超えず — **depth scaling は減衰局面**)
+   - **判明**: 訓練長 (40K step) > 深さ (depth=8)。 同 ppl を達成する
+     のに depth=8 (1.61M, 81 分) より depth=6 + 延長 (1.22M, 193 分)
+     のほうが省 params。
+6. **Stage-9 / Plan-β / Plan-γ (4.0 切り or アプリ化)**
    - **chat.py 拡張**: 最終 champion で実生成デモ (transformer 対応)
+     → 本来の "ローカル生成 AI" 目標に着地
+   - **8-bpe**: byte → BPE トークナイザに切替 (実効 ctx 4x、大改修、
+     数値的に最も伸び代あり)
+   - **8-AIPL-revival**: 全 prior を AIPL .abcl に encode して進化計算へ
+   - **9-deeper-plus-extend**: 8-deeper-plus を 40K step に延長
+     (~160 分; 4.0 切りの可能性)
 4. **Stage-AIPL-revival**: 全 prior (容量, 正則化 3 種, schedule, RoPE) を
    `.aice` に encode → AIPL evolution で人が見つけた Pareto を AI が更に
    押し下げられるか

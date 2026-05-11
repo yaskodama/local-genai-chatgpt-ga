@@ -81,6 +81,7 @@ TRANSFORMER_CHECKPOINTS = [
     ("transformer_stage7_deeper.pt", "Stage7_deeper"),
     ("transformer_stage7_deeper_extend.pt", "Stage7_deeper_extend"),
     ("transformer_stage8_wider.pt", "Stage8_wider"),
+    ("transformer_stage8_deeper_plus.pt", "Stage8_deeper_plus"),
 ]
 
 LSTM_CHECKPOINTS = [
