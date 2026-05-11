@@ -22,18 +22,34 @@ origin/main と同期済み (push 済み)。
 
 ## チャンピオン (現状最強モデル)
 
-**Stage-7-deeper Transformer (1.22M params, depth=6, RoPE + 10MB)** — **ultimate champion**
+**Stage-7-deeper-extend (1.22M params, depth=6, RoPE + 10MB, 40000 step)** — **ultimate champion**
 
 ```
-local-genai/out/transformer_stage7_deeper.pt
+local-genai/out/transformer_stage7_deeper_extend.pt
   TinyTransformer depth=6, d_model=128, n_heads=4, ctx=256, bptt=256
   ffn_mult=4, RMSNorm, RoPE
   dropout 0.1, label_smoothing 0.05, weight_decay 0.05
   warmup 1500, cosine 終端 LR=1e-5 (min_lr_frac=0.005)
-  TinyShakespeare+KJV-10MB 学習, 1,217,920 params (= 6d depth 4 → 6)
-  best ppl 4.064 @ step 19500 (20000 step 走破; まだ微更新中で未収束)
-  訓練時間 3472s (M2 MPS, ≈ 57.9 分; depth=6 で 6d の 2x)
+  TinyShakespeare+KJV-10MB 学習, 1,217,920 params (= 7-deeper と同じ)
+  best ppl 4.038 @ step 40000 (40000 step 走破; まだ微更新中)
+  訓練時間 11558s (M2 MPS, ≈ 193 分 = 3.2 時間)
 ```
+
+**Stage-7-deeper-extend が両ベンチで最強の単一モデル**:
+
+| stage | params | trained on | **1MB tail** | **10MB tail** | 時間 |
+|---|---:|---|---:|---:|---:|
+| 7-deeper | 1.22M | 10MB | 4.543 | 4.064 | 58 分 |
+| **7-deeper-extend** | **1.22M** | **10MB** | **4.231** | **4.038** | **193 分** |
+
+驚きの結果: 訓練長 2x で:
+- 10MB tail (in-distribution): -0.026 ppl (-0.6%) — 限界に近い改善
+- 1MB tail (out-of-distribution = Shakespeare-only): **-0.31 ppl (-7%)** — 大改善
+
+→ 長 LR 減衰は in-distribution の最適化よりも、 **混合分布の中の難所
+(Shakespeare の Early Modern English) を最終局面で仕上げる**効果が大きい。
+40000 step 全体を通して、 step 30000 以降の低 LR 局面で 1MB tail ppl が
+4.55 → 4.23 に急降下した可能性がある (詳細な記録は train ログにあり)。
 
 **両ベンチで最強の単一モデル**:
 
@@ -252,7 +268,8 @@ cd aice-evolution-v2 && /opt/homebrew/bin/python3.13 -m src.cli \
 | 6b (10MB) | 5-RoPE recipe + 10MB | 10MB | 165K | 4.73 | 4.73 (軽量 leader) |
 | 6c (10MB) | 4d-orth recipe + 10MB | 10MB | 855K | 4.25 | 4.25 (1MB tail 4.77 / 10MB tail 4.25) |
 | 6d (10MB) | 4d-orth + RoPE + 10MB | 10MB | 823K | 4.19 | 4.19 (1MB tail 4.65 / 10MB tail 4.19) |
-| **7-deeper (10MB)** | **6d + depth 4→6** | **10MB** | **1.22M** | **4.06** | **4.06 (ultimate champion: 1MB tail 4.54 / 10MB tail 4.06)** |
+| 7-deeper (10MB) | 6d + depth 4→6 | 10MB | 1.22M | 4.06 | 4.06 (1MB tail 4.54 / 10MB tail 4.06) |
+| **7-deeper-extend (10MB)** | **7-deeper + steps=40000** | **10MB** | **1.22M** | **4.04** | **4.04 (ultimate champion: 1MB tail 4.23 / 10MB tail 4.04)** |
 
 教訓:
 - Stage-3 の transformer 敗北は ctx だけの問題ではなかった: BPTT < ctx
@@ -288,11 +305,13 @@ cd aice-evolution-v2 && /opt/homebrew/bin/python3.13 -m src.cli \
    - ~~**6d**~~ — 完了 (823K, ppl **4.191** @ 10MB / **4.646** @ 1MB; **ultimate champion**)
    - 6a: 4f-extend recipe + 10MB は未実行 (RoPE 効果 165K 上で再確認用)
 4. **Stage-7 シリーズ (Stage-6d を超える)**
-   - ~~**7-deeper**~~ — 完了 (1.22M, ppl **4.064** @ 10MB / **4.543** @ 1MB; **ultimate champion**)
-   - **7-deeper-extend**: 7-deeper を steps=40000 で延長 — まだ未収束で 4.0 切り狙える
-   - **7-wider**: depth=4, d=192, RoPE → 容量 vs 深さ
-   - **7-bpe**: byte → BPE トークナイザに切替 (実効 ctx 4x、大改修)
-   - **7-AIPL-revival**: 全 prior を AIPL .abcl に encode して進化計算へ
+   - ~~7-deeper~~ — 完了 (1.22M, 1MB 4.54 / 10MB 4.06)
+   - ~~**7-deeper-extend**~~ — 完了 (1.22M, 1MB **4.23** / 10MB **4.04**; **ultimate champion**)
+5. **Stage-8 シリーズ (4.0 切り突破)**
+   - **8-wider**: depth=4, d=192, RoPE, 10MB, 20000 step → 容量 vs 深さの比較
+   - **8-bpe**: byte → BPE トークナイザに切替 (実効 ctx 4x、大改修)
+   - **8-AIPL-revival**: 全 prior を AIPL .abcl に encode して進化計算へ
+   - **chat.py 拡張**: 最終 champion で実生成デモ (transformer 対応)
 4. **Stage-AIPL-revival**: 全 prior (容量, 正則化 3 種, schedule, RoPE) を
    `.aice` に encode → AIPL evolution で人が見つけた Pareto を AI が更に
    押し下げられるか
@@ -319,7 +338,24 @@ local-genai/.venv/bin/python local-genai/train_stage4.py \
 # 約 7 分 (M2 MPS), best ppl 5.302 @ step 10000 (収束未達)
 ```
 
-## Stage-7-deeper (ultimate champion, 両ベンチで champion) を回す手順
+## Stage-7-deeper-extend (現 ultimate champion, 両ベンチで champion) を回す手順
+
+```sh
+local-genai/.venv/bin/python local-genai/train_stage4.py \
+  --corpus 10MB \
+  --steps 40000 --eval-every 1000 --warmup 1500 \
+  --batch 24 --bptt 256 --ctx 256 \
+  --depth 6 --d-model 128 --n-heads 4 \
+  --lr 2e-3 --dropout 0.1 \
+  --label-smoothing 0.05 --weight-decay 0.05 \
+  --min-lr-frac 0.005 \
+  --pos-encoding rope \
+  --out-name transformer_stage7_deeper_extend.pt
+# 約 193 分 (M2 MPS, 11558s), 1.22M params,
+# best ppl 4.038 @ step 40000 (10MB tail), 4.231 (1MB tail) — 未収束
+```
+
+## Stage-7-deeper (歴史的: 20000 step 版) を回す手順
 
 ```sh
 local-genai/.venv/bin/python local-genai/train_stage4.py \
