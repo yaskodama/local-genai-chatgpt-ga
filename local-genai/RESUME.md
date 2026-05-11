@@ -22,7 +22,34 @@ origin/main と同期済み (push 済み)。
 
 ## チャンピオン (現状最強モデル)
 
-**Stage-7-deeper-extend (1.22M params, depth=6, RoPE + 10MB, 40000 step)** — **ultimate champion**
+**Stage-8-BPE (1.32M params, depth=6, RoPE + 10MB + 1024-vocab BPE)** — **bits-per-byte champion**
+
+```
+local-genai/out/transformer_stage8_bpe.pt + tokenizer_stage8_bpe.json
+  TinyTransformer depth=6, d_model=128, n_heads=4, ctx=256, bptt=256
+  ffn_mult=4, RMSNorm, RoPE
+  dropout 0.1, label_smoothing 0.05, weight_decay 0.05
+  warmup 1500, cosine 終端 LR=1e-5 (min_lr_frac=0.005)
+  BPE 1024-vocab (2.04 bytes/token on holdout)
+  TinyShakespeare+KJV-10MB 学習, 1,316,224 params
+  best bpb 1.915 @ step 19500 (20000 step 走破; まだ微更新中で未収束)
+  ppl/byte 換算 ≈ 3.771 (byte-level の 4.038 比 -6.6%)
+  訓練時間 3269s (M2 MPS, ≈ 54.5 分)
+```
+
+**Cross-tokenizer 比較 (bits-per-byte = 唯一の fair 指標)**:
+
+| stage | params | tokenizer | bpb | ppl/byte | 訓練時間 |
+|---|---:|---|---:|---:|---:|
+| 7-deeper-extend | 1.22M | byte | 2.014 | 4.038 | 193 min |
+| **8-BPE** | **1.32M** | **BPE-1024** | **1.915** | **3.771** | **54.5 min** |
+
+BPE は同 step 数で **byte-level の 1/4 時間** で同等以上の bpb を達成。
+理由: 10MB byte → 5MB tokens で trainset 半分 + より大きな語彙単位を学習
+すると bytes-per-prediction が 2x になり、 transformer の限界文脈長
+(bptt=256) が実効 ~520 bytes に伸びる。
+
+**Stage-7-deeper-extend (1.22M params, depth=6, RoPE + 10MB, 40000 step)** — **byte-level (ppl) champion**
 
 ```
 local-genai/out/transformer_stage7_deeper_extend.pt
@@ -274,6 +301,7 @@ cd aice-evolution-v2 && /opt/homebrew/bin/python3.13 -m src.cli \
 | **7-deeper-extend (10MB)** | **7-deeper + steps=40000** | **10MB** | **1.22M** | **4.04** | **4.04 (ultimate champion: 1MB tail 4.23 / 10MB tail 4.04)** |
 | 8-wider (10MB) | depth=4, d=192 (width 試行) | 10MB | 1.82M | 4.23 | 4.23 (1MB tail 5.21 / 10MB tail 4.23 — params +50% で 7-deeper に負け) |
 | 8-deeper-plus (10MB) | depth=8, d=128 RoPE 20K step | 10MB | 1.61M | 4.04 | 4.04 (1MB tail 4.36 / 10MB tail 4.04 — 7-deeper-extend と並ぶが超えず) |
+| **8-BPE (10MB)** | **7-deeper recipe + BPE-1024 vocab** | **10MB** | **1.32M** | **bpb 1.92** | **bpb 1.915 (= ppl/byte 3.77; byte-level の 4.04 比 -7%, 訓練 1/4 時間)** |
 
 教訓:
 - Stage-3 の transformer 敗北は ctx だけの問題ではなかった: BPTT < ctx
@@ -318,14 +346,12 @@ cd aice-evolution-v2 && /opt/homebrew/bin/python3.13 -m src.cli \
    - **判明**: 訓練長 (40K step) > 深さ (depth=8)。 同 ppl を達成する
      のに depth=8 (1.61M, 81 分) より depth=6 + 延長 (1.22M, 193 分)
      のほうが省 params。
-6. **Stage-9 / Plan-β / Plan-γ (4.0 切り or アプリ化)**
-   - **chat.py 拡張**: 最終 champion で実生成デモ (transformer 対応)
-     → 本来の "ローカル生成 AI" 目標に着地
-   - **8-bpe**: byte → BPE トークナイザに切替 (実効 ctx 4x、大改修、
-     数値的に最も伸び代あり)
+6. **Stage-9 / Plan-β (BPE 確立後)**
+   - ~~**8-bpe**~~ — 完了 (1.32M, BPE-1024, bpb **1.915** = ppl/byte 3.77;
+     **bits-per-byte champion**)
+   - **9-bpe-extend**: 8-bpe を 40K step or larger vocab=2048 で更に
+   - **chat.py 拡張**: 最終 champion (byte + BPE) で実生成デモ
    - **8-AIPL-revival**: 全 prior を AIPL .abcl に encode して進化計算へ
-   - **9-deeper-plus-extend**: 8-deeper-plus を 40K step に延長
-     (~160 分; 4.0 切りの可能性)
 4. **Stage-AIPL-revival**: 全 prior (容量, 正則化 3 種, schedule, RoPE) を
    `.aice` に encode → AIPL evolution で人が見つけた Pareto を AI が更に
    押し下げられるか
@@ -352,7 +378,25 @@ local-genai/.venv/bin/python local-genai/train_stage4.py \
 # 約 7 分 (M2 MPS), best ppl 5.302 @ step 10000 (収束未達)
 ```
 
-## Stage-7-deeper-extend (現 ultimate champion, 両ベンチで champion) を回す手順
+## Stage-8-BPE (現 bits-per-byte champion) を回す手順
+
+```sh
+local-genai/.venv/bin/python local-genai/train_stage8_bpe.py \
+  --corpus 10MB --vocab-size 1024 \
+  --steps 20000 --eval-every 500 --warmup 1500 \
+  --batch 24 --bptt 256 --ctx 256 \
+  --depth 6 --d-model 128 --n-heads 4 \
+  --lr 2e-3 --dropout 0.1 \
+  --label-smoothing 0.05 --weight-decay 0.05 \
+  --min-lr-frac 0.005 \
+  --pos-encoding rope \
+  --out-name transformer_stage8_bpe.pt \
+  --tokenizer-name tokenizer_stage8_bpe.json
+# 約 54 分 (M2 MPS, 3269s), 1.32M params,
+# best bpb 1.915 @ step 19500 (= ppl/byte 3.77) — 未収束
+```
+
+## Stage-7-deeper-extend (byte-level ppl champion, 両ベンチで champion) を回す手順
 
 ```sh
 local-genai/.venv/bin/python local-genai/train_stage4.py \
