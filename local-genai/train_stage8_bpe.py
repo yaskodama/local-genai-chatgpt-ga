@@ -1,4 +1,4 @@
-"""Stage 8 — BPE tokenizer + transformer on the 10MB corpus.
+"""Stage 8 — BPE tokenizer + transformer on 10MB or mixed GA corpora.
 
 Hypothesis: a 1024-token BPE tokenizer should compress the ~10 MB corpus
 to ~2-3 MB of tokens (avg ~4 bytes/token), giving the transformer
@@ -29,28 +29,25 @@ import sys
 import time
 from pathlib import Path
 
-import torch
-import torch.nn as nn
-import torch.nn.functional as F
-
 HERE = Path(__file__).parent
 sys.path.insert(0, str(HERE))
 
 from common import load_corpus, split_corpus
-from candidates.transformer_real import TinyTransformer
-
-try:
-    from tokenizers import Tokenizer
-    from tokenizers.models import BPE
-    from tokenizers.trainers import BpeTrainer
-    from tokenizers.pre_tokenizers import ByteLevel
-except ImportError as e:
-    sys.exit(f"need tokenizers package: pip install tokenizers (error: {e})")
 
 
 def train_tokenizer(train_bytes: bytes, vocab_size: int, save_path: Path):
+    try:
+        from tokenizers import Tokenizer
+        from tokenizers.models import BPE
+        from tokenizers.trainers import BpeTrainer
+        from tokenizers.pre_tokenizers import ByteLevel
+        from tokenizers.decoders import ByteLevel as ByteLevelDecoder
+    except ImportError as e:
+        sys.exit(f"need tokenizers package: pip install tokenizers (error: {e})")
+
     tok = Tokenizer(BPE(unk_token="<unk>"))
     tok.pre_tokenizer = ByteLevel(add_prefix_space=False)
+    tok.decoder = ByteLevelDecoder()
     trainer = BpeTrainer(
         vocab_size=vocab_size,
         special_tokens=["<unk>"],
@@ -66,7 +63,7 @@ def train_tokenizer(train_bytes: bytes, vocab_size: int, save_path: Path):
     return tok
 
 
-def encode_corpus(tok: Tokenizer, raw: bytes) -> list[int]:
+def encode_corpus(tok, raw: bytes) -> list[int]:
     text = raw.decode("utf-8", errors="replace")
     # Encode line-by-line so very long inputs don't blow memory; concat IDs.
     ids: list[int] = []
@@ -78,7 +75,7 @@ def encode_corpus(tok: Tokenizer, raw: bytes) -> list[int]:
 def main():
     p = argparse.ArgumentParser()
     p.add_argument("--corpus", default="10MB",
-                   choices=["10KB", "100KB", "1MB", "10MB"])
+                   choices=["10KB", "100KB", "1MB", "10MB", "30MB_MIXED_EN_JA"])
     p.add_argument("--vocab-size", type=int, default=1024)
     p.add_argument("--device", default="mps", choices=["cpu", "mps"])
     p.add_argument("--d-model", type=int, default=128)
@@ -99,6 +96,14 @@ def main():
     p.add_argument("--out-name", default="transformer_stage8_bpe.pt")
     p.add_argument("--tokenizer-name", default="tokenizer_stage8_bpe.json")
     args = p.parse_args()
+
+    try:
+        import torch
+        import torch.nn as nn
+        import torch.nn.functional as F
+        from candidates.transformer_real import TinyTransformer
+    except ImportError as e:
+        sys.exit(f"need torch package: pip install torch (error: {e})")
 
     out_dir = HERE / "out"
     out_dir.mkdir(parents=True, exist_ok=True)

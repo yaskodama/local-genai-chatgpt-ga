@@ -1,0 +1,374 @@
+{
+  "name": "LocalGenAIIndependentEvolutionJP",
+  "task": "MacBook M2/MPS 上で完結する local-genai を、既存の Stage-9-BPE-extend champion から独自進化させる。主指標は tokenizer 非依存の bits-per-byte (bpb)。現 champion は BPE-1024, depth=6, d_model=128, RoPE, dropout=0.1, label_smoothing=0.05, weight_decay=0.05, 10MB corpus, bpb=1.911。追加遺伝子として japanese_support と train_data_scale を持たせ、英語 Early Modern corpus だけに過適合した候補を避ける。",
+  "schema": {
+    "axes": {
+      "tokenizer_family": [
+        "byte",
+        "bytelevel_bpe",
+        "unigram",
+        "hybrid_byte_bpe"
+      ],
+      "vocab_class": [
+        "256",
+        "1024",
+        "1536",
+        "2048",
+        "4096"
+      ],
+      "context_class": [
+        "ctx256_current",
+        "ctx256_effective_midpoint",
+        "ctx256_effective_3to4_bytes_per_token",
+        "ctx256_mixed_utf8",
+        "ctx384_or_ctx512"
+      ],
+      "model_scale": [
+        "stage9_bpe_extend",
+        "depth6_d128_1p35M",
+        "depth6_d128_1p4M",
+        "depth6_d160_2M_guarded"
+      ],
+      "japanese_support": [
+        "none",
+        "utf8_decode_smoke",
+        "utf8_tokenizer_only",
+        "ja_mixed_corpus",
+        "optional_ja_eval"
+      ],
+      "train_data_scale": [
+        "10MB_en_baseline",
+        "30MB_en",
+        "30MB_mixed_en_ja",
+        "100MB_deduped"
+      ],
+      "delivery_mode": [
+        "train_eval_checkpoint",
+        "chat_py",
+        "generate_samples",
+        "aipl_prior_update"
+      ],
+      "aipl_feedback": [
+        "none",
+        "vocab_axis",
+        "midpoint_guard",
+        "productization",
+        "multilingual_axis",
+        "data_scale_axis"
+      ]
+    },
+    "coherence": [
+      "tokenizer_family=byte => vocab_class=256",
+      "japanese_support=ja_mixed_corpus => train_data_scale in [30MB_mixed_en_ja,100MB_deduped]",
+      "train_data_scale=100MB_deduped => model_scale in [depth6_d160_2M_guarded]",
+      "delivery_mode=chat_py => train_data_scale=10MB_en_baseline",
+      "vocab_class=4096 => train_data_scale=100MB_deduped"
+    ],
+    "open_axes": true
+  },
+  "cells": [
+    {
+      "id": "C0",
+      "descriptor": {
+        "tokenizer_family": "bytelevel_bpe",
+        "vocab_class": "1024",
+        "context_class": "ctx256_current",
+        "model_scale": "stage9_bpe_extend",
+        "japanese_support": "utf8_decode_smoke",
+        "train_data_scale": "10MB_en_baseline",
+        "delivery_mode": "chat_py",
+        "aipl_feedback": "productization"
+      }
+    },
+    {
+      "id": "C1",
+      "descriptor": {
+        "tokenizer_family": "bytelevel_bpe",
+        "vocab_class": "1536",
+        "context_class": "ctx256_effective_midpoint",
+        "model_scale": "depth6_d128_1p35M",
+        "japanese_support": "utf8_tokenizer_only",
+        "train_data_scale": "10MB_en_baseline",
+        "delivery_mode": "train_eval_checkpoint",
+        "aipl_feedback": "midpoint_guard"
+      }
+    },
+    {
+      "id": "C2",
+      "descriptor": {
+        "tokenizer_family": "bytelevel_bpe",
+        "vocab_class": "2048",
+        "context_class": "ctx256_effective_3to4_bytes_per_token",
+        "model_scale": "depth6_d128_1p4M",
+        "japanese_support": "utf8_tokenizer_only",
+        "train_data_scale": "10MB_en_baseline",
+        "delivery_mode": "train_eval_checkpoint",
+        "aipl_feedback": "vocab_axis"
+      }
+    },
+    {
+      "id": "C3",
+      "descriptor": {
+        "tokenizer_family": "bytelevel_bpe",
+        "vocab_class": "2048",
+        "context_class": "ctx256_mixed_utf8",
+        "model_scale": "depth6_d128_1p4M",
+        "japanese_support": "ja_mixed_corpus",
+        "train_data_scale": "30MB_mixed_en_ja",
+        "delivery_mode": "train_eval_checkpoint",
+        "aipl_feedback": "multilingual_axis"
+      }
+    },
+    {
+      "id": "C4",
+      "descriptor": {
+        "tokenizer_family": "bytelevel_bpe",
+        "vocab_class": "4096",
+        "context_class": "ctx384_or_ctx512",
+        "model_scale": "depth6_d160_2M_guarded",
+        "japanese_support": "optional_ja_eval",
+        "train_data_scale": "100MB_deduped",
+        "delivery_mode": "train_eval_checkpoint",
+        "aipl_feedback": "data_scale_axis"
+      }
+    }
+  ],
+  "operators": {
+    "mutations": [
+      {
+        "name": "vocab_expand",
+        "kind": "single_axis",
+        "axis": "vocab_class",
+        "weight": 0.22
+      },
+      {
+        "name": "japanese_support_lift",
+        "kind": "single_axis",
+        "axis": "japanese_support",
+        "weight": 0.18
+      },
+      {
+        "name": "train_data_scale_up",
+        "kind": "single_axis",
+        "axis": "train_data_scale",
+        "weight": 0.2
+      },
+      {
+        "name": "context_capacity_pair",
+        "kind": "multi_axis_correlated",
+        "axes": [
+          "context_class",
+          "model_scale"
+        ],
+        "weight": 0.16
+      },
+      {
+        "name": "delivery_bridge",
+        "kind": "single_axis",
+        "axis": "delivery_mode",
+        "weight": 0.12
+      },
+      {
+        "name": "aipl_feedback_update",
+        "kind": "llm_directed",
+        "axis": "aipl_feedback",
+        "weight": 0.12
+      }
+    ],
+    "crossovers": [
+      {
+        "name": "vocab_plus_data",
+        "kind": "axis_merge",
+        "axes": [
+          "vocab_class",
+          "train_data_scale"
+        ],
+        "weight": 0.35
+      },
+      {
+        "name": "ja_plus_tokenizer",
+        "kind": "axis_merge",
+        "axes": [
+          "japanese_support",
+          "tokenizer_family"
+        ],
+        "weight": 0.3
+      },
+      {
+        "name": "productized_champion",
+        "kind": "axis_merge",
+        "axes": [
+          "model_scale",
+          "delivery_mode"
+        ],
+        "weight": 0.2
+      },
+      {
+        "name": "llm_merge",
+        "kind": "llm_directed",
+        "weight": 0.15
+      }
+    ]
+  },
+  "evaluation": {
+    "tasks": [
+      {
+        "name": "BitsPerByte",
+        "spec": "10MB holdout の raw bytes 上で bpb を測る。異なる tokenizer を比較する唯一の primary metric。現 champion bpb=1.911 を下回ることを成功とする。"
+      },
+      {
+        "name": "JapaneseSupport",
+        "spec": "日本語 prompt を UTF-8 byte/BPE として破綻なく encode/decode できること。日本語 corpus を混ぜる場合は english_bpb と japanese_bpb を分けて記録する。"
+      },
+      {
+        "name": "TrainDataScale",
+        "spec": "10MB baseline から 30MB/100MB/mixed_en_ja へ拡張する候補は、データ SHA-256、source、dedupe 方針、train_time 見積もりを必須にする。"
+      },
+      {
+        "name": "ChatUsability",
+        "spec": "checkpoint と tokenizer を chat.py から読み、prompt continuation を対話的に確認できること。"
+      },
+      {
+        "name": "Reproducibility",
+        "spec": "seed 固定、corpus SHA-256 lock、依存は torch/numpy/tokenizers に限定、外部 API 不使用、単一コマンドで train+eval+checkpoint+metrics JSON を生成する。"
+      }
+    ],
+    "reviewers": [
+      {
+        "name": "BPBQuality",
+        "persona": "bpb 改善、tokenizer 健全性、学習曲線、OOD/1MB tail リスクを 12 点満点で評価する。"
+      },
+      {
+        "name": "Efficiency",
+        "persona": "M2 MPS 訓練時間、params、token 圧縮、推論効率を 12 点満点で評価する。"
+      },
+      {
+        "name": "Productization",
+        "persona": "chat.py 接続、サンプル比較、CLI 一貫性、ドキュメントを 12 点満点で評価する。"
+      },
+      {
+        "name": "AIPLFeedback",
+        "persona": "prior 化、失敗知識の明示、MAP-Elites 軸、次候補生成しやすさを 12 点満点で評価する。"
+      }
+    ]
+  },
+  "search": {
+    "algorithm": "map_elites",
+    "cell_axes": [
+      "tokenizer_family",
+      "vocab_class",
+      "context_class",
+      "model_scale",
+      "japanese_support",
+      "train_data_scale",
+      "delivery_mode",
+      "aipl_feedback"
+    ],
+    "generations": 40,
+    "seed_count": 12,
+    "open_axes": true,
+    "rng_seed": 9112048
+  },
+  "meta_fitness": {
+    "bpb_improvement": 0.3,
+    "japanese_support": 0.15,
+    "train_data_scale_value": 0.15,
+    "reproducibility": 0.15,
+    "train_time_efficiency": 0.1,
+    "generation_usability": 0.1,
+    "aipl_feedback_value": 0.05
+  },
+  "ranking": {
+    "strategy": "pareto_then_pairwise",
+    "scenarios": [
+      "bpb_first",
+      "japanese_first",
+      "data_scale_first",
+      "usable_chat_first",
+      "aipl_revival_first"
+    ],
+    "top_k": 3
+  },
+  "seed_individuals": [
+    {
+      "id": "I0",
+      "name": "Stage9_BPE_extend_baseline_chat",
+      "cell_id": "C0",
+      "genome": {
+        "tokenizer_family": "bytelevel_bpe",
+        "vocab_class": "1024",
+        "context_class": "ctx256_current",
+        "model_scale": "stage9_bpe_extend",
+        "japanese_support": "utf8_decode_smoke",
+        "train_data_scale": "10MB_en_baseline",
+        "delivery_mode": "chat_py",
+        "aipl_feedback": "productization"
+      },
+      "expected_delta": "bpb unchanged at 1.911; usability improves"
+    },
+    {
+      "id": "I1",
+      "name": "Stage9_BPE_vocab2048",
+      "cell_id": "C2",
+      "genome": {
+        "tokenizer_family": "bytelevel_bpe",
+        "vocab_class": "2048",
+        "context_class": "ctx256_effective_3to4_bytes_per_token",
+        "model_scale": "depth6_d128_1p4M",
+        "japanese_support": "utf8_tokenizer_only",
+        "train_data_scale": "10MB_en_baseline",
+        "delivery_mode": "train_eval_checkpoint",
+        "aipl_feedback": "vocab_axis"
+      },
+      "expected_delta": "bpb 1.911 -> 1.88-1.91; first run 30000 steps"
+    },
+    {
+      "id": "I2",
+      "name": "Stage9_BPE_vocab1536",
+      "cell_id": "C1",
+      "genome": {
+        "tokenizer_family": "bytelevel_bpe",
+        "vocab_class": "1536",
+        "context_class": "ctx256_effective_midpoint",
+        "model_scale": "depth6_d128_1p35M",
+        "japanese_support": "utf8_tokenizer_only",
+        "train_data_scale": "10MB_en_baseline",
+        "delivery_mode": "train_eval_checkpoint",
+        "aipl_feedback": "midpoint_guard"
+      },
+      "expected_delta": "bpb 1.911 -> 1.89-1.92; midpoint fallback if vocab2048 is too large"
+    },
+    {
+      "id": "I3",
+      "name": "Japanese_Mixed_BPE",
+      "cell_id": "C3",
+      "genome": {
+        "tokenizer_family": "bytelevel_bpe",
+        "vocab_class": "2048",
+        "context_class": "ctx256_mixed_utf8",
+        "model_scale": "depth6_d128_1p4M",
+        "japanese_support": "ja_mixed_corpus",
+        "train_data_scale": "30MB_mixed_en_ja",
+        "delivery_mode": "train_eval_checkpoint",
+        "aipl_feedback": "multilingual_axis"
+      },
+      "expected_delta": "establish Japanese holdout bpb; English bpb may regress slightly"
+    },
+    {
+      "id": "I4",
+      "name": "DataScale_100MB",
+      "cell_id": "C4",
+      "genome": {
+        "tokenizer_family": "bytelevel_bpe",
+        "vocab_class": "4096",
+        "context_class": "ctx384_or_ctx512",
+        "model_scale": "depth6_d160_2M_guarded",
+        "japanese_support": "optional_ja_eval",
+        "train_data_scale": "100MB_deduped",
+        "delivery_mode": "train_eval_checkpoint",
+        "aipl_feedback": "data_scale_axis"
+      },
+      "expected_delta": "bpb 1.911 -> 1.80-1.88 if data quality holds; requires explicit budget"
+    }
+  ]
+}

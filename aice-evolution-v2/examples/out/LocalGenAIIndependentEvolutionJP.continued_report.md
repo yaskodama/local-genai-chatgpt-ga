@@ -1,0 +1,28 @@
+# LocalGenAIIndependentEvolutionJP Evolution Report
+- individuals: 352
+- elite cells: 288
+- rng_seed: 9112048
+- continued_from: 152
+- added_generations: 200
+
+## Top Elites
+1. score=0.770 id=I4 `tokenizer_family=bytelevel_bpe|vocab_class=2048|context_class=ctx256_mixed_utf8|model_scale=depth6_d128_1p4M|japanese_support=ja_mixed_corpus|train_data_scale=30MB_mixed_en_ja|delivery_mode=train_eval_checkpoint|aipl_feedback=multilingual_axis`
+2. score=0.730 id=I248 `tokenizer_family=bytelevel_bpe|vocab_class=2048|context_class=ctx256_current|model_scale=stage9_bpe_extend|japanese_support=ja_mixed_corpus|train_data_scale=30MB_mixed_en_ja|delivery_mode=train_eval_checkpoint|aipl_feedback=vocab_axis`
+3. score=0.720 id=I138 `tokenizer_family=bytelevel_bpe|vocab_class=2048|context_class=ctx256_mixed_utf8|model_scale=depth6_d128_1p4M|japanese_support=utf8_tokenizer_only|train_data_scale=30MB_mixed_en_ja|delivery_mode=train_eval_checkpoint|aipl_feedback=multilingual_axis`
+4. score=0.710 id=I91 `tokenizer_family=bytelevel_bpe|vocab_class=2048|context_class=ctx256_mixed_utf8|model_scale=stage9_bpe_extend|japanese_support=ja_mixed_corpus|train_data_scale=30MB_mixed_en_ja|delivery_mode=train_eval_checkpoint|aipl_feedback=productization`
+5. score=0.710 id=I200 `tokenizer_family=bytelevel_bpe|vocab_class=1536|context_class=ctx256_mixed_utf8|model_scale=depth6_d128_1p4M|japanese_support=ja_mixed_corpus|train_data_scale=30MB_mixed_en_ja|delivery_mode=train_eval_checkpoint|aipl_feedback=multilingual_axis`
+6. score=0.710 id=I267 `tokenizer_family=hybrid_byte_bpe|vocab_class=2048|context_class=ctx384_or_ctx512|model_scale=stage9_bpe_extend|japanese_support=ja_mixed_corpus|train_data_scale=30MB_mixed_en_ja|delivery_mode=train_eval_checkpoint|aipl_feedback=data_scale_axis`
+7. score=0.710 id=I312 `tokenizer_family=bytelevel_bpe|vocab_class=2048|context_class=ctx256_mixed_utf8|model_scale=stage9_bpe_extend|japanese_support=ja_mixed_corpus|train_data_scale=30MB_mixed_en_ja|delivery_mode=train_eval_checkpoint|aipl_feedback=data_scale_axis`
+8. score=0.700 id=I70 `tokenizer_family=bytelevel_bpe|vocab_class=2048|context_class=ctx256_effective_3to4_bytes_per_token|model_scale=depth6_d128_1p4M|japanese_support=utf8_tokenizer_only|train_data_scale=100MB_deduped|delivery_mode=train_eval_checkpoint|aipl_feedback=vocab_axis`
+9. score=0.690 id=I197 `tokenizer_family=bytelevel_bpe|vocab_class=2048|context_class=ctx384_or_ctx512|model_scale=stage9_bpe_extend|japanese_support=ja_mixed_corpus|train_data_scale=100MB_deduped|delivery_mode=train_eval_checkpoint|aipl_feedback=data_scale_axis`
+10. score=0.690 id=I343 `tokenizer_family=bytelevel_bpe|vocab_class=2048|context_class=ctx384_or_ctx512|model_scale=stage9_bpe_extend|japanese_support=ja_mixed_corpus|train_data_scale=100MB_deduped|delivery_mode=train_eval_checkpoint|aipl_feedback=productization`
+11. score=0.680 id=I216 `tokenizer_family=bytelevel_bpe|vocab_class=2048|context_class=ctx256_effective_3to4_bytes_per_token|model_scale=depth6_d128_1p4M|japanese_support=optional_ja_eval|train_data_scale=100MB_deduped|delivery_mode=train_eval_checkpoint|aipl_feedback=vocab_axis`
+12. score=0.680 id=I235 `tokenizer_family=hybrid_byte_bpe|vocab_class=2048|context_class=ctx256_mixed_utf8|model_scale=depth6_d128_1p4M|japanese_support=utf8_tokenizer_only|train_data_scale=10MB_en_baseline|delivery_mode=chat_py|aipl_feedback=vocab_axis`
+13. score=0.670 id=I2 `tokenizer_family=bytelevel_bpe|vocab_class=2048|context_class=ctx256_effective_3to4_bytes_per_token|model_scale=depth6_d128_1p4M|japanese_support=utf8_tokenizer_only|train_data_scale=10MB_en_baseline|delivery_mode=train_eval_checkpoint|aipl_feedback=vocab_axis`
+14. score=0.670 id=I22 `tokenizer_family=bytelevel_bpe|vocab_class=2048|context_class=ctx256_effective_3to4_bytes_per_token|model_scale=depth6_d128_1p4M|japanese_support=utf8_tokenizer_only|train_data_scale=10MB_en_baseline|delivery_mode=train_eval_checkpoint|aipl_feedback=multilingual_axis`
+15. score=0.670 id=I56 `tokenizer_family=bytelevel_bpe|vocab_class=2048|context_class=ctx256_effective_midpoint|model_scale=depth6_d128_1p4M|japanese_support=utf8_tokenizer_only|train_data_scale=10MB_en_baseline|delivery_mode=train_eval_checkpoint|aipl_feedback=vocab_axis`
+16. score=0.670 id=I305 `tokenizer_family=bytelevel_bpe|vocab_class=2048|context_class=ctx384_or_ctx512|model_scale=depth6_d160_2M_guarded|japanese_support=ja_mixed_corpus|train_data_scale=100MB_deduped|delivery_mode=train_eval_checkpoint|aipl_feedback=data_scale_axis`
+17. score=0.670 id=I344 `tokenizer_family=unigram|vocab_class=1536|context_class=ctx256_mixed_utf8|model_scale=stage9_bpe_extend|japanese_support=ja_mixed_corpus|train_data_scale=30MB_mixed_en_ja|delivery_mode=train_eval_checkpoint|aipl_feedback=multilingual_axis`
+18. score=0.660 id=I273 `tokenizer_family=hybrid_byte_bpe|vocab_class=2048|context_class=ctx256_mixed_utf8|model_scale=depth6_d160_2M_guarded|japanese_support=utf8_tokenizer_only|train_data_scale=30MB_mixed_en_ja|delivery_mode=train_eval_checkpoint|aipl_feedback=multilingual_axis`
+19. score=0.660 id=I177 `tokenizer_family=byte|vocab_class=2048|context_class=ctx256_current|model_scale=stage9_bpe_extend|japanese_support=utf8_tokenizer_only|train_data_scale=30MB_mixed_en_ja|delivery_mode=train_eval_checkpoint|aipl_feedback=data_scale_axis`
+20. score=0.660 id=I265 `tokenizer_family=bytelevel_bpe|vocab_class=2048|context_class=ctx384_or_ctx512|model_scale=stage9_bpe_extend|japanese_support=utf8_tokenizer_only|train_data_scale=30MB_mixed_en_ja|delivery_mode=train_eval_checkpoint|aipl_feedback=data_scale_axis`

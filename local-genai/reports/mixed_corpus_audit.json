@@ -1,0 +1,23 @@
+{
+  "corpus": "30MB_MIXED_EN_JA",
+  "path": "/Users/yaskodama/local-genai-chatgpt-ga/aios-claude/local-genai/corpus/tinyshake_ja_30MB.txt",
+  "bytes": 30000000,
+  "sha256": "7fa601e6d1871a54f491380866c082e40ba6c3c7ce1b38d8fd482a6feeffbc2b",
+  "manifest": "/Users/yaskodama/local-genai-chatgpt-ga/aios-claude/local-genai/corpus/tinyshake_ja_30MB.txt.manifest.json",
+  "allow_repeat": true,
+  "japanese_segmenter": "mecab",
+  "japanese_source_bytes": 1225,
+  "script_counts": {
+    "ascii": 20702234,
+    "hiragana": 1016884,
+    "katakana": 537758,
+    "cjk": 1163540,
+    "other": 380493
+  },
+  "japanese_char_ratio": 0.11420496586916071,
+  "ascii_char_ratio": 0.869808543866959,
+  "repeated_chunk_ratio": 0.14418350628072096,
+  "chunk_size": 4096,
+  "quality_flag": "smoke_only",
+  "recommendation": "Replace the Japanese seed with larger licensed Japanese text, segment with MeCab, and rebuild without --allow-repeat."
+}

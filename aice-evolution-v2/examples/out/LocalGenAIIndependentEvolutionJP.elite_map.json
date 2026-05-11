@@ -1,0 +1,1730 @@
+[
+  {
+    "id": "I4",
+    "score": 0.77,
+    "cell": "tokenizer_family=bytelevel_bpe|vocab_class=2048|context_class=ctx256_mixed_utf8|model_scale=depth6_d128_1p4M|japanese_support=ja_mixed_corpus|train_data_scale=30MB_mixed_en_ja|delivery_mode=train_eval_checkpoint|aipl_feedback=multilingual_axis",
+    "genome": "tokenizer_family=bytelevel_bpe|vocab_class=2048|context_class=ctx256_mixed_utf8|model_scale=depth6_d128_1p4M|japanese_support=ja_mixed_corpus|train_data_scale=30MB_mixed_en_ja|delivery_mode=train_eval_checkpoint|aipl_feedback=multilingual_axis"
+  },
+  {
+    "id": "I248",
+    "score": 0.73,
+    "cell": "tokenizer_family=bytelevel_bpe|vocab_class=2048|context_class=ctx256_current|model_scale=stage9_bpe_extend|japanese_support=ja_mixed_corpus|train_data_scale=30MB_mixed_en_ja|delivery_mode=train_eval_checkpoint|aipl_feedback=vocab_axis",
+    "genome": "tokenizer_family=bytelevel_bpe|vocab_class=2048|context_class=ctx256_current|model_scale=stage9_bpe_extend|japanese_support=ja_mixed_corpus|train_data_scale=30MB_mixed_en_ja|delivery_mode=train_eval_checkpoint|aipl_feedback=vocab_axis"
+  },
+  {
+    "id": "I138",
+    "score": 0.72,
+    "cell": "tokenizer_family=bytelevel_bpe|vocab_class=2048|context_class=ctx256_mixed_utf8|model_scale=depth6_d128_1p4M|japanese_support=utf8_tokenizer_only|train_data_scale=30MB_mixed_en_ja|delivery_mode=train_eval_checkpoint|aipl_feedback=multilingual_axis",
+    "genome": "tokenizer_family=bytelevel_bpe|vocab_class=2048|context_class=ctx256_mixed_utf8|model_scale=depth6_d128_1p4M|japanese_support=utf8_tokenizer_only|train_data_scale=30MB_mixed_en_ja|delivery_mode=train_eval_checkpoint|aipl_feedback=multilingual_axis"
+  },
+  {
+    "id": "I91",
+    "score": 0.71,
+    "cell": "tokenizer_family=bytelevel_bpe|vocab_class=2048|context_class=ctx256_mixed_utf8|model_scale=stage9_bpe_extend|japanese_support=ja_mixed_corpus|train_data_scale=30MB_mixed_en_ja|delivery_mode=train_eval_checkpoint|aipl_feedback=productization",
+    "genome": "tokenizer_family=bytelevel_bpe|vocab_class=2048|context_class=ctx256_mixed_utf8|model_scale=stage9_bpe_extend|japanese_support=ja_mixed_corpus|train_data_scale=30MB_mixed_en_ja|delivery_mode=train_eval_checkpoint|aipl_feedback=productization"
+  },
+  {
+    "id": "I200",
+    "score": 0.71,
+    "cell": "tokenizer_family=bytelevel_bpe|vocab_class=1536|context_class=ctx256_mixed_utf8|model_scale=depth6_d128_1p4M|japanese_support=ja_mixed_corpus|train_data_scale=30MB_mixed_en_ja|delivery_mode=train_eval_checkpoint|aipl_feedback=multilingual_axis",
+    "genome": "tokenizer_family=bytelevel_bpe|vocab_class=1536|context_class=ctx256_mixed_utf8|model_scale=depth6_d128_1p4M|japanese_support=ja_mixed_corpus|train_data_scale=30MB_mixed_en_ja|delivery_mode=train_eval_checkpoint|aipl_feedback=multilingual_axis"
+  },
+  {
+    "id": "I267",
+    "score": 0.71,
+    "cell": "tokenizer_family=hybrid_byte_bpe|vocab_class=2048|context_class=ctx384_or_ctx512|model_scale=stage9_bpe_extend|japanese_support=ja_mixed_corpus|train_data_scale=30MB_mixed_en_ja|delivery_mode=train_eval_checkpoint|aipl_feedback=data_scale_axis",
+    "genome": "tokenizer_family=hybrid_byte_bpe|vocab_class=2048|context_class=ctx384_or_ctx512|model_scale=stage9_bpe_extend|japanese_support=ja_mixed_corpus|train_data_scale=30MB_mixed_en_ja|delivery_mode=train_eval_checkpoint|aipl_feedback=data_scale_axis"
+  },
+  {
+    "id": "I312",
+    "score": 0.71,
+    "cell": "tokenizer_family=bytelevel_bpe|vocab_class=2048|context_class=ctx256_mixed_utf8|model_scale=stage9_bpe_extend|japanese_support=ja_mixed_corpus|train_data_scale=30MB_mixed_en_ja|delivery_mode=train_eval_checkpoint|aipl_feedback=data_scale_axis",
+    "genome": "tokenizer_family=bytelevel_bpe|vocab_class=2048|context_class=ctx256_mixed_utf8|model_scale=stage9_bpe_extend|japanese_support=ja_mixed_corpus|train_data_scale=30MB_mixed_en_ja|delivery_mode=train_eval_checkpoint|aipl_feedback=data_scale_axis"
+  },
+  {
+    "id": "I70",
+    "score": 0.7,
+    "cell": "tokenizer_family=bytelevel_bpe|vocab_class=2048|context_class=ctx256_effective_3to4_bytes_per_token|model_scale=depth6_d128_1p4M|japanese_support=utf8_tokenizer_only|train_data_scale=100MB_deduped|delivery_mode=train_eval_checkpoint|aipl_feedback=vocab_axis",
+    "genome": "tokenizer_family=bytelevel_bpe|vocab_class=2048|context_class=ctx256_effective_3to4_bytes_per_token|model_scale=depth6_d128_1p4M|japanese_support=utf8_tokenizer_only|train_data_scale=100MB_deduped|delivery_mode=train_eval_checkpoint|aipl_feedback=vocab_axis"
+  },
+  {
+    "id": "I197",
+    "score": 0.69,
+    "cell": "tokenizer_family=bytelevel_bpe|vocab_class=2048|context_class=ctx384_or_ctx512|model_scale=stage9_bpe_extend|japanese_support=ja_mixed_corpus|train_data_scale=100MB_deduped|delivery_mode=train_eval_checkpoint|aipl_feedback=data_scale_axis",
+    "genome": "tokenizer_family=bytelevel_bpe|vocab_class=2048|context_class=ctx384_or_ctx512|model_scale=stage9_bpe_extend|japanese_support=ja_mixed_corpus|train_data_scale=100MB_deduped|delivery_mode=train_eval_checkpoint|aipl_feedback=data_scale_axis"
+  },
+  {
+    "id": "I343",
+    "score": 0.69,
+    "cell": "tokenizer_family=bytelevel_bpe|vocab_class=2048|context_class=ctx384_or_ctx512|model_scale=stage9_bpe_extend|japanese_support=ja_mixed_corpus|train_data_scale=100MB_deduped|delivery_mode=train_eval_checkpoint|aipl_feedback=productization",
+    "genome": "tokenizer_family=bytelevel_bpe|vocab_class=2048|context_class=ctx384_or_ctx512|model_scale=stage9_bpe_extend|japanese_support=ja_mixed_corpus|train_data_scale=100MB_deduped|delivery_mode=train_eval_checkpoint|aipl_feedback=productization"
+  },
+  {
+    "id": "I216",
+    "score": 0.68,
+    "cell": "tokenizer_family=bytelevel_bpe|vocab_class=2048|context_class=ctx256_effective_3to4_bytes_per_token|model_scale=depth6_d128_1p4M|japanese_support=optional_ja_eval|train_data_scale=100MB_deduped|delivery_mode=train_eval_checkpoint|aipl_feedback=vocab_axis",
+    "genome": "tokenizer_family=bytelevel_bpe|vocab_class=2048|context_class=ctx256_effective_3to4_bytes_per_token|model_scale=depth6_d128_1p4M|japanese_support=optional_ja_eval|train_data_scale=100MB_deduped|delivery_mode=train_eval_checkpoint|aipl_feedback=vocab_axis"
+  },
+  {
+    "id": "I235",
+    "score": 0.68,
+    "cell": "tokenizer_family=hybrid_byte_bpe|vocab_class=2048|context_class=ctx256_mixed_utf8|model_scale=depth6_d128_1p4M|japanese_support=utf8_tokenizer_only|train_data_scale=10MB_en_baseline|delivery_mode=chat_py|aipl_feedback=vocab_axis",
+    "genome": "tokenizer_family=hybrid_byte_bpe|vocab_class=2048|context_class=ctx256_mixed_utf8|model_scale=depth6_d128_1p4M|japanese_support=utf8_tokenizer_only|train_data_scale=10MB_en_baseline|delivery_mode=chat_py|aipl_feedback=vocab_axis"
+  },
+  {
+    "id": "I2",
+    "score": 0.67,
+    "cell": "tokenizer_family=bytelevel_bpe|vocab_class=2048|context_class=ctx256_effective_3to4_bytes_per_token|model_scale=depth6_d128_1p4M|japanese_support=utf8_tokenizer_only|train_data_scale=10MB_en_baseline|delivery_mode=train_eval_checkpoint|aipl_feedback=vocab_axis",
+    "genome": "tokenizer_family=bytelevel_bpe|vocab_class=2048|context_class=ctx256_effective_3to4_bytes_per_token|model_scale=depth6_d128_1p4M|japanese_support=utf8_tokenizer_only|train_data_scale=10MB_en_baseline|delivery_mode=train_eval_checkpoint|aipl_feedback=vocab_axis"
+  },
+  {
+    "id": "I22",
+    "score": 0.67,
+    "cell": "tokenizer_family=bytelevel_bpe|vocab_class=2048|context_class=ctx256_effective_3to4_bytes_per_token|model_scale=depth6_d128_1p4M|japanese_support=utf8_tokenizer_only|train_data_scale=10MB_en_baseline|delivery_mode=train_eval_checkpoint|aipl_feedback=multilingual_axis",
+    "genome": "tokenizer_family=bytelevel_bpe|vocab_class=2048|context_class=ctx256_effective_3to4_bytes_per_token|model_scale=depth6_d128_1p4M|japanese_support=utf8_tokenizer_only|train_data_scale=10MB_en_baseline|delivery_mode=train_eval_checkpoint|aipl_feedback=multilingual_axis"
+  },
+  {
+    "id": "I56",
+    "score": 0.67,
+    "cell": "tokenizer_family=bytelevel_bpe|vocab_class=2048|context_class=ctx256_effective_midpoint|model_scale=depth6_d128_1p4M|japanese_support=utf8_tokenizer_only|train_data_scale=10MB_en_baseline|delivery_mode=train_eval_checkpoint|aipl_feedback=vocab_axis",
+    "genome": "tokenizer_family=bytelevel_bpe|vocab_class=2048|context_class=ctx256_effective_midpoint|model_scale=depth6_d128_1p4M|japanese_support=utf8_tokenizer_only|train_data_scale=10MB_en_baseline|delivery_mode=train_eval_checkpoint|aipl_feedback=vocab_axis"
+  },
+  {
+    "id": "I305",
+    "score": 0.67,
+    "cell": "tokenizer_family=bytelevel_bpe|vocab_class=2048|context_class=ctx384_or_ctx512|model_scale=depth6_d160_2M_guarded|japanese_support=ja_mixed_corpus|train_data_scale=100MB_deduped|delivery_mode=train_eval_checkpoint|aipl_feedback=data_scale_axis",
+    "genome": "tokenizer_family=bytelevel_bpe|vocab_class=2048|context_class=ctx384_or_ctx512|model_scale=depth6_d160_2M_guarded|japanese_support=ja_mixed_corpus|train_data_scale=100MB_deduped|delivery_mode=train_eval_checkpoint|aipl_feedback=data_scale_axis"
+  },
+  {
+    "id": "I344",
+    "score": 0.67,
+    "cell": "tokenizer_family=unigram|vocab_class=1536|context_class=ctx256_mixed_utf8|model_scale=stage9_bpe_extend|japanese_support=ja_mixed_corpus|train_data_scale=30MB_mixed_en_ja|delivery_mode=train_eval_checkpoint|aipl_feedback=multilingual_axis",
+    "genome": "tokenizer_family=unigram|vocab_class=1536|context_class=ctx256_mixed_utf8|model_scale=stage9_bpe_extend|japanese_support=ja_mixed_corpus|train_data_scale=30MB_mixed_en_ja|delivery_mode=train_eval_checkpoint|aipl_feedback=multilingual_axis"
+  },
+  {
+    "id": "I273",
+    "score": 0.66,
+    "cell": "tokenizer_family=hybrid_byte_bpe|vocab_class=2048|context_class=ctx256_mixed_utf8|model_scale=depth6_d160_2M_guarded|japanese_support=utf8_tokenizer_only|train_data_scale=30MB_mixed_en_ja|delivery_mode=train_eval_checkpoint|aipl_feedback=multilingual_axis",
+    "genome": "tokenizer_family=hybrid_byte_bpe|vocab_class=2048|context_class=ctx256_mixed_utf8|model_scale=depth6_d160_2M_guarded|japanese_support=utf8_tokenizer_only|train_data_scale=30MB_mixed_en_ja|delivery_mode=train_eval_checkpoint|aipl_feedback=multilingual_axis"
+  },
+  {
+    "id": "I177",
+    "score": 0.66,
+    "cell": "tokenizer_family=byte|vocab_class=2048|context_class=ctx256_current|model_scale=stage9_bpe_extend|japanese_support=utf8_tokenizer_only|train_data_scale=30MB_mixed_en_ja|delivery_mode=train_eval_checkpoint|aipl_feedback=data_scale_axis",
+    "genome": "tokenizer_family=byte|vocab_class=2048|context_class=ctx256_current|model_scale=stage9_bpe_extend|japanese_support=utf8_tokenizer_only|train_data_scale=30MB_mixed_en_ja|delivery_mode=train_eval_checkpoint|aipl_feedback=data_scale_axis"
+  },
+  {
+    "id": "I265",
+    "score": 0.66,
+    "cell": "tokenizer_family=bytelevel_bpe|vocab_class=2048|context_class=ctx384_or_ctx512|model_scale=stage9_bpe_extend|japanese_support=utf8_tokenizer_only|train_data_scale=30MB_mixed_en_ja|delivery_mode=train_eval_checkpoint|aipl_feedback=data_scale_axis",
+    "genome": "tokenizer_family=bytelevel_bpe|vocab_class=2048|context_class=ctx384_or_ctx512|model_scale=stage9_bpe_extend|japanese_support=utf8_tokenizer_only|train_data_scale=30MB_mixed_en_ja|delivery_mode=train_eval_checkpoint|aipl_feedback=data_scale_axis"
+  },
+  {
+    "id": "I290",
+    "score": 0.66,
+    "cell": "tokenizer_family=bytelevel_bpe|vocab_class=2048|context_class=ctx256_effective_3to4_bytes_per_token|model_scale=stage9_bpe_extend|japanese_support=utf8_tokenizer_only|train_data_scale=30MB_mixed_en_ja|delivery_mode=train_eval_checkpoint|aipl_feedback=data_scale_axis",
+    "genome": "tokenizer_family=bytelevel_bpe|vocab_class=2048|context_class=ctx256_effective_3to4_bytes_per_token|model_scale=stage9_bpe_extend|japanese_support=utf8_tokenizer_only|train_data_scale=30MB_mixed_en_ja|delivery_mode=train_eval_checkpoint|aipl_feedback=data_scale_axis"
+  },
+  {
+    "id": "I113",
+    "score": 0.65,
+    "cell": "tokenizer_family=bytelevel_bpe|vocab_class=4096|context_class=ctx384_or_ctx512|model_scale=stage9_bpe_extend|japanese_support=ja_mixed_corpus|train_data_scale=100MB_deduped|delivery_mode=train_eval_checkpoint|aipl_feedback=data_scale_axis",
+    "genome": "tokenizer_family=bytelevel_bpe|vocab_class=4096|context_class=ctx384_or_ctx512|model_scale=stage9_bpe_extend|japanese_support=ja_mixed_corpus|train_data_scale=100MB_deduped|delivery_mode=train_eval_checkpoint|aipl_feedback=data_scale_axis"
+  },
+  {
+    "id": "I218",
+    "score": 0.65,
+    "cell": "tokenizer_family=bytelevel_bpe|vocab_class=2048|context_class=ctx256_effective_3to4_bytes_per_token|model_scale=depth6_d128_1p4M|japanese_support=utf8_tokenizer_only|train_data_scale=10MB_en_baseline|delivery_mode=train_eval_checkpoint|aipl_feedback=data_scale_axis",
+    "genome": "tokenizer_family=bytelevel_bpe|vocab_class=2048|context_class=ctx256_effective_3to4_bytes_per_token|model_scale=depth6_d128_1p4M|japanese_support=utf8_tokenizer_only|train_data_scale=10MB_en_baseline|delivery_mode=train_eval_checkpoint|aipl_feedback=data_scale_axis"
+  },
+  {
+    "id": "I168",
+    "score": 0.64,
+    "cell": "tokenizer_family=hybrid_byte_bpe|vocab_class=2048|context_class=ctx256_effective_3to4_bytes_per_token|model_scale=stage9_bpe_extend|japanese_support=utf8_tokenizer_only|train_data_scale=100MB_deduped|delivery_mode=train_eval_checkpoint|aipl_feedback=data_scale_axis",
+    "genome": "tokenizer_family=hybrid_byte_bpe|vocab_class=2048|context_class=ctx256_effective_3to4_bytes_per_token|model_scale=stage9_bpe_extend|japanese_support=utf8_tokenizer_only|train_data_scale=100MB_deduped|delivery_mode=train_eval_checkpoint|aipl_feedback=data_scale_axis"
+  },
+  {
+    "id": "I175",
+    "score": 0.64,
+    "cell": "tokenizer_family=bytelevel_bpe|vocab_class=2048|context_class=ctx256_effective_3to4_bytes_per_token|model_scale=depth6_d160_2M_guarded|japanese_support=utf8_tokenizer_only|train_data_scale=30MB_mixed_en_ja|delivery_mode=train_eval_checkpoint|aipl_feedback=data_scale_axis",
+    "genome": "tokenizer_family=bytelevel_bpe|vocab_class=2048|context_class=ctx256_effective_3to4_bytes_per_token|model_scale=depth6_d160_2M_guarded|japanese_support=utf8_tokenizer_only|train_data_scale=30MB_mixed_en_ja|delivery_mode=train_eval_checkpoint|aipl_feedback=data_scale_axis"
+  },
+  {
+    "id": "I181",
+    "score": 0.64,
+    "cell": "tokenizer_family=bytelevel_bpe|vocab_class=2048|context_class=ctx256_mixed_utf8|model_scale=depth6_d160_2M_guarded|japanese_support=utf8_tokenizer_only|train_data_scale=30MB_mixed_en_ja|delivery_mode=train_eval_checkpoint|aipl_feedback=productization",
+    "genome": "tokenizer_family=bytelevel_bpe|vocab_class=2048|context_class=ctx256_mixed_utf8|model_scale=depth6_d160_2M_guarded|japanese_support=utf8_tokenizer_only|train_data_scale=30MB_mixed_en_ja|delivery_mode=train_eval_checkpoint|aipl_feedback=productization"
+  },
+  {
+    "id": "I260",
+    "score": 0.64,
+    "cell": "tokenizer_family=bytelevel_bpe|vocab_class=2048|context_class=ctx256_mixed_utf8|model_scale=depth6_d160_2M_guarded|japanese_support=utf8_tokenizer_only|train_data_scale=30MB_mixed_en_ja|delivery_mode=train_eval_checkpoint|aipl_feedback=data_scale_axis",
+    "genome": "tokenizer_family=bytelevel_bpe|vocab_class=2048|context_class=ctx256_mixed_utf8|model_scale=depth6_d160_2M_guarded|japanese_support=utf8_tokenizer_only|train_data_scale=30MB_mixed_en_ja|delivery_mode=train_eval_checkpoint|aipl_feedback=data_scale_axis"
+  },
+  {
+    "id": "I301",
+    "score": 0.64,
+    "cell": "tokenizer_family=bytelevel_bpe|vocab_class=2048|context_class=ctx384_or_ctx512|model_scale=stage9_bpe_extend|japanese_support=utf8_tokenizer_only|train_data_scale=100MB_deduped|delivery_mode=train_eval_checkpoint|aipl_feedback=data_scale_axis",
+    "genome": "tokenizer_family=bytelevel_bpe|vocab_class=2048|context_class=ctx384_or_ctx512|model_scale=stage9_bpe_extend|japanese_support=utf8_tokenizer_only|train_data_scale=100MB_deduped|delivery_mode=train_eval_checkpoint|aipl_feedback=data_scale_axis"
+  },
+  {
+    "id": "I327",
+    "score": 0.64,
+    "cell": "tokenizer_family=unigram|vocab_class=2048|context_class=ctx384_or_ctx512|model_scale=stage9_bpe_extend|japanese_support=optional_ja_eval|train_data_scale=30MB_mixed_en_ja|delivery_mode=train_eval_checkpoint|aipl_feedback=data_scale_axis",
+    "genome": "tokenizer_family=unigram|vocab_class=2048|context_class=ctx384_or_ctx512|model_scale=stage9_bpe_extend|japanese_support=optional_ja_eval|train_data_scale=30MB_mixed_en_ja|delivery_mode=train_eval_checkpoint|aipl_feedback=data_scale_axis"
+  },
+  {
+    "id": "I303",
+    "score": 0.64,
+    "cell": "tokenizer_family=byte|vocab_class=2048|context_class=ctx256_effective_3to4_bytes_per_token|model_scale=stage9_bpe_extend|japanese_support=optional_ja_eval|train_data_scale=100MB_deduped|delivery_mode=train_eval_checkpoint|aipl_feedback=vocab_axis",
+    "genome": "tokenizer_family=byte|vocab_class=2048|context_class=ctx256_effective_3to4_bytes_per_token|model_scale=stage9_bpe_extend|japanese_support=optional_ja_eval|train_data_scale=100MB_deduped|delivery_mode=train_eval_checkpoint|aipl_feedback=vocab_axis"
+  },
+  {
+    "id": "I304",
+    "score": 0.64,
+    "cell": "tokenizer_family=bytelevel_bpe|vocab_class=2048|context_class=ctx256_effective_3to4_bytes_per_token|model_scale=depth6_d160_2M_guarded|japanese_support=utf8_tokenizer_only|train_data_scale=100MB_deduped|delivery_mode=train_eval_checkpoint|aipl_feedback=vocab_axis",
+    "genome": "tokenizer_family=bytelevel_bpe|vocab_class=2048|context_class=ctx256_effective_3to4_bytes_per_token|model_scale=depth6_d160_2M_guarded|japanese_support=utf8_tokenizer_only|train_data_scale=100MB_deduped|delivery_mode=train_eval_checkpoint|aipl_feedback=vocab_axis"
+  },
+  {
+    "id": "I291",
+    "score": 0.64,
+    "cell": "tokenizer_family=bytelevel_bpe|vocab_class=2048|context_class=ctx256_mixed_utf8|model_scale=depth6_d128_1p4M|japanese_support=ja_mixed_corpus|train_data_scale=100MB_deduped|delivery_mode=generate_samples|aipl_feedback=data_scale_axis",
+    "genome": "tokenizer_family=bytelevel_bpe|vocab_class=2048|context_class=ctx256_mixed_utf8|model_scale=depth6_d128_1p4M|japanese_support=ja_mixed_corpus|train_data_scale=100MB_deduped|delivery_mode=generate_samples|aipl_feedback=data_scale_axis"
+  },
+  {
+    "id": "I332",
+    "score": 0.64,
+    "cell": "tokenizer_family=bytelevel_bpe|vocab_class=2048|context_class=ctx256_current|model_scale=stage9_bpe_extend|japanese_support=ja_mixed_corpus|train_data_scale=30MB_mixed_en_ja|delivery_mode=generate_samples|aipl_feedback=vocab_axis",
+    "genome": "tokenizer_family=bytelevel_bpe|vocab_class=2048|context_class=ctx256_current|model_scale=stage9_bpe_extend|japanese_support=ja_mixed_corpus|train_data_scale=30MB_mixed_en_ja|delivery_mode=generate_samples|aipl_feedback=vocab_axis"
+  },
+  {
+    "id": "I342",
+    "score": 0.64,
+    "cell": "tokenizer_family=hybrid_byte_bpe|vocab_class=2048|context_class=ctx256_current|model_scale=depth6_d128_1p4M|japanese_support=ja_mixed_corpus|train_data_scale=100MB_deduped|delivery_mode=generate_samples|aipl_feedback=data_scale_axis",
+    "genome": "tokenizer_family=hybrid_byte_bpe|vocab_class=2048|context_class=ctx256_current|model_scale=depth6_d128_1p4M|japanese_support=ja_mixed_corpus|train_data_scale=100MB_deduped|delivery_mode=generate_samples|aipl_feedback=data_scale_axis"
+  },
+  {
+    "id": "I259",
+    "score": 0.63,
+    "cell": "tokenizer_family=bytelevel_bpe|vocab_class=4096|context_class=ctx384_or_ctx512|model_scale=depth6_d160_2M_guarded|japanese_support=ja_mixed_corpus|train_data_scale=100MB_deduped|delivery_mode=train_eval_checkpoint|aipl_feedback=data_scale_axis",
+    "genome": "tokenizer_family=bytelevel_bpe|vocab_class=4096|context_class=ctx384_or_ctx512|model_scale=depth6_d160_2M_guarded|japanese_support=ja_mixed_corpus|train_data_scale=100MB_deduped|delivery_mode=train_eval_checkpoint|aipl_feedback=data_scale_axis"
+  },
+  {
+    "id": "I226",
+    "score": 0.63,
+    "cell": "tokenizer_family=hybrid_byte_bpe|vocab_class=4096|context_class=ctx384_or_ctx512|model_scale=depth6_d160_2M_guarded|japanese_support=ja_mixed_corpus|train_data_scale=100MB_deduped|delivery_mode=train_eval_checkpoint|aipl_feedback=data_scale_axis",
+    "genome": "tokenizer_family=hybrid_byte_bpe|vocab_class=4096|context_class=ctx384_or_ctx512|model_scale=depth6_d160_2M_guarded|japanese_support=ja_mixed_corpus|train_data_scale=100MB_deduped|delivery_mode=train_eval_checkpoint|aipl_feedback=data_scale_axis"
+  },
+  {
+    "id": "I222",
+    "score": 0.63,
+    "cell": "tokenizer_family=byte|vocab_class=2048|context_class=ctx256_current|model_scale=stage9_bpe_extend|japanese_support=utf8_tokenizer_only|train_data_scale=10MB_en_baseline|delivery_mode=train_eval_checkpoint|aipl_feedback=vocab_axis",
+    "genome": "tokenizer_family=byte|vocab_class=2048|context_class=ctx256_current|model_scale=stage9_bpe_extend|japanese_support=utf8_tokenizer_only|train_data_scale=10MB_en_baseline|delivery_mode=train_eval_checkpoint|aipl_feedback=vocab_axis"
+  },
+  {
+    "id": "I349",
+    "score": 0.63,
+    "cell": "tokenizer_family=bytelevel_bpe|vocab_class=2048|context_class=ctx256_current|model_scale=depth6_d128_1p35M|japanese_support=ja_mixed_corpus|train_data_scale=30MB_mixed_en_ja|delivery_mode=train_eval_checkpoint|aipl_feedback=data_scale_axis",
+    "genome": "tokenizer_family=bytelevel_bpe|vocab_class=2048|context_class=ctx256_current|model_scale=depth6_d128_1p35M|japanese_support=ja_mixed_corpus|train_data_scale=30MB_mixed_en_ja|delivery_mode=train_eval_checkpoint|aipl_feedback=data_scale_axis"
+  },
+  {
+    "id": "I321",
+    "score": 0.62,
+    "cell": "tokenizer_family=bytelevel_bpe|vocab_class=2048|context_class=ctx384_or_ctx512|model_scale=depth6_d160_2M_guarded|japanese_support=optional_ja_eval|train_data_scale=30MB_mixed_en_ja|delivery_mode=train_eval_checkpoint|aipl_feedback=data_scale_axis",
+    "genome": "tokenizer_family=bytelevel_bpe|vocab_class=2048|context_class=ctx384_or_ctx512|model_scale=depth6_d160_2M_guarded|japanese_support=optional_ja_eval|train_data_scale=30MB_mixed_en_ja|delivery_mode=train_eval_checkpoint|aipl_feedback=data_scale_axis"
+  },
+  {
+    "id": "I322",
+    "score": 0.62,
+    "cell": "tokenizer_family=bytelevel_bpe|vocab_class=4096|context_class=ctx384_or_ctx512|model_scale=depth6_d128_1p4M|japanese_support=optional_ja_eval|train_data_scale=100MB_deduped|delivery_mode=train_eval_checkpoint|aipl_feedback=data_scale_axis",
+    "genome": "tokenizer_family=bytelevel_bpe|vocab_class=4096|context_class=ctx384_or_ctx512|model_scale=depth6_d128_1p4M|japanese_support=optional_ja_eval|train_data_scale=100MB_deduped|delivery_mode=train_eval_checkpoint|aipl_feedback=data_scale_axis"
+  },
+  {
+    "id": "I242",
+    "score": 0.62,
+    "cell": "tokenizer_family=hybrid_byte_bpe|vocab_class=2048|context_class=ctx256_effective_3to4_bytes_per_token|model_scale=stage9_bpe_extend|japanese_support=ja_mixed_corpus|train_data_scale=30MB_mixed_en_ja|delivery_mode=generate_samples|aipl_feedback=data_scale_axis",
+    "genome": "tokenizer_family=hybrid_byte_bpe|vocab_class=2048|context_class=ctx256_effective_3to4_bytes_per_token|model_scale=stage9_bpe_extend|japanese_support=ja_mixed_corpus|train_data_scale=30MB_mixed_en_ja|delivery_mode=generate_samples|aipl_feedback=data_scale_axis"
+  },
+  {
+    "id": "I244",
+    "score": 0.62,
+    "cell": "tokenizer_family=byte|vocab_class=2048|context_class=ctx256_effective_3to4_bytes_per_token|model_scale=depth6_d128_1p4M|japanese_support=none|train_data_scale=30MB_mixed_en_ja|delivery_mode=train_eval_checkpoint|aipl_feedback=vocab_axis",
+    "genome": "tokenizer_family=byte|vocab_class=2048|context_class=ctx256_effective_3to4_bytes_per_token|model_scale=depth6_d128_1p4M|japanese_support=none|train_data_scale=30MB_mixed_en_ja|delivery_mode=train_eval_checkpoint|aipl_feedback=vocab_axis"
+  },
+  {
+    "id": "I101",
+    "score": 0.61,
+    "cell": "tokenizer_family=bytelevel_bpe|vocab_class=2048|context_class=ctx256_effective_3to4_bytes_per_token|model_scale=depth6_d128_1p4M|japanese_support=utf8_tokenizer_only|train_data_scale=100MB_deduped|delivery_mode=aipl_prior_update|aipl_feedback=vocab_axis",
+    "genome": "tokenizer_family=bytelevel_bpe|vocab_class=2048|context_class=ctx256_effective_3to4_bytes_per_token|model_scale=depth6_d128_1p4M|japanese_support=utf8_tokenizer_only|train_data_scale=100MB_deduped|delivery_mode=aipl_prior_update|aipl_feedback=vocab_axis"
+  },
+  {
+    "id": "I204",
+    "score": 0.61,
+    "cell": "tokenizer_family=byte|vocab_class=2048|context_class=ctx256_effective_3to4_bytes_per_token|model_scale=depth6_d128_1p4M|japanese_support=utf8_tokenizer_only|train_data_scale=100MB_deduped|delivery_mode=aipl_prior_update|aipl_feedback=vocab_axis",
+    "genome": "tokenizer_family=byte|vocab_class=2048|context_class=ctx256_effective_3to4_bytes_per_token|model_scale=depth6_d128_1p4M|japanese_support=utf8_tokenizer_only|train_data_scale=100MB_deduped|delivery_mode=aipl_prior_update|aipl_feedback=vocab_axis"
+  },
+  {
+    "id": "I320",
+    "score": 0.61,
+    "cell": "tokenizer_family=byte|vocab_class=2048|context_class=ctx256_effective_midpoint|model_scale=depth6_d128_1p4M|japanese_support=utf8_tokenizer_only|train_data_scale=100MB_deduped|delivery_mode=aipl_prior_update|aipl_feedback=vocab_axis",
+    "genome": "tokenizer_family=byte|vocab_class=2048|context_class=ctx256_effective_midpoint|model_scale=depth6_d128_1p4M|japanese_support=utf8_tokenizer_only|train_data_scale=100MB_deduped|delivery_mode=aipl_prior_update|aipl_feedback=vocab_axis"
+  },
+  {
+    "id": "I180",
+    "score": 0.6,
+    "cell": "tokenizer_family=hybrid_byte_bpe|vocab_class=1536|context_class=ctx256_mixed_utf8|model_scale=depth6_d128_1p4M|japanese_support=ja_mixed_corpus|train_data_scale=30MB_mixed_en_ja|delivery_mode=generate_samples|aipl_feedback=productization",
+    "genome": "tokenizer_family=hybrid_byte_bpe|vocab_class=1536|context_class=ctx256_mixed_utf8|model_scale=depth6_d128_1p4M|japanese_support=ja_mixed_corpus|train_data_scale=30MB_mixed_en_ja|delivery_mode=generate_samples|aipl_feedback=productization"
+  },
+  {
+    "id": "I19",
+    "score": 0.6,
+    "cell": "tokenizer_family=hybrid_byte_bpe|vocab_class=2048|context_class=ctx256_current|model_scale=stage9_bpe_extend|japanese_support=ja_mixed_corpus|train_data_scale=100MB_deduped|delivery_mode=generate_samples|aipl_feedback=data_scale_axis",
+    "genome": "tokenizer_family=hybrid_byte_bpe|vocab_class=2048|context_class=ctx256_current|model_scale=stage9_bpe_extend|japanese_support=ja_mixed_corpus|train_data_scale=100MB_deduped|delivery_mode=generate_samples|aipl_feedback=data_scale_axis"
+  },
+  {
+    "id": "I60",
+    "score": 0.6,
+    "cell": "tokenizer_family=byte|vocab_class=2048|context_class=ctx256_current|model_scale=stage9_bpe_extend|japanese_support=ja_mixed_corpus|train_data_scale=100MB_deduped|delivery_mode=generate_samples|aipl_feedback=data_scale_axis",
+    "genome": "tokenizer_family=byte|vocab_class=2048|context_class=ctx256_current|model_scale=stage9_bpe_extend|japanese_support=ja_mixed_corpus|train_data_scale=100MB_deduped|delivery_mode=generate_samples|aipl_feedback=data_scale_axis"
+  },
+  {
+    "id": "I214",
+    "score": 0.6,
+    "cell": "tokenizer_family=bytelevel_bpe|vocab_class=2048|context_class=ctx256_effective_3to4_bytes_per_token|model_scale=depth6_d128_1p4M|japanese_support=none|train_data_scale=100MB_deduped|delivery_mode=train_eval_checkpoint|aipl_feedback=vocab_axis",
+    "genome": "tokenizer_family=bytelevel_bpe|vocab_class=2048|context_class=ctx256_effective_3to4_bytes_per_token|model_scale=depth6_d128_1p4M|japanese_support=none|train_data_scale=100MB_deduped|delivery_mode=train_eval_checkpoint|aipl_feedback=vocab_axis"
+  },
+  {
+    "id": "I262",
+    "score": 0.6,
+    "cell": "tokenizer_family=hybrid_byte_bpe|vocab_class=2048|context_class=ctx256_current|model_scale=depth6_d128_1p4M|japanese_support=utf8_decode_smoke|train_data_scale=100MB_deduped|delivery_mode=train_eval_checkpoint|aipl_feedback=vocab_axis",
+    "genome": "tokenizer_family=hybrid_byte_bpe|vocab_class=2048|context_class=ctx256_current|model_scale=depth6_d128_1p4M|japanese_support=utf8_decode_smoke|train_data_scale=100MB_deduped|delivery_mode=train_eval_checkpoint|aipl_feedback=vocab_axis"
+  },
+  {
+    "id": "I176",
+    "score": 0.6,
+    "cell": "tokenizer_family=hybrid_byte_bpe|vocab_class=2048|context_class=ctx256_current|model_scale=stage9_bpe_extend|japanese_support=ja_mixed_corpus|train_data_scale=100MB_deduped|delivery_mode=aipl_prior_update|aipl_feedback=data_scale_axis",
+    "genome": "tokenizer_family=hybrid_byte_bpe|vocab_class=2048|context_class=ctx256_current|model_scale=stage9_bpe_extend|japanese_support=ja_mixed_corpus|train_data_scale=100MB_deduped|delivery_mode=aipl_prior_update|aipl_feedback=data_scale_axis"
+  },
+  {
+    "id": "I196",
+    "score": 0.59,
+    "cell": "tokenizer_family=bytelevel_bpe|vocab_class=2048|context_class=ctx256_effective_3to4_bytes_per_token|model_scale=depth6_d160_2M_guarded|japanese_support=utf8_tokenizer_only|train_data_scale=10MB_en_baseline|delivery_mode=train_eval_checkpoint|aipl_feedback=data_scale_axis",
+    "genome": "tokenizer_family=bytelevel_bpe|vocab_class=2048|context_class=ctx256_effective_3to4_bytes_per_token|model_scale=depth6_d160_2M_guarded|japanese_support=utf8_tokenizer_only|train_data_scale=10MB_en_baseline|delivery_mode=train_eval_checkpoint|aipl_feedback=data_scale_axis"
+  },
+  {
+    "id": "I285",
+    "score": 0.59,
+    "cell": "tokenizer_family=hybrid_byte_bpe|vocab_class=2048|context_class=ctx256_effective_3to4_bytes_per_token|model_scale=stage9_bpe_extend|japanese_support=utf8_tokenizer_only|train_data_scale=30MB_mixed_en_ja|delivery_mode=aipl_prior_update|aipl_feedback=vocab_axis",
+    "genome": "tokenizer_family=hybrid_byte_bpe|vocab_class=2048|context_class=ctx256_effective_3to4_bytes_per_token|model_scale=stage9_bpe_extend|japanese_support=utf8_tokenizer_only|train_data_scale=30MB_mixed_en_ja|delivery_mode=aipl_prior_update|aipl_feedback=vocab_axis"
+  },
+  {
+    "id": "I184",
+    "score": 0.58,
+    "cell": "tokenizer_family=unigram|vocab_class=1536|context_class=ctx256_current|model_scale=depth6_d128_1p4M|japanese_support=ja_mixed_corpus|train_data_scale=100MB_deduped|delivery_mode=aipl_prior_update|aipl_feedback=data_scale_axis",
+    "genome": "tokenizer_family=unigram|vocab_class=1536|context_class=ctx256_current|model_scale=depth6_d128_1p4M|japanese_support=ja_mixed_corpus|train_data_scale=100MB_deduped|delivery_mode=aipl_prior_update|aipl_feedback=data_scale_axis"
+  },
+  {
+    "id": "I247",
+    "score": 0.58,
+    "cell": "tokenizer_family=hybrid_byte_bpe|vocab_class=2048|context_class=ctx256_mixed_utf8|model_scale=depth6_d128_1p4M|japanese_support=utf8_decode_smoke|train_data_scale=100MB_deduped|delivery_mode=train_eval_checkpoint|aipl_feedback=data_scale_axis",
+    "genome": "tokenizer_family=hybrid_byte_bpe|vocab_class=2048|context_class=ctx256_mixed_utf8|model_scale=depth6_d128_1p4M|japanese_support=utf8_decode_smoke|train_data_scale=100MB_deduped|delivery_mode=train_eval_checkpoint|aipl_feedback=data_scale_axis"
+  },
+  {
+    "id": "I270",
+    "score": 0.58,
+    "cell": "tokenizer_family=hybrid_byte_bpe|vocab_class=2048|context_class=ctx384_or_ctx512|model_scale=depth6_d128_1p4M|japanese_support=utf8_decode_smoke|train_data_scale=100MB_deduped|delivery_mode=train_eval_checkpoint|aipl_feedback=data_scale_axis",
+    "genome": "tokenizer_family=hybrid_byte_bpe|vocab_class=2048|context_class=ctx384_or_ctx512|model_scale=depth6_d128_1p4M|japanese_support=utf8_decode_smoke|train_data_scale=100MB_deduped|delivery_mode=train_eval_checkpoint|aipl_feedback=data_scale_axis"
+  },
+  {
+    "id": "I173",
+    "score": 0.58,
+    "cell": "tokenizer_family=hybrid_byte_bpe|vocab_class=2048|context_class=ctx256_effective_3to4_bytes_per_token|model_scale=depth6_d128_1p4M|japanese_support=utf8_tokenizer_only|train_data_scale=30MB_mixed_en_ja|delivery_mode=chat_py|aipl_feedback=vocab_axis",
+    "genome": "tokenizer_family=hybrid_byte_bpe|vocab_class=2048|context_class=ctx256_effective_3to4_bytes_per_token|model_scale=depth6_d128_1p4M|japanese_support=utf8_tokenizer_only|train_data_scale=30MB_mixed_en_ja|delivery_mode=chat_py|aipl_feedback=vocab_axis"
+  },
+  {
+    "id": "I208",
+    "score": 0.58,
+    "cell": "tokenizer_family=hybrid_byte_bpe|vocab_class=2048|context_class=ctx256_mixed_utf8|model_scale=depth6_d128_1p4M|japanese_support=utf8_tokenizer_only|train_data_scale=30MB_mixed_en_ja|delivery_mode=chat_py|aipl_feedback=vocab_axis",
+    "genome": "tokenizer_family=hybrid_byte_bpe|vocab_class=2048|context_class=ctx256_mixed_utf8|model_scale=depth6_d128_1p4M|japanese_support=utf8_tokenizer_only|train_data_scale=30MB_mixed_en_ja|delivery_mode=chat_py|aipl_feedback=vocab_axis"
+  },
+  {
+    "id": "I264",
+    "score": 0.58,
+    "cell": "tokenizer_family=bytelevel_bpe|vocab_class=2048|context_class=ctx256_current|model_scale=stage9_bpe_extend|japanese_support=utf8_decode_smoke|train_data_scale=30MB_mixed_en_ja|delivery_mode=train_eval_checkpoint|aipl_feedback=vocab_axis",
+    "genome": "tokenizer_family=bytelevel_bpe|vocab_class=2048|context_class=ctx256_current|model_scale=stage9_bpe_extend|japanese_support=utf8_decode_smoke|train_data_scale=30MB_mixed_en_ja|delivery_mode=train_eval_checkpoint|aipl_feedback=vocab_axis"
+  },
+  {
+    "id": "I276",
+    "score": 0.58,
+    "cell": "tokenizer_family=bytelevel_bpe|vocab_class=4096|context_class=ctx384_or_ctx512|model_scale=stage9_bpe_extend|japanese_support=ja_mixed_corpus|train_data_scale=100MB_deduped|delivery_mode=aipl_prior_update|aipl_feedback=vocab_axis",
+    "genome": "tokenizer_family=bytelevel_bpe|vocab_class=4096|context_class=ctx384_or_ctx512|model_scale=stage9_bpe_extend|japanese_support=ja_mixed_corpus|train_data_scale=100MB_deduped|delivery_mode=aipl_prior_update|aipl_feedback=vocab_axis"
+  },
+  {
+    "id": "I160",
+    "score": 0.57,
+    "cell": "tokenizer_family=hybrid_byte_bpe|vocab_class=2048|context_class=ctx256_effective_3to4_bytes_per_token|model_scale=stage9_bpe_extend|japanese_support=optional_ja_eval|train_data_scale=30MB_mixed_en_ja|delivery_mode=aipl_prior_update|aipl_feedback=vocab_axis",
+    "genome": "tokenizer_family=hybrid_byte_bpe|vocab_class=2048|context_class=ctx256_effective_3to4_bytes_per_token|model_scale=stage9_bpe_extend|japanese_support=optional_ja_eval|train_data_scale=30MB_mixed_en_ja|delivery_mode=aipl_prior_update|aipl_feedback=vocab_axis"
+  },
+  {
+    "id": "I324",
+    "score": 0.57,
+    "cell": "tokenizer_family=bytelevel_bpe|vocab_class=2048|context_class=ctx384_or_ctx512|model_scale=stage9_bpe_extend|japanese_support=optional_ja_eval|train_data_scale=30MB_mixed_en_ja|delivery_mode=generate_samples|aipl_feedback=vocab_axis",
+    "genome": "tokenizer_family=bytelevel_bpe|vocab_class=2048|context_class=ctx384_or_ctx512|model_scale=stage9_bpe_extend|japanese_support=optional_ja_eval|train_data_scale=30MB_mixed_en_ja|delivery_mode=generate_samples|aipl_feedback=vocab_axis"
+  },
+  {
+    "id": "I329",
+    "score": 0.57,
+    "cell": "tokenizer_family=bytelevel_bpe|vocab_class=2048|context_class=ctx384_or_ctx512|model_scale=stage9_bpe_extend|japanese_support=optional_ja_eval|train_data_scale=30MB_mixed_en_ja|delivery_mode=aipl_prior_update|aipl_feedback=vocab_axis",
+    "genome": "tokenizer_family=bytelevel_bpe|vocab_class=2048|context_class=ctx384_or_ctx512|model_scale=stage9_bpe_extend|japanese_support=optional_ja_eval|train_data_scale=30MB_mixed_en_ja|delivery_mode=aipl_prior_update|aipl_feedback=vocab_axis"
+  },
+  {
+    "id": "I351",
+    "score": 0.57,
+    "cell": "tokenizer_family=bytelevel_bpe|vocab_class=2048|context_class=ctx256_effective_midpoint|model_scale=stage9_bpe_extend|japanese_support=utf8_tokenizer_only|train_data_scale=100MB_deduped|delivery_mode=aipl_prior_update|aipl_feedback=vocab_axis",
+    "genome": "tokenizer_family=bytelevel_bpe|vocab_class=2048|context_class=ctx256_effective_midpoint|model_scale=stage9_bpe_extend|japanese_support=utf8_tokenizer_only|train_data_scale=100MB_deduped|delivery_mode=aipl_prior_update|aipl_feedback=vocab_axis"
+  },
+  {
+    "id": "I5",
+    "score": 0.56,
+    "cell": "tokenizer_family=bytelevel_bpe|vocab_class=4096|context_class=ctx384_or_ctx512|model_scale=depth6_d160_2M_guarded|japanese_support=optional_ja_eval|train_data_scale=100MB_deduped|delivery_mode=train_eval_checkpoint|aipl_feedback=data_scale_axis",
+    "genome": "tokenizer_family=bytelevel_bpe|vocab_class=4096|context_class=ctx384_or_ctx512|model_scale=depth6_d160_2M_guarded|japanese_support=optional_ja_eval|train_data_scale=100MB_deduped|delivery_mode=train_eval_checkpoint|aipl_feedback=data_scale_axis"
+  },
+  {
+    "id": "I71",
+    "score": 0.56,
+    "cell": "tokenizer_family=hybrid_byte_bpe|vocab_class=4096|context_class=ctx256_current|model_scale=stage9_bpe_extend|japanese_support=ja_mixed_corpus|train_data_scale=100MB_deduped|delivery_mode=generate_samples|aipl_feedback=data_scale_axis",
+    "genome": "tokenizer_family=hybrid_byte_bpe|vocab_class=4096|context_class=ctx256_current|model_scale=stage9_bpe_extend|japanese_support=ja_mixed_corpus|train_data_scale=100MB_deduped|delivery_mode=generate_samples|aipl_feedback=data_scale_axis"
+  },
+  {
+    "id": "I88",
+    "score": 0.56,
+    "cell": "tokenizer_family=hybrid_byte_bpe|vocab_class=4096|context_class=ctx256_mixed_utf8|model_scale=stage9_bpe_extend|japanese_support=ja_mixed_corpus|train_data_scale=100MB_deduped|delivery_mode=generate_samples|aipl_feedback=data_scale_axis",
+    "genome": "tokenizer_family=hybrid_byte_bpe|vocab_class=4096|context_class=ctx256_mixed_utf8|model_scale=stage9_bpe_extend|japanese_support=ja_mixed_corpus|train_data_scale=100MB_deduped|delivery_mode=generate_samples|aipl_feedback=data_scale_axis"
+  },
+  {
+    "id": "I135",
+    "score": 0.56,
+    "cell": "tokenizer_family=bytelevel_bpe|vocab_class=2048|context_class=ctx256_effective_3to4_bytes_per_token|model_scale=stage9_bpe_extend|japanese_support=none|train_data_scale=30MB_mixed_en_ja|delivery_mode=train_eval_checkpoint|aipl_feedback=data_scale_axis",
+    "genome": "tokenizer_family=bytelevel_bpe|vocab_class=2048|context_class=ctx256_effective_3to4_bytes_per_token|model_scale=stage9_bpe_extend|japanese_support=none|train_data_scale=30MB_mixed_en_ja|delivery_mode=train_eval_checkpoint|aipl_feedback=data_scale_axis"
+  },
+  {
+    "id": "I171",
+    "score": 0.56,
+    "cell": "tokenizer_family=unigram|vocab_class=1536|context_class=ctx256_effective_3to4_bytes_per_token|model_scale=stage9_bpe_extend|japanese_support=ja_mixed_corpus|train_data_scale=30MB_mixed_en_ja|delivery_mode=generate_samples|aipl_feedback=data_scale_axis",
+    "genome": "tokenizer_family=unigram|vocab_class=1536|context_class=ctx256_effective_3to4_bytes_per_token|model_scale=stage9_bpe_extend|japanese_support=ja_mixed_corpus|train_data_scale=30MB_mixed_en_ja|delivery_mode=generate_samples|aipl_feedback=data_scale_axis"
+  },
+  {
+    "id": "I212",
+    "score": 0.56,
+    "cell": "tokenizer_family=hybrid_byte_bpe|vocab_class=2048|context_class=ctx256_effective_midpoint|model_scale=stage9_bpe_extend|japanese_support=utf8_tokenizer_only|train_data_scale=10MB_en_baseline|delivery_mode=chat_py|aipl_feedback=midpoint_guard",
+    "genome": "tokenizer_family=hybrid_byte_bpe|vocab_class=2048|context_class=ctx256_effective_midpoint|model_scale=stage9_bpe_extend|japanese_support=utf8_tokenizer_only|train_data_scale=10MB_en_baseline|delivery_mode=chat_py|aipl_feedback=midpoint_guard"
+  },
+  {
+    "id": "I288",
+    "score": 0.56,
+    "cell": "tokenizer_family=bytelevel_bpe|vocab_class=2048|context_class=ctx256_current|model_scale=depth6_d128_1p4M|japanese_support=utf8_tokenizer_only|train_data_scale=30MB_mixed_en_ja|delivery_mode=chat_py|aipl_feedback=productization",
+    "genome": "tokenizer_family=bytelevel_bpe|vocab_class=2048|context_class=ctx256_current|model_scale=depth6_d128_1p4M|japanese_support=utf8_tokenizer_only|train_data_scale=30MB_mixed_en_ja|delivery_mode=chat_py|aipl_feedback=productization"
+  },
+  {
+    "id": "I163",
+    "score": 0.55,
+    "cell": "tokenizer_family=hybrid_byte_bpe|vocab_class=2048|context_class=ctx256_current|model_scale=stage9_bpe_extend|japanese_support=utf8_tokenizer_only|train_data_scale=100MB_deduped|delivery_mode=generate_samples|aipl_feedback=data_scale_axis",
+    "genome": "tokenizer_family=hybrid_byte_bpe|vocab_class=2048|context_class=ctx256_current|model_scale=stage9_bpe_extend|japanese_support=utf8_tokenizer_only|train_data_scale=100MB_deduped|delivery_mode=generate_samples|aipl_feedback=data_scale_axis"
+  },
+  {
+    "id": "I166",
+    "score": 0.55,
+    "cell": "tokenizer_family=bytelevel_bpe|vocab_class=2048|context_class=ctx256_current|model_scale=stage9_bpe_extend|japanese_support=optional_ja_eval|train_data_scale=30MB_mixed_en_ja|delivery_mode=aipl_prior_update|aipl_feedback=data_scale_axis",
+    "genome": "tokenizer_family=bytelevel_bpe|vocab_class=2048|context_class=ctx256_current|model_scale=stage9_bpe_extend|japanese_support=optional_ja_eval|train_data_scale=30MB_mixed_en_ja|delivery_mode=aipl_prior_update|aipl_feedback=data_scale_axis"
+  },
+  {
+    "id": "I178",
+    "score": 0.55,
+    "cell": "tokenizer_family=hybrid_byte_bpe|vocab_class=1536|context_class=ctx256_effective_3to4_bytes_per_token|model_scale=depth6_d128_1p4M|japanese_support=utf8_tokenizer_only|train_data_scale=30MB_mixed_en_ja|delivery_mode=generate_samples|aipl_feedback=productization",
+    "genome": "tokenizer_family=hybrid_byte_bpe|vocab_class=1536|context_class=ctx256_effective_3to4_bytes_per_token|model_scale=depth6_d128_1p4M|japanese_support=utf8_tokenizer_only|train_data_scale=30MB_mixed_en_ja|delivery_mode=generate_samples|aipl_feedback=productization"
+  },
+  {
+    "id": "I189",
+    "score": 0.55,
+    "cell": "tokenizer_family=bytelevel_bpe|vocab_class=2048|context_class=ctx384_or_ctx512|model_scale=stage9_bpe_extend|japanese_support=optional_ja_eval|train_data_scale=100MB_deduped|delivery_mode=generate_samples|aipl_feedback=vocab_axis",
+    "genome": "tokenizer_family=bytelevel_bpe|vocab_class=2048|context_class=ctx384_or_ctx512|model_scale=stage9_bpe_extend|japanese_support=optional_ja_eval|train_data_scale=100MB_deduped|delivery_mode=generate_samples|aipl_feedback=vocab_axis"
+  },
+  {
+    "id": "I193",
+    "score": 0.55,
+    "cell": "tokenizer_family=bytelevel_bpe|vocab_class=2048|context_class=ctx384_or_ctx512|model_scale=stage9_bpe_extend|japanese_support=optional_ja_eval|train_data_scale=30MB_mixed_en_ja|delivery_mode=aipl_prior_update|aipl_feedback=data_scale_axis",
+    "genome": "tokenizer_family=bytelevel_bpe|vocab_class=2048|context_class=ctx384_or_ctx512|model_scale=stage9_bpe_extend|japanese_support=optional_ja_eval|train_data_scale=30MB_mixed_en_ja|delivery_mode=aipl_prior_update|aipl_feedback=data_scale_axis"
+  },
+  {
+    "id": "I230",
+    "score": 0.55,
+    "cell": "tokenizer_family=hybrid_byte_bpe|vocab_class=2048|context_class=ctx256_current|model_scale=stage9_bpe_extend|japanese_support=optional_ja_eval|train_data_scale=30MB_mixed_en_ja|delivery_mode=aipl_prior_update|aipl_feedback=data_scale_axis",
+    "genome": "tokenizer_family=hybrid_byte_bpe|vocab_class=2048|context_class=ctx256_current|model_scale=stage9_bpe_extend|japanese_support=optional_ja_eval|train_data_scale=30MB_mixed_en_ja|delivery_mode=aipl_prior_update|aipl_feedback=data_scale_axis"
+  },
+  {
+    "id": "I287",
+    "score": 0.55,
+    "cell": "tokenizer_family=bytelevel_bpe|vocab_class=2048|context_class=ctx256_current|model_scale=stage9_bpe_extend|japanese_support=optional_ja_eval|train_data_scale=100MB_deduped|delivery_mode=generate_samples|aipl_feedback=vocab_axis",
+    "genome": "tokenizer_family=bytelevel_bpe|vocab_class=2048|context_class=ctx256_current|model_scale=stage9_bpe_extend|japanese_support=optional_ja_eval|train_data_scale=100MB_deduped|delivery_mode=generate_samples|aipl_feedback=vocab_axis"
+  },
+  {
+    "id": "I317",
+    "score": 0.55,
+    "cell": "tokenizer_family=byte|vocab_class=2048|context_class=ctx256_current|model_scale=stage9_bpe_extend|japanese_support=optional_ja_eval|train_data_scale=30MB_mixed_en_ja|delivery_mode=aipl_prior_update|aipl_feedback=data_scale_axis",
+    "genome": "tokenizer_family=byte|vocab_class=2048|context_class=ctx256_current|model_scale=stage9_bpe_extend|japanese_support=optional_ja_eval|train_data_scale=30MB_mixed_en_ja|delivery_mode=aipl_prior_update|aipl_feedback=data_scale_axis"
+  },
+  {
+    "id": "I319",
+    "score": 0.55,
+    "cell": "tokenizer_family=hybrid_byte_bpe|vocab_class=1536|context_class=ctx256_effective_3to4_bytes_per_token|model_scale=depth6_d128_1p4M|japanese_support=utf8_tokenizer_only|train_data_scale=30MB_mixed_en_ja|delivery_mode=aipl_prior_update|aipl_feedback=productization",
+    "genome": "tokenizer_family=hybrid_byte_bpe|vocab_class=1536|context_class=ctx256_effective_3to4_bytes_per_token|model_scale=depth6_d128_1p4M|japanese_support=utf8_tokenizer_only|train_data_scale=30MB_mixed_en_ja|delivery_mode=aipl_prior_update|aipl_feedback=productization"
+  },
+  {
+    "id": "I63",
+    "score": 0.54,
+    "cell": "tokenizer_family=unigram|vocab_class=1536|context_class=ctx256_effective_3to4_bytes_per_token|model_scale=depth6_d160_2M_guarded|japanese_support=ja_mixed_corpus|train_data_scale=30MB_mixed_en_ja|delivery_mode=generate_samples|aipl_feedback=data_scale_axis",
+    "genome": "tokenizer_family=unigram|vocab_class=1536|context_class=ctx256_effective_3to4_bytes_per_token|model_scale=depth6_d160_2M_guarded|japanese_support=ja_mixed_corpus|train_data_scale=30MB_mixed_en_ja|delivery_mode=generate_samples|aipl_feedback=data_scale_axis"
+  },
+  {
+    "id": "I112",
+    "score": 0.54,
+    "cell": "tokenizer_family=hybrid_byte_bpe|vocab_class=1536|context_class=ctx256_effective_3to4_bytes_per_token|model_scale=stage9_bpe_extend|japanese_support=ja_mixed_corpus|train_data_scale=100MB_deduped|delivery_mode=aipl_prior_update|aipl_feedback=data_scale_axis",
+    "genome": "tokenizer_family=hybrid_byte_bpe|vocab_class=1536|context_class=ctx256_effective_3to4_bytes_per_token|model_scale=stage9_bpe_extend|japanese_support=ja_mixed_corpus|train_data_scale=100MB_deduped|delivery_mode=aipl_prior_update|aipl_feedback=data_scale_axis"
+  },
+  {
+    "id": "I152",
+    "score": 0.54,
+    "cell": "tokenizer_family=bytelevel_bpe|vocab_class=1536|context_class=ctx256_effective_midpoint|model_scale=depth6_d128_1p4M|japanese_support=utf8_tokenizer_only|train_data_scale=10MB_en_baseline|delivery_mode=chat_py|aipl_feedback=midpoint_guard",
+    "genome": "tokenizer_family=bytelevel_bpe|vocab_class=1536|context_class=ctx256_effective_midpoint|model_scale=depth6_d128_1p4M|japanese_support=utf8_tokenizer_only|train_data_scale=10MB_en_baseline|delivery_mode=chat_py|aipl_feedback=midpoint_guard"
+  },
+  {
+    "id": "I205",
+    "score": 0.54,
+    "cell": "tokenizer_family=bytelevel_bpe|vocab_class=2048|context_class=ctx384_or_ctx512|model_scale=depth6_d160_2M_guarded|japanese_support=none|train_data_scale=30MB_mixed_en_ja|delivery_mode=train_eval_checkpoint|aipl_feedback=data_scale_axis",
+    "genome": "tokenizer_family=bytelevel_bpe|vocab_class=2048|context_class=ctx384_or_ctx512|model_scale=depth6_d160_2M_guarded|japanese_support=none|train_data_scale=30MB_mixed_en_ja|delivery_mode=train_eval_checkpoint|aipl_feedback=data_scale_axis"
+  },
+  {
+    "id": "I234",
+    "score": 0.54,
+    "cell": "tokenizer_family=byte|vocab_class=2048|context_class=ctx256_effective_midpoint|model_scale=stage9_bpe_extend|japanese_support=utf8_tokenizer_only|train_data_scale=10MB_en_baseline|delivery_mode=aipl_prior_update|aipl_feedback=vocab_axis",
+    "genome": "tokenizer_family=byte|vocab_class=2048|context_class=ctx256_effective_midpoint|model_scale=stage9_bpe_extend|japanese_support=utf8_tokenizer_only|train_data_scale=10MB_en_baseline|delivery_mode=aipl_prior_update|aipl_feedback=vocab_axis"
+  },
+  {
+    "id": "I243",
+    "score": 0.54,
+    "cell": "tokenizer_family=bytelevel_bpe|vocab_class=2048|context_class=ctx384_or_ctx512|model_scale=stage9_bpe_extend|japanese_support=utf8_decode_smoke|train_data_scale=100MB_deduped|delivery_mode=train_eval_checkpoint|aipl_feedback=data_scale_axis",
+    "genome": "tokenizer_family=bytelevel_bpe|vocab_class=2048|context_class=ctx384_or_ctx512|model_scale=stage9_bpe_extend|japanese_support=utf8_decode_smoke|train_data_scale=100MB_deduped|delivery_mode=train_eval_checkpoint|aipl_feedback=data_scale_axis"
+  },
+  {
+    "id": "I246",
+    "score": 0.54,
+    "cell": "tokenizer_family=bytelevel_bpe|vocab_class=2048|context_class=ctx384_or_ctx512|model_scale=stage9_bpe_extend|japanese_support=utf8_tokenizer_only|train_data_scale=10MB_en_baseline|delivery_mode=aipl_prior_update|aipl_feedback=vocab_axis",
+    "genome": "tokenizer_family=bytelevel_bpe|vocab_class=2048|context_class=ctx384_or_ctx512|model_scale=stage9_bpe_extend|japanese_support=utf8_tokenizer_only|train_data_scale=10MB_en_baseline|delivery_mode=aipl_prior_update|aipl_feedback=vocab_axis"
+  },
+  {
+    "id": "I257",
+    "score": 0.54,
+    "cell": "tokenizer_family=bytelevel_bpe|vocab_class=2048|context_class=ctx256_current|model_scale=stage9_bpe_extend|japanese_support=utf8_decode_smoke|train_data_scale=100MB_deduped|delivery_mode=train_eval_checkpoint|aipl_feedback=data_scale_axis",
+    "genome": "tokenizer_family=bytelevel_bpe|vocab_class=2048|context_class=ctx256_current|model_scale=stage9_bpe_extend|japanese_support=utf8_decode_smoke|train_data_scale=100MB_deduped|delivery_mode=train_eval_checkpoint|aipl_feedback=data_scale_axis"
+  },
+  {
+    "id": "I298",
+    "score": 0.54,
+    "cell": "tokenizer_family=unigram|vocab_class=1536|context_class=ctx256_current|model_scale=stage9_bpe_extend|japanese_support=ja_mixed_corpus|train_data_scale=100MB_deduped|delivery_mode=aipl_prior_update|aipl_feedback=data_scale_axis",
+    "genome": "tokenizer_family=unigram|vocab_class=1536|context_class=ctx256_current|model_scale=stage9_bpe_extend|japanese_support=ja_mixed_corpus|train_data_scale=100MB_deduped|delivery_mode=aipl_prior_update|aipl_feedback=data_scale_axis"
+  },
+  {
+    "id": "I323",
+    "score": 0.54,
+    "cell": "tokenizer_family=byte|vocab_class=4096|context_class=ctx384_or_ctx512|model_scale=depth6_d160_2M_guarded|japanese_support=ja_mixed_corpus|train_data_scale=100MB_deduped|delivery_mode=aipl_prior_update|aipl_feedback=data_scale_axis",
+    "genome": "tokenizer_family=byte|vocab_class=4096|context_class=ctx384_or_ctx512|model_scale=depth6_d160_2M_guarded|japanese_support=ja_mixed_corpus|train_data_scale=100MB_deduped|delivery_mode=aipl_prior_update|aipl_feedback=data_scale_axis"
+  },
+  {
+    "id": "I159",
+    "score": 0.54,
+    "cell": "tokenizer_family=hybrid_byte_bpe|vocab_class=2048|context_class=ctx256_mixed_utf8|model_scale=stage9_bpe_extend|japanese_support=utf8_tokenizer_only|train_data_scale=30MB_mixed_en_ja|delivery_mode=chat_py|aipl_feedback=multilingual_axis",
+    "genome": "tokenizer_family=hybrid_byte_bpe|vocab_class=2048|context_class=ctx256_mixed_utf8|model_scale=stage9_bpe_extend|japanese_support=utf8_tokenizer_only|train_data_scale=30MB_mixed_en_ja|delivery_mode=chat_py|aipl_feedback=multilingual_axis"
+  },
+  {
+    "id": "I293",
+    "score": 0.54,
+    "cell": "tokenizer_family=byte|vocab_class=2048|context_class=ctx256_mixed_utf8|model_scale=stage9_bpe_extend|japanese_support=utf8_tokenizer_only|train_data_scale=30MB_mixed_en_ja|delivery_mode=chat_py|aipl_feedback=multilingual_axis",
+    "genome": "tokenizer_family=byte|vocab_class=2048|context_class=ctx256_mixed_utf8|model_scale=stage9_bpe_extend|japanese_support=utf8_tokenizer_only|train_data_scale=30MB_mixed_en_ja|delivery_mode=chat_py|aipl_feedback=multilingual_axis"
+  },
+  {
+    "id": "I93",
+    "score": 0.53,
+    "cell": "tokenizer_family=byte|vocab_class=2048|context_class=ctx256_current|model_scale=depth6_d128_1p4M|japanese_support=none|train_data_scale=30MB_mixed_en_ja|delivery_mode=aipl_prior_update|aipl_feedback=vocab_axis",
+    "genome": "tokenizer_family=byte|vocab_class=2048|context_class=ctx256_current|model_scale=depth6_d128_1p4M|japanese_support=none|train_data_scale=30MB_mixed_en_ja|delivery_mode=aipl_prior_update|aipl_feedback=vocab_axis"
+  },
+  {
+    "id": "I102",
+    "score": 0.53,
+    "cell": "tokenizer_family=bytelevel_bpe|vocab_class=1536|context_class=ctx256_effective_midpoint|model_scale=depth6_d128_1p4M|japanese_support=utf8_tokenizer_only|train_data_scale=10MB_en_baseline|delivery_mode=train_eval_checkpoint|aipl_feedback=midpoint_guard",
+    "genome": "tokenizer_family=bytelevel_bpe|vocab_class=1536|context_class=ctx256_effective_midpoint|model_scale=depth6_d128_1p4M|japanese_support=utf8_tokenizer_only|train_data_scale=10MB_en_baseline|delivery_mode=train_eval_checkpoint|aipl_feedback=midpoint_guard"
+  },
+  {
+    "id": "I252",
+    "score": 0.53,
+    "cell": "tokenizer_family=byte|vocab_class=4096|context_class=ctx256_mixed_utf8|model_scale=depth6_d128_1p4M|japanese_support=ja_mixed_corpus|train_data_scale=30MB_mixed_en_ja|delivery_mode=train_eval_checkpoint|aipl_feedback=multilingual_axis",
+    "genome": "tokenizer_family=byte|vocab_class=4096|context_class=ctx256_mixed_utf8|model_scale=depth6_d128_1p4M|japanese_support=ja_mixed_corpus|train_data_scale=30MB_mixed_en_ja|delivery_mode=train_eval_checkpoint|aipl_feedback=multilingual_axis"
+  },
+  {
+    "id": "I253",
+    "score": 0.53,
+    "cell": "tokenizer_family=bytelevel_bpe|vocab_class=4096|context_class=ctx256_mixed_utf8|model_scale=depth6_d128_1p4M|japanese_support=ja_mixed_corpus|train_data_scale=30MB_mixed_en_ja|delivery_mode=train_eval_checkpoint|aipl_feedback=multilingual_axis",
+    "genome": "tokenizer_family=bytelevel_bpe|vocab_class=4096|context_class=ctx256_mixed_utf8|model_scale=depth6_d128_1p4M|japanese_support=ja_mixed_corpus|train_data_scale=30MB_mixed_en_ja|delivery_mode=train_eval_checkpoint|aipl_feedback=multilingual_axis"
+  },
+  {
+    "id": "I255",
+    "score": 0.53,
+    "cell": "tokenizer_family=hybrid_byte_bpe|vocab_class=1536|context_class=ctx256_effective_3to4_bytes_per_token|model_scale=depth6_d128_1p4M|japanese_support=optional_ja_eval|train_data_scale=30MB_mixed_en_ja|delivery_mode=generate_samples|aipl_feedback=productization",
+    "genome": "tokenizer_family=hybrid_byte_bpe|vocab_class=1536|context_class=ctx256_effective_3to4_bytes_per_token|model_scale=depth6_d128_1p4M|japanese_support=optional_ja_eval|train_data_scale=30MB_mixed_en_ja|delivery_mode=generate_samples|aipl_feedback=productization"
+  },
+  {
+    "id": "I307",
+    "score": 0.53,
+    "cell": "tokenizer_family=byte|vocab_class=2048|context_class=ctx256_effective_3to4_bytes_per_token|model_scale=stage9_bpe_extend|japanese_support=none|train_data_scale=10MB_en_baseline|delivery_mode=train_eval_checkpoint|aipl_feedback=vocab_axis",
+    "genome": "tokenizer_family=byte|vocab_class=2048|context_class=ctx256_effective_3to4_bytes_per_token|model_scale=stage9_bpe_extend|japanese_support=none|train_data_scale=10MB_en_baseline|delivery_mode=train_eval_checkpoint|aipl_feedback=vocab_axis"
+  },
+  {
+    "id": "I341",
+    "score": 0.53,
+    "cell": "tokenizer_family=hybrid_byte_bpe|vocab_class=2048|context_class=ctx256_current|model_scale=stage9_bpe_extend|japanese_support=optional_ja_eval|train_data_scale=100MB_deduped|delivery_mode=aipl_prior_update|aipl_feedback=data_scale_axis",
+    "genome": "tokenizer_family=hybrid_byte_bpe|vocab_class=2048|context_class=ctx256_current|model_scale=stage9_bpe_extend|japanese_support=optional_ja_eval|train_data_scale=100MB_deduped|delivery_mode=aipl_prior_update|aipl_feedback=data_scale_axis"
+  },
+  {
+    "id": "I347",
+    "score": 0.53,
+    "cell": "tokenizer_family=bytelevel_bpe|vocab_class=2048|context_class=ctx256_current|model_scale=stage9_bpe_extend|japanese_support=optional_ja_eval|train_data_scale=100MB_deduped|delivery_mode=generate_samples|aipl_feedback=data_scale_axis",
+    "genome": "tokenizer_family=bytelevel_bpe|vocab_class=2048|context_class=ctx256_current|model_scale=stage9_bpe_extend|japanese_support=optional_ja_eval|train_data_scale=100MB_deduped|delivery_mode=generate_samples|aipl_feedback=data_scale_axis"
+  },
+  {
+    "id": "I350",
+    "score": 0.53,
+    "cell": "tokenizer_family=bytelevel_bpe|vocab_class=2048|context_class=ctx384_or_ctx512|model_scale=depth6_d128_1p4M|japanese_support=none|train_data_scale=30MB_mixed_en_ja|delivery_mode=aipl_prior_update|aipl_feedback=vocab_axis",
+    "genome": "tokenizer_family=bytelevel_bpe|vocab_class=2048|context_class=ctx384_or_ctx512|model_scale=depth6_d128_1p4M|japanese_support=none|train_data_scale=30MB_mixed_en_ja|delivery_mode=aipl_prior_update|aipl_feedback=vocab_axis"
+  },
+  {
+    "id": "I186",
+    "score": 0.52,
+    "cell": "tokenizer_family=hybrid_byte_bpe|vocab_class=2048|context_class=ctx256_effective_midpoint|model_scale=stage9_bpe_extend|japanese_support=utf8_tokenizer_only|train_data_scale=10MB_en_baseline|delivery_mode=aipl_prior_update|aipl_feedback=data_scale_axis",
+    "genome": "tokenizer_family=hybrid_byte_bpe|vocab_class=2048|context_class=ctx256_effective_midpoint|model_scale=stage9_bpe_extend|japanese_support=utf8_tokenizer_only|train_data_scale=10MB_en_baseline|delivery_mode=aipl_prior_update|aipl_feedback=data_scale_axis"
+  },
+  {
+    "id": "I241",
+    "score": 0.52,
+    "cell": "tokenizer_family=bytelevel_bpe|vocab_class=1536|context_class=ctx256_effective_midpoint|model_scale=depth6_d128_1p4M|japanese_support=utf8_tokenizer_only|train_data_scale=10MB_en_baseline|delivery_mode=aipl_prior_update|aipl_feedback=vocab_axis",
+    "genome": "tokenizer_family=bytelevel_bpe|vocab_class=1536|context_class=ctx256_effective_midpoint|model_scale=depth6_d128_1p4M|japanese_support=utf8_tokenizer_only|train_data_scale=10MB_en_baseline|delivery_mode=aipl_prior_update|aipl_feedback=vocab_axis"
+  },
+  {
+    "id": "I306",
+    "score": 0.52,
+    "cell": "tokenizer_family=byte|vocab_class=2048|context_class=ctx256_mixed_utf8|model_scale=depth6_d160_2M_guarded|japanese_support=utf8_tokenizer_only|train_data_scale=30MB_mixed_en_ja|delivery_mode=chat_py|aipl_feedback=multilingual_axis",
+    "genome": "tokenizer_family=byte|vocab_class=2048|context_class=ctx256_mixed_utf8|model_scale=depth6_d160_2M_guarded|japanese_support=utf8_tokenizer_only|train_data_scale=30MB_mixed_en_ja|delivery_mode=chat_py|aipl_feedback=multilingual_axis"
+  },
+  {
+    "id": "I81",
+    "score": 0.51,
+    "cell": "tokenizer_family=hybrid_byte_bpe|vocab_class=4096|context_class=ctx384_or_ctx512|model_scale=stage9_bpe_extend|japanese_support=optional_ja_eval|train_data_scale=100MB_deduped|delivery_mode=aipl_prior_update|aipl_feedback=vocab_axis",
+    "genome": "tokenizer_family=hybrid_byte_bpe|vocab_class=4096|context_class=ctx384_or_ctx512|model_scale=stage9_bpe_extend|japanese_support=optional_ja_eval|train_data_scale=100MB_deduped|delivery_mode=aipl_prior_update|aipl_feedback=vocab_axis"
+  },
+  {
+    "id": "I104",
+    "score": 0.51,
+    "cell": "tokenizer_family=bytelevel_bpe|vocab_class=4096|context_class=ctx384_or_ctx512|model_scale=stage9_bpe_extend|japanese_support=optional_ja_eval|train_data_scale=100MB_deduped|delivery_mode=aipl_prior_update|aipl_feedback=vocab_axis",
+    "genome": "tokenizer_family=bytelevel_bpe|vocab_class=4096|context_class=ctx384_or_ctx512|model_scale=stage9_bpe_extend|japanese_support=optional_ja_eval|train_data_scale=100MB_deduped|delivery_mode=aipl_prior_update|aipl_feedback=vocab_axis"
+  },
+  {
+    "id": "I146",
+    "score": 0.51,
+    "cell": "tokenizer_family=bytelevel_bpe|vocab_class=1024|context_class=ctx256_current|model_scale=depth6_d160_2M_guarded|japanese_support=ja_mixed_corpus|train_data_scale=30MB_mixed_en_ja|delivery_mode=train_eval_checkpoint|aipl_feedback=productization",
+    "genome": "tokenizer_family=bytelevel_bpe|vocab_class=1024|context_class=ctx256_current|model_scale=depth6_d160_2M_guarded|japanese_support=ja_mixed_corpus|train_data_scale=30MB_mixed_en_ja|delivery_mode=train_eval_checkpoint|aipl_feedback=productization"
+  },
+  {
+    "id": "I156",
+    "score": 0.51,
+    "cell": "tokenizer_family=bytelevel_bpe|vocab_class=4096|context_class=ctx384_or_ctx512|model_scale=stage9_bpe_extend|japanese_support=optional_ja_eval|train_data_scale=100MB_deduped|delivery_mode=generate_samples|aipl_feedback=vocab_axis",
+    "genome": "tokenizer_family=bytelevel_bpe|vocab_class=4096|context_class=ctx384_or_ctx512|model_scale=stage9_bpe_extend|japanese_support=optional_ja_eval|train_data_scale=100MB_deduped|delivery_mode=generate_samples|aipl_feedback=vocab_axis"
+  },
+  {
+    "id": "I167",
+    "score": 0.51,
+    "cell": "tokenizer_family=bytelevel_bpe|vocab_class=2048|context_class=ctx256_current|model_scale=depth6_d128_1p4M|japanese_support=none|train_data_scale=100MB_deduped|delivery_mode=aipl_prior_update|aipl_feedback=vocab_axis",
+    "genome": "tokenizer_family=bytelevel_bpe|vocab_class=2048|context_class=ctx256_current|model_scale=depth6_d128_1p4M|japanese_support=none|train_data_scale=100MB_deduped|delivery_mode=aipl_prior_update|aipl_feedback=vocab_axis"
+  },
+  {
+    "id": "I215",
+    "score": 0.51,
+    "cell": "tokenizer_family=hybrid_byte_bpe|vocab_class=4096|context_class=ctx256_current|model_scale=stage9_bpe_extend|japanese_support=optional_ja_eval|train_data_scale=100MB_deduped|delivery_mode=generate_samples|aipl_feedback=vocab_axis",
+    "genome": "tokenizer_family=hybrid_byte_bpe|vocab_class=4096|context_class=ctx256_current|model_scale=stage9_bpe_extend|japanese_support=optional_ja_eval|train_data_scale=100MB_deduped|delivery_mode=generate_samples|aipl_feedback=vocab_axis"
+  },
+  {
+    "id": "I219",
+    "score": 0.51,
+    "cell": "tokenizer_family=byte|vocab_class=2048|context_class=ctx256_current|model_scale=depth6_d128_1p4M|japanese_support=none|train_data_scale=100MB_deduped|delivery_mode=aipl_prior_update|aipl_feedback=vocab_axis",
+    "genome": "tokenizer_family=byte|vocab_class=2048|context_class=ctx256_current|model_scale=depth6_d128_1p4M|japanese_support=none|train_data_scale=100MB_deduped|delivery_mode=aipl_prior_update|aipl_feedback=vocab_axis"
+  },
+  {
+    "id": "I233",
+    "score": 0.51,
+    "cell": "tokenizer_family=byte|vocab_class=4096|context_class=ctx256_current|model_scale=stage9_bpe_extend|japanese_support=optional_ja_eval|train_data_scale=100MB_deduped|delivery_mode=aipl_prior_update|aipl_feedback=vocab_axis",
+    "genome": "tokenizer_family=byte|vocab_class=4096|context_class=ctx256_current|model_scale=stage9_bpe_extend|japanese_support=optional_ja_eval|train_data_scale=100MB_deduped|delivery_mode=aipl_prior_update|aipl_feedback=vocab_axis"
+  },
+  {
+    "id": "I236",
+    "score": 0.51,
+    "cell": "tokenizer_family=hybrid_byte_bpe|vocab_class=4096|context_class=ctx256_current|model_scale=stage9_bpe_extend|japanese_support=optional_ja_eval|train_data_scale=100MB_deduped|delivery_mode=aipl_prior_update|aipl_feedback=vocab_axis",
+    "genome": "tokenizer_family=hybrid_byte_bpe|vocab_class=4096|context_class=ctx256_current|model_scale=stage9_bpe_extend|japanese_support=optional_ja_eval|train_data_scale=100MB_deduped|delivery_mode=aipl_prior_update|aipl_feedback=vocab_axis"
+  },
+  {
+    "id": "I250",
+    "score": 0.51,
+    "cell": "tokenizer_family=bytelevel_bpe|vocab_class=4096|context_class=ctx256_mixed_utf8|model_scale=depth6_d128_1p4M|japanese_support=ja_mixed_corpus|train_data_scale=30MB_mixed_en_ja|delivery_mode=train_eval_checkpoint|aipl_feedback=data_scale_axis",
+    "genome": "tokenizer_family=bytelevel_bpe|vocab_class=4096|context_class=ctx256_mixed_utf8|model_scale=depth6_d128_1p4M|japanese_support=ja_mixed_corpus|train_data_scale=30MB_mixed_en_ja|delivery_mode=train_eval_checkpoint|aipl_feedback=data_scale_axis"
+  },
+  {
+    "id": "I274",
+    "score": 0.51,
+    "cell": "tokenizer_family=hybrid_byte_bpe|vocab_class=2048|context_class=ctx256_effective_3to4_bytes_per_token|model_scale=depth6_d128_1p4M|japanese_support=none|train_data_scale=30MB_mixed_en_ja|delivery_mode=generate_samples|aipl_feedback=data_scale_axis",
+    "genome": "tokenizer_family=hybrid_byte_bpe|vocab_class=2048|context_class=ctx256_effective_3to4_bytes_per_token|model_scale=depth6_d128_1p4M|japanese_support=none|train_data_scale=30MB_mixed_en_ja|delivery_mode=generate_samples|aipl_feedback=data_scale_axis"
+  },
+  {
+    "id": "I279",
+    "score": 0.51,
+    "cell": "tokenizer_family=byte|vocab_class=4096|context_class=ctx384_or_ctx512|model_scale=stage9_bpe_extend|japanese_support=optional_ja_eval|train_data_scale=100MB_deduped|delivery_mode=aipl_prior_update|aipl_feedback=vocab_axis",
+    "genome": "tokenizer_family=byte|vocab_class=4096|context_class=ctx384_or_ctx512|model_scale=stage9_bpe_extend|japanese_support=optional_ja_eval|train_data_scale=100MB_deduped|delivery_mode=aipl_prior_update|aipl_feedback=vocab_axis"
+  },
+  {
+    "id": "I294",
+    "score": 0.51,
+    "cell": "tokenizer_family=bytelevel_bpe|vocab_class=4096|context_class=ctx384_or_ctx512|model_scale=stage9_bpe_extend|japanese_support=optional_ja_eval|train_data_scale=100MB_deduped|delivery_mode=aipl_prior_update|aipl_feedback=multilingual_axis",
+    "genome": "tokenizer_family=bytelevel_bpe|vocab_class=4096|context_class=ctx384_or_ctx512|model_scale=stage9_bpe_extend|japanese_support=optional_ja_eval|train_data_scale=100MB_deduped|delivery_mode=aipl_prior_update|aipl_feedback=multilingual_axis"
+  },
+  {
+    "id": "I330",
+    "score": 0.51,
+    "cell": "tokenizer_family=bytelevel_bpe|vocab_class=1536|context_class=ctx256_effective_3to4_bytes_per_token|model_scale=depth6_d128_1p4M|japanese_support=optional_ja_eval|train_data_scale=100MB_deduped|delivery_mode=generate_samples|aipl_feedback=data_scale_axis",
+    "genome": "tokenizer_family=bytelevel_bpe|vocab_class=1536|context_class=ctx256_effective_3to4_bytes_per_token|model_scale=depth6_d128_1p4M|japanese_support=optional_ja_eval|train_data_scale=100MB_deduped|delivery_mode=generate_samples|aipl_feedback=data_scale_axis"
+  },
+  {
+    "id": "I125",
+    "score": 0.5,
+    "cell": "tokenizer_family=byte|vocab_class=2048|context_class=ctx256_effective_midpoint|model_scale=depth6_d128_1p4M|japanese_support=utf8_tokenizer_only|train_data_scale=10MB_en_baseline|delivery_mode=aipl_prior_update|aipl_feedback=midpoint_guard",
+    "genome": "tokenizer_family=byte|vocab_class=2048|context_class=ctx256_effective_midpoint|model_scale=depth6_d128_1p4M|japanese_support=utf8_tokenizer_only|train_data_scale=10MB_en_baseline|delivery_mode=aipl_prior_update|aipl_feedback=midpoint_guard"
+  },
+  {
+    "id": "I240",
+    "score": 0.5,
+    "cell": "tokenizer_family=byte|vocab_class=2048|context_class=ctx256_effective_3to4_bytes_per_token|model_scale=depth6_d128_1p4M|japanese_support=utf8_tokenizer_only|train_data_scale=10MB_en_baseline|delivery_mode=aipl_prior_update|aipl_feedback=midpoint_guard",
+    "genome": "tokenizer_family=byte|vocab_class=2048|context_class=ctx256_effective_3to4_bytes_per_token|model_scale=depth6_d128_1p4M|japanese_support=utf8_tokenizer_only|train_data_scale=10MB_en_baseline|delivery_mode=aipl_prior_update|aipl_feedback=midpoint_guard"
+  },
+  {
+    "id": "I297",
+    "score": 0.5,
+    "cell": "tokenizer_family=hybrid_byte_bpe|vocab_class=2048|context_class=ctx256_effective_midpoint|model_scale=stage9_bpe_extend|japanese_support=optional_ja_eval|train_data_scale=10MB_en_baseline|delivery_mode=aipl_prior_update|aipl_feedback=data_scale_axis",
+    "genome": "tokenizer_family=hybrid_byte_bpe|vocab_class=2048|context_class=ctx256_effective_midpoint|model_scale=stage9_bpe_extend|japanese_support=optional_ja_eval|train_data_scale=10MB_en_baseline|delivery_mode=aipl_prior_update|aipl_feedback=data_scale_axis"
+  },
+  {
+    "id": "I154",
+    "score": 0.49,
+    "cell": "tokenizer_family=byte|vocab_class=4096|context_class=ctx256_current|model_scale=stage9_bpe_extend|japanese_support=optional_ja_eval|train_data_scale=100MB_deduped|delivery_mode=aipl_prior_update|aipl_feedback=productization",
+    "genome": "tokenizer_family=byte|vocab_class=4096|context_class=ctx256_current|model_scale=stage9_bpe_extend|japanese_support=optional_ja_eval|train_data_scale=100MB_deduped|delivery_mode=aipl_prior_update|aipl_feedback=productization"
+  },
+  {
+    "id": "I245",
+    "score": 0.49,
+    "cell": "tokenizer_family=unigram|vocab_class=4096|context_class=ctx384_or_ctx512|model_scale=depth6_d160_2M_guarded|japanese_support=optional_ja_eval|train_data_scale=100MB_deduped|delivery_mode=aipl_prior_update|aipl_feedback=vocab_axis",
+    "genome": "tokenizer_family=unigram|vocab_class=4096|context_class=ctx384_or_ctx512|model_scale=depth6_d160_2M_guarded|japanese_support=optional_ja_eval|train_data_scale=100MB_deduped|delivery_mode=aipl_prior_update|aipl_feedback=vocab_axis"
+  },
+  {
+    "id": "I269",
+    "score": 0.49,
+    "cell": "tokenizer_family=hybrid_byte_bpe|vocab_class=2048|context_class=ctx256_current|model_scale=stage9_bpe_extend|japanese_support=optional_ja_eval|train_data_scale=30MB_mixed_en_ja|delivery_mode=aipl_prior_update|aipl_feedback=midpoint_guard",
+    "genome": "tokenizer_family=hybrid_byte_bpe|vocab_class=2048|context_class=ctx256_current|model_scale=stage9_bpe_extend|japanese_support=optional_ja_eval|train_data_scale=30MB_mixed_en_ja|delivery_mode=aipl_prior_update|aipl_feedback=midpoint_guard"
+  },
+  {
+    "id": "I271",
+    "score": 0.49,
+    "cell": "tokenizer_family=bytelevel_bpe|vocab_class=4096|context_class=ctx384_or_ctx512|model_scale=stage9_bpe_extend|japanese_support=optional_ja_eval|train_data_scale=100MB_deduped|delivery_mode=aipl_prior_update|aipl_feedback=data_scale_axis",
+    "genome": "tokenizer_family=bytelevel_bpe|vocab_class=4096|context_class=ctx384_or_ctx512|model_scale=stage9_bpe_extend|japanese_support=optional_ja_eval|train_data_scale=100MB_deduped|delivery_mode=aipl_prior_update|aipl_feedback=data_scale_axis"
+  },
+  {
+    "id": "I292",
+    "score": 0.49,
+    "cell": "tokenizer_family=bytelevel_bpe|vocab_class=1024|context_class=ctx256_current|model_scale=depth6_d160_2M_guarded|japanese_support=ja_mixed_corpus|train_data_scale=100MB_deduped|delivery_mode=train_eval_checkpoint|aipl_feedback=data_scale_axis",
+    "genome": "tokenizer_family=bytelevel_bpe|vocab_class=1024|context_class=ctx256_current|model_scale=depth6_d160_2M_guarded|japanese_support=ja_mixed_corpus|train_data_scale=100MB_deduped|delivery_mode=train_eval_checkpoint|aipl_feedback=data_scale_axis"
+  },
+  {
+    "id": "I346",
+    "score": 0.49,
+    "cell": "tokenizer_family=hybrid_byte_bpe|vocab_class=4096|context_class=ctx256_current|model_scale=stage9_bpe_extend|japanese_support=optional_ja_eval|train_data_scale=100MB_deduped|delivery_mode=generate_samples|aipl_feedback=data_scale_axis",
+    "genome": "tokenizer_family=hybrid_byte_bpe|vocab_class=4096|context_class=ctx256_current|model_scale=stage9_bpe_extend|japanese_support=optional_ja_eval|train_data_scale=100MB_deduped|delivery_mode=generate_samples|aipl_feedback=data_scale_axis"
+  },
+  {
+    "id": "I7",
+    "score": 0.49,
+    "cell": "tokenizer_family=hybrid_byte_bpe|vocab_class=2048|context_class=ctx256_effective_3to4_bytes_per_token|model_scale=stage9_bpe_extend|japanese_support=utf8_decode_smoke|train_data_scale=30MB_mixed_en_ja|delivery_mode=aipl_prior_update|aipl_feedback=vocab_axis",
+    "genome": "tokenizer_family=hybrid_byte_bpe|vocab_class=2048|context_class=ctx256_effective_3to4_bytes_per_token|model_scale=stage9_bpe_extend|japanese_support=utf8_decode_smoke|train_data_scale=30MB_mixed_en_ja|delivery_mode=aipl_prior_update|aipl_feedback=vocab_axis"
+  },
+  {
+    "id": "I50",
+    "score": 0.49,
+    "cell": "tokenizer_family=hybrid_byte_bpe|vocab_class=2048|context_class=ctx256_current|model_scale=stage9_bpe_extend|japanese_support=utf8_decode_smoke|train_data_scale=30MB_mixed_en_ja|delivery_mode=aipl_prior_update|aipl_feedback=vocab_axis",
+    "genome": "tokenizer_family=hybrid_byte_bpe|vocab_class=2048|context_class=ctx256_current|model_scale=stage9_bpe_extend|japanese_support=utf8_decode_smoke|train_data_scale=30MB_mixed_en_ja|delivery_mode=aipl_prior_update|aipl_feedback=vocab_axis"
+  },
+  {
+    "id": "I58",
+    "score": 0.49,
+    "cell": "tokenizer_family=byte|vocab_class=2048|context_class=ctx256_current|model_scale=stage9_bpe_extend|japanese_support=utf8_decode_smoke|train_data_scale=30MB_mixed_en_ja|delivery_mode=aipl_prior_update|aipl_feedback=vocab_axis",
+    "genome": "tokenizer_family=byte|vocab_class=2048|context_class=ctx256_current|model_scale=stage9_bpe_extend|japanese_support=utf8_decode_smoke|train_data_scale=30MB_mixed_en_ja|delivery_mode=aipl_prior_update|aipl_feedback=vocab_axis"
+  },
+  {
+    "id": "I174",
+    "score": 0.49,
+    "cell": "tokenizer_family=hybrid_byte_bpe|vocab_class=2048|context_class=ctx256_current|model_scale=depth6_d128_1p4M|japanese_support=utf8_decode_smoke|train_data_scale=100MB_deduped|delivery_mode=generate_samples|aipl_feedback=data_scale_axis",
+    "genome": "tokenizer_family=hybrid_byte_bpe|vocab_class=2048|context_class=ctx256_current|model_scale=depth6_d128_1p4M|japanese_support=utf8_decode_smoke|train_data_scale=100MB_deduped|delivery_mode=generate_samples|aipl_feedback=data_scale_axis"
+  },
+  {
+    "id": "I256",
+    "score": 0.49,
+    "cell": "tokenizer_family=unigram|vocab_class=4096|context_class=ctx384_or_ctx512|model_scale=depth6_d160_2M_guarded|japanese_support=utf8_tokenizer_only|train_data_scale=100MB_deduped|delivery_mode=aipl_prior_update|aipl_feedback=data_scale_axis",
+    "genome": "tokenizer_family=unigram|vocab_class=4096|context_class=ctx384_or_ctx512|model_scale=depth6_d160_2M_guarded|japanese_support=utf8_tokenizer_only|train_data_scale=100MB_deduped|delivery_mode=aipl_prior_update|aipl_feedback=data_scale_axis"
+  },
+  {
+    "id": "I300",
+    "score": 0.49,
+    "cell": "tokenizer_family=byte|vocab_class=1536|context_class=ctx256_effective_3to4_bytes_per_token|model_scale=depth6_d160_2M_guarded|japanese_support=utf8_tokenizer_only|train_data_scale=30MB_mixed_en_ja|delivery_mode=generate_samples|aipl_feedback=data_scale_axis",
+    "genome": "tokenizer_family=byte|vocab_class=1536|context_class=ctx256_effective_3to4_bytes_per_token|model_scale=depth6_d160_2M_guarded|japanese_support=utf8_tokenizer_only|train_data_scale=30MB_mixed_en_ja|delivery_mode=generate_samples|aipl_feedback=data_scale_axis"
+  },
+  {
+    "id": "I182",
+    "score": 0.48,
+    "cell": "tokenizer_family=byte|vocab_class=2048|context_class=ctx256_current|model_scale=depth6_d128_1p4M|japanese_support=none|train_data_scale=10MB_en_baseline|delivery_mode=aipl_prior_update|aipl_feedback=vocab_axis",
+    "genome": "tokenizer_family=byte|vocab_class=2048|context_class=ctx256_current|model_scale=depth6_d128_1p4M|japanese_support=none|train_data_scale=10MB_en_baseline|delivery_mode=aipl_prior_update|aipl_feedback=vocab_axis"
+  },
+  {
+    "id": "I315",
+    "score": 0.48,
+    "cell": "tokenizer_family=hybrid_byte_bpe|vocab_class=1536|context_class=ctx384_or_ctx512|model_scale=stage9_bpe_extend|japanese_support=utf8_tokenizer_only|train_data_scale=30MB_mixed_en_ja|delivery_mode=chat_py|aipl_feedback=vocab_axis",
+    "genome": "tokenizer_family=hybrid_byte_bpe|vocab_class=1536|context_class=ctx384_or_ctx512|model_scale=stage9_bpe_extend|japanese_support=utf8_tokenizer_only|train_data_scale=30MB_mixed_en_ja|delivery_mode=chat_py|aipl_feedback=vocab_axis"
+  },
+  {
+    "id": "I316",
+    "score": 0.48,
+    "cell": "tokenizer_family=byte|vocab_class=1536|context_class=ctx256_mixed_utf8|model_scale=stage9_bpe_extend|japanese_support=utf8_tokenizer_only|train_data_scale=30MB_mixed_en_ja|delivery_mode=chat_py|aipl_feedback=multilingual_axis",
+    "genome": "tokenizer_family=byte|vocab_class=1536|context_class=ctx256_mixed_utf8|model_scale=stage9_bpe_extend|japanese_support=utf8_tokenizer_only|train_data_scale=30MB_mixed_en_ja|delivery_mode=chat_py|aipl_feedback=multilingual_axis"
+  },
+  {
+    "id": "I345",
+    "score": 0.47,
+    "cell": "tokenizer_family=unigram|vocab_class=4096|context_class=ctx256_effective_midpoint|model_scale=depth6_d160_2M_guarded|japanese_support=optional_ja_eval|train_data_scale=100MB_deduped|delivery_mode=aipl_prior_update|aipl_feedback=data_scale_axis",
+    "genome": "tokenizer_family=unigram|vocab_class=4096|context_class=ctx256_effective_midpoint|model_scale=depth6_d160_2M_guarded|japanese_support=optional_ja_eval|train_data_scale=100MB_deduped|delivery_mode=aipl_prior_update|aipl_feedback=data_scale_axis"
+  },
+  {
+    "id": "I228",
+    "score": 0.47,
+    "cell": "tokenizer_family=unigram|vocab_class=4096|context_class=ctx384_or_ctx512|model_scale=depth6_d160_2M_guarded|japanese_support=optional_ja_eval|train_data_scale=100MB_deduped|delivery_mode=aipl_prior_update|aipl_feedback=data_scale_axis",
+    "genome": "tokenizer_family=unigram|vocab_class=4096|context_class=ctx384_or_ctx512|model_scale=depth6_d160_2M_guarded|japanese_support=optional_ja_eval|train_data_scale=100MB_deduped|delivery_mode=aipl_prior_update|aipl_feedback=data_scale_axis"
+  },
+  {
+    "id": "I266",
+    "score": 0.47,
+    "cell": "tokenizer_family=hybrid_byte_bpe|vocab_class=2048|context_class=ctx256_current|model_scale=depth6_d128_1p35M|japanese_support=optional_ja_eval|train_data_scale=30MB_mixed_en_ja|delivery_mode=aipl_prior_update|aipl_feedback=data_scale_axis",
+    "genome": "tokenizer_family=hybrid_byte_bpe|vocab_class=2048|context_class=ctx256_current|model_scale=depth6_d128_1p35M|japanese_support=optional_ja_eval|train_data_scale=30MB_mixed_en_ja|delivery_mode=aipl_prior_update|aipl_feedback=data_scale_axis"
+  },
+  {
+    "id": "I27",
+    "score": 0.47,
+    "cell": "tokenizer_family=hybrid_byte_bpe|vocab_class=2048|context_class=ctx256_effective_3to4_bytes_per_token|model_scale=stage9_bpe_extend|japanese_support=none|train_data_scale=30MB_mixed_en_ja|delivery_mode=generate_samples|aipl_feedback=data_scale_axis",
+    "genome": "tokenizer_family=hybrid_byte_bpe|vocab_class=2048|context_class=ctx256_effective_3to4_bytes_per_token|model_scale=stage9_bpe_extend|japanese_support=none|train_data_scale=30MB_mixed_en_ja|delivery_mode=generate_samples|aipl_feedback=data_scale_axis"
+  },
+  {
+    "id": "I49",
+    "score": 0.47,
+    "cell": "tokenizer_family=bytelevel_bpe|vocab_class=4096|context_class=ctx384_or_ctx512|model_scale=depth6_d160_2M_guarded|japanese_support=optional_ja_eval|train_data_scale=100MB_deduped|delivery_mode=aipl_prior_update|aipl_feedback=data_scale_axis",
+    "genome": "tokenizer_family=bytelevel_bpe|vocab_class=4096|context_class=ctx384_or_ctx512|model_scale=depth6_d160_2M_guarded|japanese_support=optional_ja_eval|train_data_scale=100MB_deduped|delivery_mode=aipl_prior_update|aipl_feedback=data_scale_axis"
+  },
+  {
+    "id": "I55",
+    "score": 0.47,
+    "cell": "tokenizer_family=bytelevel_bpe|vocab_class=2048|context_class=ctx256_effective_3to4_bytes_per_token|model_scale=stage9_bpe_extend|japanese_support=none|train_data_scale=30MB_mixed_en_ja|delivery_mode=generate_samples|aipl_feedback=data_scale_axis",
+    "genome": "tokenizer_family=bytelevel_bpe|vocab_class=2048|context_class=ctx256_effective_3to4_bytes_per_token|model_scale=stage9_bpe_extend|japanese_support=none|train_data_scale=30MB_mixed_en_ja|delivery_mode=generate_samples|aipl_feedback=data_scale_axis"
+  },
+  {
+    "id": "I65",
+    "score": 0.47,
+    "cell": "tokenizer_family=bytelevel_bpe|vocab_class=4096|context_class=ctx256_effective_midpoint|model_scale=depth6_d160_2M_guarded|japanese_support=optional_ja_eval|train_data_scale=100MB_deduped|delivery_mode=aipl_prior_update|aipl_feedback=data_scale_axis",
+    "genome": "tokenizer_family=bytelevel_bpe|vocab_class=4096|context_class=ctx256_effective_midpoint|model_scale=depth6_d160_2M_guarded|japanese_support=optional_ja_eval|train_data_scale=100MB_deduped|delivery_mode=aipl_prior_update|aipl_feedback=data_scale_axis"
+  },
+  {
+    "id": "I148",
+    "score": 0.47,
+    "cell": "tokenizer_family=byte|vocab_class=2048|context_class=ctx256_current|model_scale=stage9_bpe_extend|japanese_support=none|train_data_scale=30MB_mixed_en_ja|delivery_mode=aipl_prior_update|aipl_feedback=productization",
+    "genome": "tokenizer_family=byte|vocab_class=2048|context_class=ctx256_current|model_scale=stage9_bpe_extend|japanese_support=none|train_data_scale=30MB_mixed_en_ja|delivery_mode=aipl_prior_update|aipl_feedback=productization"
+  },
+  {
+    "id": "I227",
+    "score": 0.47,
+    "cell": "tokenizer_family=bytelevel_bpe|vocab_class=2048|context_class=ctx256_effective_3to4_bytes_per_token|model_scale=stage9_bpe_extend|japanese_support=none|train_data_scale=30MB_mixed_en_ja|delivery_mode=generate_samples|aipl_feedback=productization",
+    "genome": "tokenizer_family=bytelevel_bpe|vocab_class=2048|context_class=ctx256_effective_3to4_bytes_per_token|model_scale=stage9_bpe_extend|japanese_support=none|train_data_scale=30MB_mixed_en_ja|delivery_mode=generate_samples|aipl_feedback=productization"
+  },
+  {
+    "id": "I239",
+    "score": 0.47,
+    "cell": "tokenizer_family=bytelevel_bpe|vocab_class=2048|context_class=ctx384_or_ctx512|model_scale=stage9_bpe_extend|japanese_support=none|train_data_scale=30MB_mixed_en_ja|delivery_mode=generate_samples|aipl_feedback=productization",
+    "genome": "tokenizer_family=bytelevel_bpe|vocab_class=2048|context_class=ctx384_or_ctx512|model_scale=stage9_bpe_extend|japanese_support=none|train_data_scale=30MB_mixed_en_ja|delivery_mode=generate_samples|aipl_feedback=productization"
+  },
+  {
+    "id": "I308",
+    "score": 0.47,
+    "cell": "tokenizer_family=bytelevel_bpe|vocab_class=2048|context_class=ctx256_effective_3to4_bytes_per_token|model_scale=stage9_bpe_extend|japanese_support=none|train_data_scale=30MB_mixed_en_ja|delivery_mode=aipl_prior_update|aipl_feedback=productization",
+    "genome": "tokenizer_family=bytelevel_bpe|vocab_class=2048|context_class=ctx256_effective_3to4_bytes_per_token|model_scale=stage9_bpe_extend|japanese_support=none|train_data_scale=30MB_mixed_en_ja|delivery_mode=aipl_prior_update|aipl_feedback=productization"
+  },
+  {
+    "id": "I340",
+    "score": 0.47,
+    "cell": "tokenizer_family=bytelevel_bpe|vocab_class=2048|context_class=ctx384_or_ctx512|model_scale=stage9_bpe_extend|japanese_support=none|train_data_scale=30MB_mixed_en_ja|delivery_mode=generate_samples|aipl_feedback=data_scale_axis",
+    "genome": "tokenizer_family=bytelevel_bpe|vocab_class=2048|context_class=ctx384_or_ctx512|model_scale=stage9_bpe_extend|japanese_support=none|train_data_scale=30MB_mixed_en_ja|delivery_mode=generate_samples|aipl_feedback=data_scale_axis"
+  },
+  {
+    "id": "I127",
+    "score": 0.46,
+    "cell": "tokenizer_family=byte|vocab_class=2048|context_class=ctx256_effective_midpoint|model_scale=stage9_bpe_extend|japanese_support=utf8_tokenizer_only|train_data_scale=10MB_en_baseline|delivery_mode=aipl_prior_update|aipl_feedback=midpoint_guard",
+    "genome": "tokenizer_family=byte|vocab_class=2048|context_class=ctx256_effective_midpoint|model_scale=stage9_bpe_extend|japanese_support=utf8_tokenizer_only|train_data_scale=10MB_en_baseline|delivery_mode=aipl_prior_update|aipl_feedback=midpoint_guard"
+  },
+  {
+    "id": "I302",
+    "score": 0.46,
+    "cell": "tokenizer_family=byte|vocab_class=2048|context_class=ctx256_current|model_scale=depth6_d128_1p4M|japanese_support=none|train_data_scale=10MB_en_baseline|delivery_mode=aipl_prior_update|aipl_feedback=data_scale_axis",
+    "genome": "tokenizer_family=byte|vocab_class=2048|context_class=ctx256_current|model_scale=depth6_d128_1p4M|japanese_support=none|train_data_scale=10MB_en_baseline|delivery_mode=aipl_prior_update|aipl_feedback=data_scale_axis"
+  },
+  {
+    "id": "I158",
+    "score": 0.46,
+    "cell": "tokenizer_family=hybrid_byte_bpe|vocab_class=4096|context_class=ctx384_or_ctx512|model_scale=stage9_bpe_extend|japanese_support=optional_ja_eval|train_data_scale=100MB_deduped|delivery_mode=chat_py|aipl_feedback=vocab_axis",
+    "genome": "tokenizer_family=hybrid_byte_bpe|vocab_class=4096|context_class=ctx384_or_ctx512|model_scale=stage9_bpe_extend|japanese_support=optional_ja_eval|train_data_scale=100MB_deduped|delivery_mode=chat_py|aipl_feedback=vocab_axis"
+  },
+  {
+    "id": "I318",
+    "score": 0.46,
+    "cell": "tokenizer_family=byte|vocab_class=1536|context_class=ctx256_effective_3to4_bytes_per_token|model_scale=depth6_d160_2M_guarded|japanese_support=utf8_tokenizer_only|train_data_scale=30MB_mixed_en_ja|delivery_mode=chat_py|aipl_feedback=vocab_axis",
+    "genome": "tokenizer_family=byte|vocab_class=1536|context_class=ctx256_effective_3to4_bytes_per_token|model_scale=depth6_d160_2M_guarded|japanese_support=utf8_tokenizer_only|train_data_scale=30MB_mixed_en_ja|delivery_mode=chat_py|aipl_feedback=vocab_axis"
+  },
+  {
+    "id": "I251",
+    "score": 0.46,
+    "cell": "tokenizer_family=bytelevel_bpe|vocab_class=4096|context_class=ctx256_mixed_utf8|model_scale=depth6_d128_1p4M|japanese_support=utf8_tokenizer_only|train_data_scale=30MB_mixed_en_ja|delivery_mode=train_eval_checkpoint|aipl_feedback=data_scale_axis",
+    "genome": "tokenizer_family=bytelevel_bpe|vocab_class=4096|context_class=ctx256_mixed_utf8|model_scale=depth6_d128_1p4M|japanese_support=utf8_tokenizer_only|train_data_scale=30MB_mixed_en_ja|delivery_mode=train_eval_checkpoint|aipl_feedback=data_scale_axis"
+  },
+  {
+    "id": "I11",
+    "score": 0.45,
+    "cell": "tokenizer_family=hybrid_byte_bpe|vocab_class=1536|context_class=ctx256_effective_3to4_bytes_per_token|model_scale=depth6_d128_1p4M|japanese_support=none|train_data_scale=30MB_mixed_en_ja|delivery_mode=generate_samples|aipl_feedback=data_scale_axis",
+    "genome": "tokenizer_family=hybrid_byte_bpe|vocab_class=1536|context_class=ctx256_effective_3to4_bytes_per_token|model_scale=depth6_d128_1p4M|japanese_support=none|train_data_scale=30MB_mixed_en_ja|delivery_mode=generate_samples|aipl_feedback=data_scale_axis"
+  },
+  {
+    "id": "I23",
+    "score": 0.45,
+    "cell": "tokenizer_family=hybrid_byte_bpe|vocab_class=4096|context_class=ctx256_current|model_scale=depth6_d160_2M_guarded|japanese_support=ja_mixed_corpus|train_data_scale=30MB_mixed_en_ja|delivery_mode=train_eval_checkpoint|aipl_feedback=data_scale_axis",
+    "genome": "tokenizer_family=hybrid_byte_bpe|vocab_class=4096|context_class=ctx256_current|model_scale=depth6_d160_2M_guarded|japanese_support=ja_mixed_corpus|train_data_scale=30MB_mixed_en_ja|delivery_mode=train_eval_checkpoint|aipl_feedback=data_scale_axis"
+  },
+  {
+    "id": "I37",
+    "score": 0.45,
+    "cell": "tokenizer_family=hybrid_byte_bpe|vocab_class=2048|context_class=ctx256_current|model_scale=stage9_bpe_extend|japanese_support=utf8_decode_smoke|train_data_scale=100MB_deduped|delivery_mode=generate_samples|aipl_feedback=data_scale_axis",
+    "genome": "tokenizer_family=hybrid_byte_bpe|vocab_class=2048|context_class=ctx256_current|model_scale=stage9_bpe_extend|japanese_support=utf8_decode_smoke|train_data_scale=100MB_deduped|delivery_mode=generate_samples|aipl_feedback=data_scale_axis"
+  },
+  {
+    "id": "I39",
+    "score": 0.45,
+    "cell": "tokenizer_family=bytelevel_bpe|vocab_class=4096|context_class=ctx256_current|model_scale=depth6_d160_2M_guarded|japanese_support=ja_mixed_corpus|train_data_scale=30MB_mixed_en_ja|delivery_mode=train_eval_checkpoint|aipl_feedback=productization",
+    "genome": "tokenizer_family=bytelevel_bpe|vocab_class=4096|context_class=ctx256_current|model_scale=depth6_d160_2M_guarded|japanese_support=ja_mixed_corpus|train_data_scale=30MB_mixed_en_ja|delivery_mode=train_eval_checkpoint|aipl_feedback=productization"
+  },
+  {
+    "id": "I64",
+    "score": 0.45,
+    "cell": "tokenizer_family=hybrid_byte_bpe|vocab_class=1536|context_class=ctx256_current|model_scale=depth6_d128_1p4M|japanese_support=none|train_data_scale=30MB_mixed_en_ja|delivery_mode=generate_samples|aipl_feedback=data_scale_axis",
+    "genome": "tokenizer_family=hybrid_byte_bpe|vocab_class=1536|context_class=ctx256_current|model_scale=depth6_d128_1p4M|japanese_support=none|train_data_scale=30MB_mixed_en_ja|delivery_mode=generate_samples|aipl_feedback=data_scale_axis"
+  },
+  {
+    "id": "I76",
+    "score": 0.45,
+    "cell": "tokenizer_family=hybrid_byte_bpe|vocab_class=1536|context_class=ctx256_effective_3to4_bytes_per_token|model_scale=depth6_d128_1p4M|japanese_support=none|train_data_scale=30MB_mixed_en_ja|delivery_mode=generate_samples|aipl_feedback=productization",
+    "genome": "tokenizer_family=hybrid_byte_bpe|vocab_class=1536|context_class=ctx256_effective_3to4_bytes_per_token|model_scale=depth6_d128_1p4M|japanese_support=none|train_data_scale=30MB_mixed_en_ja|delivery_mode=generate_samples|aipl_feedback=productization"
+  },
+  {
+    "id": "I124",
+    "score": 0.45,
+    "cell": "tokenizer_family=bytelevel_bpe|vocab_class=4096|context_class=ctx384_or_ctx512|model_scale=depth6_d160_2M_guarded|japanese_support=ja_mixed_corpus|train_data_scale=30MB_mixed_en_ja|delivery_mode=train_eval_checkpoint|aipl_feedback=data_scale_axis",
+    "genome": "tokenizer_family=bytelevel_bpe|vocab_class=4096|context_class=ctx384_or_ctx512|model_scale=depth6_d160_2M_guarded|japanese_support=ja_mixed_corpus|train_data_scale=30MB_mixed_en_ja|delivery_mode=train_eval_checkpoint|aipl_feedback=data_scale_axis"
+  },
+  {
+    "id": "I147",
+    "score": 0.45,
+    "cell": "tokenizer_family=hybrid_byte_bpe|vocab_class=1536|context_class=ctx256_effective_midpoint|model_scale=stage9_bpe_extend|japanese_support=utf8_tokenizer_only|train_data_scale=30MB_mixed_en_ja|delivery_mode=generate_samples|aipl_feedback=midpoint_guard",
+    "genome": "tokenizer_family=hybrid_byte_bpe|vocab_class=1536|context_class=ctx256_effective_midpoint|model_scale=stage9_bpe_extend|japanese_support=utf8_tokenizer_only|train_data_scale=30MB_mixed_en_ja|delivery_mode=generate_samples|aipl_feedback=midpoint_guard"
+  },
+  {
+    "id": "I151",
+    "score": 0.45,
+    "cell": "tokenizer_family=hybrid_byte_bpe|vocab_class=1536|context_class=ctx256_effective_midpoint|model_scale=stage9_bpe_extend|japanese_support=utf8_tokenizer_only|train_data_scale=30MB_mixed_en_ja|delivery_mode=aipl_prior_update|aipl_feedback=midpoint_guard",
+    "genome": "tokenizer_family=hybrid_byte_bpe|vocab_class=1536|context_class=ctx256_effective_midpoint|model_scale=stage9_bpe_extend|japanese_support=utf8_tokenizer_only|train_data_scale=30MB_mixed_en_ja|delivery_mode=aipl_prior_update|aipl_feedback=midpoint_guard"
+  },
+  {
+    "id": "I153",
+    "score": 0.45,
+    "cell": "tokenizer_family=hybrid_byte_bpe|vocab_class=2048|context_class=ctx256_effective_3to4_bytes_per_token|model_scale=stage9_bpe_extend|japanese_support=none|train_data_scale=100MB_deduped|delivery_mode=generate_samples|aipl_feedback=data_scale_axis",
+    "genome": "tokenizer_family=hybrid_byte_bpe|vocab_class=2048|context_class=ctx256_effective_3to4_bytes_per_token|model_scale=stage9_bpe_extend|japanese_support=none|train_data_scale=100MB_deduped|delivery_mode=generate_samples|aipl_feedback=data_scale_axis"
+  },
+  {
+    "id": "I157",
+    "score": 0.45,
+    "cell": "tokenizer_family=bytelevel_bpe|vocab_class=1536|context_class=ctx256_effective_3to4_bytes_per_token|model_scale=depth6_d128_1p4M|japanese_support=none|train_data_scale=30MB_mixed_en_ja|delivery_mode=generate_samples|aipl_feedback=data_scale_axis",
+    "genome": "tokenizer_family=bytelevel_bpe|vocab_class=1536|context_class=ctx256_effective_3to4_bytes_per_token|model_scale=depth6_d128_1p4M|japanese_support=none|train_data_scale=30MB_mixed_en_ja|delivery_mode=generate_samples|aipl_feedback=data_scale_axis"
+  },
+  {
+    "id": "I289",
+    "score": 0.45,
+    "cell": "tokenizer_family=byte|vocab_class=2048|context_class=ctx256_current|model_scale=depth6_d160_2M_guarded|japanese_support=none|train_data_scale=30MB_mixed_en_ja|delivery_mode=aipl_prior_update|aipl_feedback=productization",
+    "genome": "tokenizer_family=byte|vocab_class=2048|context_class=ctx256_current|model_scale=depth6_d160_2M_guarded|japanese_support=none|train_data_scale=30MB_mixed_en_ja|delivery_mode=aipl_prior_update|aipl_feedback=productization"
+  },
+  {
+    "id": "I170",
+    "score": 0.45,
+    "cell": "tokenizer_family=bytelevel_bpe|vocab_class=4096|context_class=ctx256_effective_3to4_bytes_per_token|model_scale=depth6_d160_2M_guarded|japanese_support=ja_mixed_corpus|train_data_scale=30MB_mixed_en_ja|delivery_mode=train_eval_checkpoint|aipl_feedback=data_scale_axis",
+    "genome": "tokenizer_family=bytelevel_bpe|vocab_class=4096|context_class=ctx256_effective_3to4_bytes_per_token|model_scale=depth6_d160_2M_guarded|japanese_support=ja_mixed_corpus|train_data_scale=30MB_mixed_en_ja|delivery_mode=train_eval_checkpoint|aipl_feedback=data_scale_axis"
+  },
+  {
+    "id": "I68",
+    "score": 0.44,
+    "cell": "tokenizer_family=byte|vocab_class=2048|context_class=ctx256_current|model_scale=stage9_bpe_extend|japanese_support=utf8_decode_smoke|train_data_scale=10MB_en_baseline|delivery_mode=aipl_prior_update|aipl_feedback=vocab_axis",
+    "genome": "tokenizer_family=byte|vocab_class=2048|context_class=ctx256_current|model_scale=stage9_bpe_extend|japanese_support=utf8_decode_smoke|train_data_scale=10MB_en_baseline|delivery_mode=aipl_prior_update|aipl_feedback=vocab_axis"
+  },
+  {
+    "id": "I94",
+    "score": 0.44,
+    "cell": "tokenizer_family=bytelevel_bpe|vocab_class=1024|context_class=ctx384_or_ctx512|model_scale=depth6_d160_2M_guarded|japanese_support=optional_ja_eval|train_data_scale=30MB_mixed_en_ja|delivery_mode=train_eval_checkpoint|aipl_feedback=data_scale_axis",
+    "genome": "tokenizer_family=bytelevel_bpe|vocab_class=1024|context_class=ctx384_or_ctx512|model_scale=depth6_d160_2M_guarded|japanese_support=optional_ja_eval|train_data_scale=30MB_mixed_en_ja|delivery_mode=train_eval_checkpoint|aipl_feedback=data_scale_axis"
+  },
+  {
+    "id": "I161",
+    "score": 0.44,
+    "cell": "tokenizer_family=bytelevel_bpe|vocab_class=1024|context_class=ctx256_mixed_utf8|model_scale=stage9_bpe_extend|japanese_support=utf8_tokenizer_only|train_data_scale=10MB_en_baseline|delivery_mode=chat_py|aipl_feedback=productization",
+    "genome": "tokenizer_family=bytelevel_bpe|vocab_class=1024|context_class=ctx256_mixed_utf8|model_scale=stage9_bpe_extend|japanese_support=utf8_tokenizer_only|train_data_scale=10MB_en_baseline|delivery_mode=chat_py|aipl_feedback=productization"
+  },
+  {
+    "id": "I201",
+    "score": 0.44,
+    "cell": "tokenizer_family=bytelevel_bpe|vocab_class=1536|context_class=ctx256_effective_midpoint|model_scale=depth6_d128_1p4M|japanese_support=utf8_tokenizer_only|train_data_scale=10MB_en_baseline|delivery_mode=generate_samples|aipl_feedback=midpoint_guard",
+    "genome": "tokenizer_family=bytelevel_bpe|vocab_class=1536|context_class=ctx256_effective_midpoint|model_scale=depth6_d128_1p4M|japanese_support=utf8_tokenizer_only|train_data_scale=10MB_en_baseline|delivery_mode=generate_samples|aipl_feedback=midpoint_guard"
+  },
+  {
+    "id": "I213",
+    "score": 0.44,
+    "cell": "tokenizer_family=hybrid_byte_bpe|vocab_class=1536|context_class=ctx384_or_ctx512|model_scale=stage9_bpe_extend|japanese_support=optional_ja_eval|train_data_scale=100MB_deduped|delivery_mode=chat_py|aipl_feedback=vocab_axis",
+    "genome": "tokenizer_family=hybrid_byte_bpe|vocab_class=1536|context_class=ctx384_or_ctx512|model_scale=stage9_bpe_extend|japanese_support=optional_ja_eval|train_data_scale=100MB_deduped|delivery_mode=chat_py|aipl_feedback=vocab_axis"
+  },
+  {
+    "id": "I325",
+    "score": 0.44,
+    "cell": "tokenizer_family=unigram|vocab_class=1536|context_class=ctx384_or_ctx512|model_scale=stage9_bpe_extend|japanese_support=optional_ja_eval|train_data_scale=100MB_deduped|delivery_mode=chat_py|aipl_feedback=vocab_axis",
+    "genome": "tokenizer_family=unigram|vocab_class=1536|context_class=ctx384_or_ctx512|model_scale=stage9_bpe_extend|japanese_support=optional_ja_eval|train_data_scale=100MB_deduped|delivery_mode=chat_py|aipl_feedback=vocab_axis"
+  },
+  {
+    "id": "I190",
+    "score": 0.43,
+    "cell": "tokenizer_family=bytelevel_bpe|vocab_class=4096|context_class=ctx384_or_ctx512|model_scale=depth6_d128_1p35M|japanese_support=optional_ja_eval|train_data_scale=100MB_deduped|delivery_mode=aipl_prior_update|aipl_feedback=vocab_axis",
+    "genome": "tokenizer_family=bytelevel_bpe|vocab_class=4096|context_class=ctx384_or_ctx512|model_scale=depth6_d128_1p35M|japanese_support=optional_ja_eval|train_data_scale=100MB_deduped|delivery_mode=aipl_prior_update|aipl_feedback=vocab_axis"
+  },
+  {
+    "id": "I206",
+    "score": 0.43,
+    "cell": "tokenizer_family=hybrid_byte_bpe|vocab_class=1536|context_class=ctx256_effective_midpoint|model_scale=stage9_bpe_extend|japanese_support=none|train_data_scale=30MB_mixed_en_ja|delivery_mode=generate_samples|aipl_feedback=vocab_axis",
+    "genome": "tokenizer_family=hybrid_byte_bpe|vocab_class=1536|context_class=ctx256_effective_midpoint|model_scale=stage9_bpe_extend|japanese_support=none|train_data_scale=30MB_mixed_en_ja|delivery_mode=generate_samples|aipl_feedback=vocab_axis"
+  },
+  {
+    "id": "I284",
+    "score": 0.43,
+    "cell": "tokenizer_family=hybrid_byte_bpe|vocab_class=4096|context_class=ctx256_current|model_scale=stage9_bpe_extend|japanese_support=utf8_decode_smoke|train_data_scale=100MB_deduped|delivery_mode=aipl_prior_update|aipl_feedback=vocab_axis",
+    "genome": "tokenizer_family=hybrid_byte_bpe|vocab_class=4096|context_class=ctx256_current|model_scale=stage9_bpe_extend|japanese_support=utf8_decode_smoke|train_data_scale=100MB_deduped|delivery_mode=aipl_prior_update|aipl_feedback=vocab_axis"
+  },
+  {
+    "id": "I338",
+    "score": 0.43,
+    "cell": "tokenizer_family=bytelevel_bpe|vocab_class=4096|context_class=ctx256_current|model_scale=stage9_bpe_extend|japanese_support=utf8_decode_smoke|train_data_scale=100MB_deduped|delivery_mode=aipl_prior_update|aipl_feedback=multilingual_axis",
+    "genome": "tokenizer_family=bytelevel_bpe|vocab_class=4096|context_class=ctx256_current|model_scale=stage9_bpe_extend|japanese_support=utf8_decode_smoke|train_data_scale=100MB_deduped|delivery_mode=aipl_prior_update|aipl_feedback=multilingual_axis"
+  },
+  {
+    "id": "I36",
+    "score": 0.43,
+    "cell": "tokenizer_family=hybrid_byte_bpe|vocab_class=1536|context_class=ctx256_effective_3to4_bytes_per_token|model_scale=stage9_bpe_extend|japanese_support=none|train_data_scale=30MB_mixed_en_ja|delivery_mode=generate_samples|aipl_feedback=vocab_axis",
+    "genome": "tokenizer_family=hybrid_byte_bpe|vocab_class=1536|context_class=ctx256_effective_3to4_bytes_per_token|model_scale=stage9_bpe_extend|japanese_support=none|train_data_scale=30MB_mixed_en_ja|delivery_mode=generate_samples|aipl_feedback=vocab_axis"
+  },
+  {
+    "id": "I249",
+    "score": 0.43,
+    "cell": "tokenizer_family=hybrid_byte_bpe|vocab_class=2048|context_class=ctx256_effective_3to4_bytes_per_token|model_scale=depth6_d160_2M_guarded|japanese_support=none|train_data_scale=100MB_deduped|delivery_mode=generate_samples|aipl_feedback=data_scale_axis",
+    "genome": "tokenizer_family=hybrid_byte_bpe|vocab_class=2048|context_class=ctx256_effective_3to4_bytes_per_token|model_scale=depth6_d160_2M_guarded|japanese_support=none|train_data_scale=100MB_deduped|delivery_mode=generate_samples|aipl_feedback=data_scale_axis"
+  },
+  {
+    "id": "I261",
+    "score": 0.43,
+    "cell": "tokenizer_family=byte|vocab_class=1024|context_class=ctx256_effective_3to4_bytes_per_token|model_scale=depth6_d128_1p4M|japanese_support=utf8_tokenizer_only|train_data_scale=100MB_deduped|delivery_mode=aipl_prior_update|aipl_feedback=vocab_axis",
+    "genome": "tokenizer_family=byte|vocab_class=1024|context_class=ctx256_effective_3to4_bytes_per_token|model_scale=depth6_d128_1p4M|japanese_support=utf8_tokenizer_only|train_data_scale=100MB_deduped|delivery_mode=aipl_prior_update|aipl_feedback=vocab_axis"
+  },
+  {
+    "id": "I311",
+    "score": 0.43,
+    "cell": "tokenizer_family=byte|vocab_class=1536|context_class=ctx256_effective_3to4_bytes_per_token|model_scale=depth6_d160_2M_guarded|japanese_support=utf8_tokenizer_only|train_data_scale=30MB_mixed_en_ja|delivery_mode=generate_samples|aipl_feedback=midpoint_guard",
+    "genome": "tokenizer_family=byte|vocab_class=1536|context_class=ctx256_effective_3to4_bytes_per_token|model_scale=depth6_d160_2M_guarded|japanese_support=utf8_tokenizer_only|train_data_scale=30MB_mixed_en_ja|delivery_mode=generate_samples|aipl_feedback=midpoint_guard"
+  },
+  {
+    "id": "I237",
+    "score": 0.43,
+    "cell": "tokenizer_family=hybrid_byte_bpe|vocab_class=2048|context_class=ctx256_mixed_utf8|model_scale=depth6_d128_1p4M|japanese_support=utf8_tokenizer_only|train_data_scale=30MB_en|delivery_mode=chat_py|aipl_feedback=vocab_axis",
+    "genome": "tokenizer_family=hybrid_byte_bpe|vocab_class=2048|context_class=ctx256_mixed_utf8|model_scale=depth6_d128_1p4M|japanese_support=utf8_tokenizer_only|train_data_scale=30MB_en|delivery_mode=chat_py|aipl_feedback=vocab_axis"
+  },
+  {
+    "id": "I272",
+    "score": 0.42,
+    "cell": "tokenizer_family=bytelevel_bpe|vocab_class=4096|context_class=ctx384_or_ctx512|model_scale=stage9_bpe_extend|japanese_support=utf8_tokenizer_only|train_data_scale=30MB_mixed_en_ja|delivery_mode=train_eval_checkpoint|aipl_feedback=data_scale_axis",
+    "genome": "tokenizer_family=bytelevel_bpe|vocab_class=4096|context_class=ctx384_or_ctx512|model_scale=stage9_bpe_extend|japanese_support=utf8_tokenizer_only|train_data_scale=30MB_mixed_en_ja|delivery_mode=train_eval_checkpoint|aipl_feedback=data_scale_axis"
+  },
+  {
+    "id": "I199",
+    "score": 0.42,
+    "cell": "tokenizer_family=bytelevel_bpe|vocab_class=2048|context_class=ctx256_effective_3to4_bytes_per_token|model_scale=stage9_bpe_extend|japanese_support=none|train_data_scale=10MB_en_baseline|delivery_mode=generate_samples|aipl_feedback=data_scale_axis",
+    "genome": "tokenizer_family=bytelevel_bpe|vocab_class=2048|context_class=ctx256_effective_3to4_bytes_per_token|model_scale=stage9_bpe_extend|japanese_support=none|train_data_scale=10MB_en_baseline|delivery_mode=generate_samples|aipl_feedback=data_scale_axis"
+  },
+  {
+    "id": "I207",
+    "score": 0.42,
+    "cell": "tokenizer_family=hybrid_byte_bpe|vocab_class=2048|context_class=ctx256_effective_midpoint|model_scale=stage9_bpe_extend|japanese_support=utf8_decode_smoke|train_data_scale=10MB_en_baseline|delivery_mode=aipl_prior_update|aipl_feedback=data_scale_axis",
+    "genome": "tokenizer_family=hybrid_byte_bpe|vocab_class=2048|context_class=ctx256_effective_midpoint|model_scale=stage9_bpe_extend|japanese_support=utf8_decode_smoke|train_data_scale=10MB_en_baseline|delivery_mode=aipl_prior_update|aipl_feedback=data_scale_axis"
+  },
+  {
+    "id": "I238",
+    "score": 0.42,
+    "cell": "tokenizer_family=hybrid_byte_bpe|vocab_class=256|context_class=ctx256_effective_3to4_bytes_per_token|model_scale=stage9_bpe_extend|japanese_support=ja_mixed_corpus|train_data_scale=100MB_deduped|delivery_mode=aipl_prior_update|aipl_feedback=data_scale_axis",
+    "genome": "tokenizer_family=hybrid_byte_bpe|vocab_class=256|context_class=ctx256_effective_3to4_bytes_per_token|model_scale=stage9_bpe_extend|japanese_support=ja_mixed_corpus|train_data_scale=100MB_deduped|delivery_mode=aipl_prior_update|aipl_feedback=data_scale_axis"
+  },
+  {
+    "id": "I82",
+    "score": 0.42,
+    "cell": "tokenizer_family=bytelevel_bpe|vocab_class=4096|context_class=ctx256_effective_midpoint|model_scale=depth6_d160_2M_guarded|japanese_support=optional_ja_eval|train_data_scale=100MB_deduped|delivery_mode=chat_py|aipl_feedback=data_scale_axis",
+    "genome": "tokenizer_family=bytelevel_bpe|vocab_class=4096|context_class=ctx256_effective_midpoint|model_scale=depth6_d160_2M_guarded|japanese_support=optional_ja_eval|train_data_scale=100MB_deduped|delivery_mode=chat_py|aipl_feedback=data_scale_axis"
+  },
+  {
+    "id": "I89",
+    "score": 0.42,
+    "cell": "tokenizer_family=hybrid_byte_bpe|vocab_class=2048|context_class=ctx256_current|model_scale=stage9_bpe_extend|japanese_support=utf8_tokenizer_only|train_data_scale=30MB_en|delivery_mode=generate_samples|aipl_feedback=data_scale_axis",
+    "genome": "tokenizer_family=hybrid_byte_bpe|vocab_class=2048|context_class=ctx256_current|model_scale=stage9_bpe_extend|japanese_support=utf8_tokenizer_only|train_data_scale=30MB_en|delivery_mode=generate_samples|aipl_feedback=data_scale_axis"
+  },
+  {
+    "id": "I194",
+    "score": 0.41,
+    "cell": "tokenizer_family=hybrid_byte_bpe|vocab_class=1536|context_class=ctx256_current|model_scale=stage9_bpe_extend|japanese_support=none|train_data_scale=30MB_mixed_en_ja|delivery_mode=generate_samples|aipl_feedback=data_scale_axis",
+    "genome": "tokenizer_family=hybrid_byte_bpe|vocab_class=1536|context_class=ctx256_current|model_scale=stage9_bpe_extend|japanese_support=none|train_data_scale=30MB_mixed_en_ja|delivery_mode=generate_samples|aipl_feedback=data_scale_axis"
+  },
+  {
+    "id": "I339",
+    "score": 0.41,
+    "cell": "tokenizer_family=hybrid_byte_bpe|vocab_class=1536|context_class=ctx384_or_ctx512|model_scale=stage9_bpe_extend|japanese_support=none|train_data_scale=30MB_mixed_en_ja|delivery_mode=generate_samples|aipl_feedback=data_scale_axis",
+    "genome": "tokenizer_family=hybrid_byte_bpe|vocab_class=1536|context_class=ctx384_or_ctx512|model_scale=stage9_bpe_extend|japanese_support=none|train_data_scale=30MB_mixed_en_ja|delivery_mode=generate_samples|aipl_feedback=data_scale_axis"
+  },
+  {
+    "id": "I3",
+    "score": 0.41,
+    "cell": "tokenizer_family=bytelevel_bpe|vocab_class=1536|context_class=ctx256_effective_midpoint|model_scale=depth6_d128_1p35M|japanese_support=utf8_tokenizer_only|train_data_scale=10MB_en_baseline|delivery_mode=train_eval_checkpoint|aipl_feedback=midpoint_guard",
+    "genome": "tokenizer_family=bytelevel_bpe|vocab_class=1536|context_class=ctx256_effective_midpoint|model_scale=depth6_d128_1p35M|japanese_support=utf8_tokenizer_only|train_data_scale=10MB_en_baseline|delivery_mode=train_eval_checkpoint|aipl_feedback=midpoint_guard"
+  },
+  {
+    "id": "I20",
+    "score": 0.41,
+    "cell": "tokenizer_family=hybrid_byte_bpe|vocab_class=1536|context_class=ctx256_effective_3to4_bytes_per_token|model_scale=stage9_bpe_extend|japanese_support=none|train_data_scale=30MB_mixed_en_ja|delivery_mode=generate_samples|aipl_feedback=data_scale_axis",
+    "genome": "tokenizer_family=hybrid_byte_bpe|vocab_class=1536|context_class=ctx256_effective_3to4_bytes_per_token|model_scale=stage9_bpe_extend|japanese_support=none|train_data_scale=30MB_mixed_en_ja|delivery_mode=generate_samples|aipl_feedback=data_scale_axis"
+  },
+  {
+    "id": "I53",
+    "score": 0.41,
+    "cell": "tokenizer_family=hybrid_byte_bpe|vocab_class=1536|context_class=ctx256_effective_3to4_bytes_per_token|model_scale=stage9_bpe_extend|japanese_support=none|train_data_scale=30MB_mixed_en_ja|delivery_mode=aipl_prior_update|aipl_feedback=data_scale_axis",
+    "genome": "tokenizer_family=hybrid_byte_bpe|vocab_class=1536|context_class=ctx256_effective_3to4_bytes_per_token|model_scale=stage9_bpe_extend|japanese_support=none|train_data_scale=30MB_mixed_en_ja|delivery_mode=aipl_prior_update|aipl_feedback=data_scale_axis"
+  },
+  {
+    "id": "I87",
+    "score": 0.41,
+    "cell": "tokenizer_family=byte|vocab_class=1536|context_class=ctx256_effective_midpoint|model_scale=depth6_d128_1p35M|japanese_support=utf8_tokenizer_only|train_data_scale=10MB_en_baseline|delivery_mode=train_eval_checkpoint|aipl_feedback=midpoint_guard",
+    "genome": "tokenizer_family=byte|vocab_class=1536|context_class=ctx256_effective_midpoint|model_scale=depth6_d128_1p35M|japanese_support=utf8_tokenizer_only|train_data_scale=10MB_en_baseline|delivery_mode=train_eval_checkpoint|aipl_feedback=midpoint_guard"
+  },
+  {
+    "id": "I145",
+    "score": 0.41,
+    "cell": "tokenizer_family=bytelevel_bpe|vocab_class=4096|context_class=ctx384_or_ctx512|model_scale=depth6_d128_1p35M|japanese_support=optional_ja_eval|train_data_scale=100MB_deduped|delivery_mode=aipl_prior_update|aipl_feedback=productization",
+    "genome": "tokenizer_family=bytelevel_bpe|vocab_class=4096|context_class=ctx384_or_ctx512|model_scale=depth6_d128_1p35M|japanese_support=optional_ja_eval|train_data_scale=100MB_deduped|delivery_mode=aipl_prior_update|aipl_feedback=productization"
+  },
+  {
+    "id": "I9",
+    "score": 0.4,
+    "cell": "tokenizer_family=byte|vocab_class=2048|context_class=ctx256_effective_midpoint|model_scale=depth6_d128_1p4M|japanese_support=utf8_tokenizer_only|train_data_scale=30MB_en|delivery_mode=aipl_prior_update|aipl_feedback=none",
+    "genome": "tokenizer_family=byte|vocab_class=2048|context_class=ctx256_effective_midpoint|model_scale=depth6_d128_1p4M|japanese_support=utf8_tokenizer_only|train_data_scale=30MB_en|delivery_mode=aipl_prior_update|aipl_feedback=none"
+  },
+  {
+    "id": "I183",
+    "score": 0.4,
+    "cell": "tokenizer_family=byte|vocab_class=2048|context_class=ctx256_current|model_scale=depth6_d128_1p4M|japanese_support=none|train_data_scale=10MB_en_baseline|delivery_mode=aipl_prior_update|aipl_feedback=midpoint_guard",
+    "genome": "tokenizer_family=byte|vocab_class=2048|context_class=ctx256_current|model_scale=depth6_d128_1p4M|japanese_support=none|train_data_scale=10MB_en_baseline|delivery_mode=aipl_prior_update|aipl_feedback=midpoint_guard"
+  },
+  {
+    "id": "I192",
+    "score": 0.4,
+    "cell": "tokenizer_family=hybrid_byte_bpe|vocab_class=2048|context_class=ctx256_effective_3to4_bytes_per_token|model_scale=stage9_bpe_extend|japanese_support=none|train_data_scale=100MB_deduped|delivery_mode=chat_py|aipl_feedback=data_scale_axis",
+    "genome": "tokenizer_family=hybrid_byte_bpe|vocab_class=2048|context_class=ctx256_effective_3to4_bytes_per_token|model_scale=stage9_bpe_extend|japanese_support=none|train_data_scale=100MB_deduped|delivery_mode=chat_py|aipl_feedback=data_scale_axis"
+  },
+  {
+    "id": "I258",
+    "score": 0.4,
+    "cell": "tokenizer_family=bytelevel_bpe|vocab_class=1536|context_class=ctx256_effective_3to4_bytes_per_token|model_scale=depth6_d160_2M_guarded|japanese_support=optional_ja_eval|train_data_scale=100MB_deduped|delivery_mode=chat_py|aipl_feedback=data_scale_axis",
+    "genome": "tokenizer_family=bytelevel_bpe|vocab_class=1536|context_class=ctx256_effective_3to4_bytes_per_token|model_scale=depth6_d160_2M_guarded|japanese_support=optional_ja_eval|train_data_scale=100MB_deduped|delivery_mode=chat_py|aipl_feedback=data_scale_axis"
+  },
+  {
+    "id": "I8",
+    "score": 0.39,
+    "cell": "tokenizer_family=bytelevel_bpe|vocab_class=2048|context_class=ctx384_or_ctx512|model_scale=stage9_bpe_extend|japanese_support=ja_mixed_corpus|train_data_scale=10MB_en_baseline|delivery_mode=aipl_prior_update|aipl_feedback=multilingual_axis",
+    "genome": "tokenizer_family=bytelevel_bpe|vocab_class=2048|context_class=ctx384_or_ctx512|model_scale=stage9_bpe_extend|japanese_support=ja_mixed_corpus|train_data_scale=10MB_en_baseline|delivery_mode=aipl_prior_update|aipl_feedback=multilingual_axis"
+  },
+  {
+    "id": "I12",
+    "score": 0.39,
+    "cell": "tokenizer_family=hybrid_byte_bpe|vocab_class=4096|context_class=ctx256_current|model_scale=depth6_d128_1p35M|japanese_support=ja_mixed_corpus|train_data_scale=30MB_mixed_en_ja|delivery_mode=train_eval_checkpoint|aipl_feedback=data_scale_axis",
+    "genome": "tokenizer_family=hybrid_byte_bpe|vocab_class=4096|context_class=ctx256_current|model_scale=depth6_d128_1p35M|japanese_support=ja_mixed_corpus|train_data_scale=30MB_mixed_en_ja|delivery_mode=train_eval_checkpoint|aipl_feedback=data_scale_axis"
+  },
+  {
+    "id": "I24",
+    "score": 0.39,
+    "cell": "tokenizer_family=hybrid_byte_bpe|vocab_class=1536|context_class=ctx256_effective_3to4_bytes_per_token|model_scale=depth6_d160_2M_guarded|japanese_support=none|train_data_scale=30MB_mixed_en_ja|delivery_mode=generate_samples|aipl_feedback=data_scale_axis",
+    "genome": "tokenizer_family=hybrid_byte_bpe|vocab_class=1536|context_class=ctx256_effective_3to4_bytes_per_token|model_scale=depth6_d160_2M_guarded|japanese_support=none|train_data_scale=30MB_mixed_en_ja|delivery_mode=generate_samples|aipl_feedback=data_scale_axis"
+  },
+  {
+    "id": "I51",
+    "score": 0.39,
+    "cell": "tokenizer_family=unigram|vocab_class=1536|context_class=ctx256_effective_3to4_bytes_per_token|model_scale=depth6_d160_2M_guarded|japanese_support=none|train_data_scale=30MB_mixed_en_ja|delivery_mode=generate_samples|aipl_feedback=data_scale_axis",
+    "genome": "tokenizer_family=unigram|vocab_class=1536|context_class=ctx256_effective_3to4_bytes_per_token|model_scale=depth6_d160_2M_guarded|japanese_support=none|train_data_scale=30MB_mixed_en_ja|delivery_mode=generate_samples|aipl_feedback=data_scale_axis"
+  },
+  {
+    "id": "I97",
+    "score": 0.39,
+    "cell": "tokenizer_family=hybrid_byte_bpe|vocab_class=1536|context_class=ctx256_effective_3to4_bytes_per_token|model_scale=stage9_bpe_extend|japanese_support=none|train_data_scale=100MB_deduped|delivery_mode=aipl_prior_update|aipl_feedback=data_scale_axis",
+    "genome": "tokenizer_family=hybrid_byte_bpe|vocab_class=1536|context_class=ctx256_effective_3to4_bytes_per_token|model_scale=stage9_bpe_extend|japanese_support=none|train_data_scale=100MB_deduped|delivery_mode=aipl_prior_update|aipl_feedback=data_scale_axis"
+  },
+  {
+    "id": "I126",
+    "score": 0.39,
+    "cell": "tokenizer_family=bytelevel_bpe|vocab_class=2048|context_class=ctx256_current|model_scale=stage9_bpe_extend|japanese_support=ja_mixed_corpus|train_data_scale=10MB_en_baseline|delivery_mode=aipl_prior_update|aipl_feedback=multilingual_axis",
+    "genome": "tokenizer_family=bytelevel_bpe|vocab_class=2048|context_class=ctx256_current|model_scale=stage9_bpe_extend|japanese_support=ja_mixed_corpus|train_data_scale=10MB_en_baseline|delivery_mode=aipl_prior_update|aipl_feedback=multilingual_axis"
+  },
+  {
+    "id": "I131",
+    "score": 0.39,
+    "cell": "tokenizer_family=bytelevel_bpe|vocab_class=1024|context_class=ctx256_current|model_scale=stage9_bpe_extend|japanese_support=utf8_tokenizer_only|train_data_scale=30MB_mixed_en_ja|delivery_mode=aipl_prior_update|aipl_feedback=productization",
+    "genome": "tokenizer_family=bytelevel_bpe|vocab_class=1024|context_class=ctx256_current|model_scale=stage9_bpe_extend|japanese_support=utf8_tokenizer_only|train_data_scale=30MB_mixed_en_ja|delivery_mode=aipl_prior_update|aipl_feedback=productization"
+  },
+  {
+    "id": "I133",
+    "score": 0.39,
+    "cell": "tokenizer_family=bytelevel_bpe|vocab_class=2048|context_class=ctx256_effective_midpoint|model_scale=depth6_d128_1p4M|japanese_support=optional_ja_eval|train_data_scale=30MB_en|delivery_mode=chat_py|aipl_feedback=productization",
+    "genome": "tokenizer_family=bytelevel_bpe|vocab_class=2048|context_class=ctx256_effective_midpoint|model_scale=depth6_d128_1p4M|japanese_support=optional_ja_eval|train_data_scale=30MB_en|delivery_mode=chat_py|aipl_feedback=productization"
+  },
+  {
+    "id": "I282",
+    "score": 0.39,
+    "cell": "tokenizer_family=bytelevel_bpe|vocab_class=1536|context_class=ctx256_effective_midpoint|model_scale=depth6_d128_1p35M|japanese_support=optional_ja_eval|train_data_scale=10MB_en_baseline|delivery_mode=train_eval_checkpoint|aipl_feedback=midpoint_guard",
+    "genome": "tokenizer_family=bytelevel_bpe|vocab_class=1536|context_class=ctx256_effective_midpoint|model_scale=depth6_d128_1p35M|japanese_support=optional_ja_eval|train_data_scale=10MB_en_baseline|delivery_mode=train_eval_checkpoint|aipl_feedback=midpoint_guard"
+  },
+  {
+    "id": "I275",
+    "score": 0.39,
+    "cell": "tokenizer_family=bytelevel_bpe|vocab_class=4096|context_class=ctx384_or_ctx512|model_scale=depth6_d160_2M_guarded|japanese_support=ja_mixed_corpus|train_data_scale=30MB_mixed_en_ja|delivery_mode=train_eval_checkpoint|aipl_feedback=none",
+    "genome": "tokenizer_family=bytelevel_bpe|vocab_class=4096|context_class=ctx384_or_ctx512|model_scale=depth6_d160_2M_guarded|japanese_support=ja_mixed_corpus|train_data_scale=30MB_mixed_en_ja|delivery_mode=train_eval_checkpoint|aipl_feedback=none"
+  },
+  {
+    "id": "I179",
+    "score": 0.38,
+    "cell": "tokenizer_family=hybrid_byte_bpe|vocab_class=4096|context_class=ctx384_or_ctx512|model_scale=stage9_bpe_extend|japanese_support=optional_ja_eval|train_data_scale=10MB_en_baseline|delivery_mode=chat_py|aipl_feedback=vocab_axis",
+    "genome": "tokenizer_family=hybrid_byte_bpe|vocab_class=4096|context_class=ctx384_or_ctx512|model_scale=stage9_bpe_extend|japanese_support=optional_ja_eval|train_data_scale=10MB_en_baseline|delivery_mode=chat_py|aipl_feedback=vocab_axis"
+  },
+  {
+    "id": "I26",
+    "score": 0.38,
+    "cell": "tokenizer_family=hybrid_byte_bpe|vocab_class=4096|context_class=ctx384_or_ctx512|model_scale=depth6_d160_2M_guarded|japanese_support=optional_ja_eval|train_data_scale=30MB_mixed_en_ja|delivery_mode=train_eval_checkpoint|aipl_feedback=data_scale_axis",
+    "genome": "tokenizer_family=hybrid_byte_bpe|vocab_class=4096|context_class=ctx384_or_ctx512|model_scale=depth6_d160_2M_guarded|japanese_support=optional_ja_eval|train_data_scale=30MB_mixed_en_ja|delivery_mode=train_eval_checkpoint|aipl_feedback=data_scale_axis"
+  },
+  {
+    "id": "I38",
+    "score": 0.38,
+    "cell": "tokenizer_family=hybrid_byte_bpe|vocab_class=1536|context_class=ctx256_effective_3to4_bytes_per_token|model_scale=stage9_bpe_extend|japanese_support=none|train_data_scale=30MB_mixed_en_ja|delivery_mode=chat_py|aipl_feedback=vocab_axis",
+    "genome": "tokenizer_family=hybrid_byte_bpe|vocab_class=1536|context_class=ctx256_effective_3to4_bytes_per_token|model_scale=stage9_bpe_extend|japanese_support=none|train_data_scale=30MB_mixed_en_ja|delivery_mode=chat_py|aipl_feedback=vocab_axis"
+  },
+  {
+    "id": "I41",
+    "score": 0.38,
+    "cell": "tokenizer_family=bytelevel_bpe|vocab_class=4096|context_class=ctx384_or_ctx512|model_scale=depth6_d160_2M_guarded|japanese_support=optional_ja_eval|train_data_scale=30MB_mixed_en_ja|delivery_mode=train_eval_checkpoint|aipl_feedback=data_scale_axis",
+    "genome": "tokenizer_family=bytelevel_bpe|vocab_class=4096|context_class=ctx384_or_ctx512|model_scale=depth6_d160_2M_guarded|japanese_support=optional_ja_eval|train_data_scale=30MB_mixed_en_ja|delivery_mode=train_eval_checkpoint|aipl_feedback=data_scale_axis"
+  },
+  {
+    "id": "I57",
+    "score": 0.38,
+    "cell": "tokenizer_family=bytelevel_bpe|vocab_class=4096|context_class=ctx256_effective_3to4_bytes_per_token|model_scale=depth6_d160_2M_guarded|japanese_support=optional_ja_eval|train_data_scale=30MB_mixed_en_ja|delivery_mode=train_eval_checkpoint|aipl_feedback=data_scale_axis",
+    "genome": "tokenizer_family=bytelevel_bpe|vocab_class=4096|context_class=ctx256_effective_3to4_bytes_per_token|model_scale=depth6_d160_2M_guarded|japanese_support=optional_ja_eval|train_data_scale=30MB_mixed_en_ja|delivery_mode=train_eval_checkpoint|aipl_feedback=data_scale_axis"
+  },
+  {
+    "id": "I62",
+    "score": 0.38,
+    "cell": "tokenizer_family=hybrid_byte_bpe|vocab_class=4096|context_class=ctx256_current|model_scale=stage9_bpe_extend|japanese_support=ja_mixed_corpus|train_data_scale=30MB_mixed_en_ja|delivery_mode=generate_samples|aipl_feedback=data_scale_axis",
+    "genome": "tokenizer_family=hybrid_byte_bpe|vocab_class=4096|context_class=ctx256_current|model_scale=stage9_bpe_extend|japanese_support=ja_mixed_corpus|train_data_scale=30MB_mixed_en_ja|delivery_mode=generate_samples|aipl_feedback=data_scale_axis"
+  },
+  {
+    "id": "I77",
+    "score": 0.38,
+    "cell": "tokenizer_family=bytelevel_bpe|vocab_class=4096|context_class=ctx384_or_ctx512|model_scale=stage9_bpe_extend|japanese_support=utf8_tokenizer_only|train_data_scale=10MB_en_baseline|delivery_mode=chat_py|aipl_feedback=productization",
+    "genome": "tokenizer_family=bytelevel_bpe|vocab_class=4096|context_class=ctx384_or_ctx512|model_scale=stage9_bpe_extend|japanese_support=utf8_tokenizer_only|train_data_scale=10MB_en_baseline|delivery_mode=chat_py|aipl_feedback=productization"
+  },
+  {
+    "id": "I86",
+    "score": 0.38,
+    "cell": "tokenizer_family=bytelevel_bpe|vocab_class=4096|context_class=ctx256_mixed_utf8|model_scale=stage9_bpe_extend|japanese_support=utf8_tokenizer_only|train_data_scale=10MB_en_baseline|delivery_mode=chat_py|aipl_feedback=productization",
+    "genome": "tokenizer_family=bytelevel_bpe|vocab_class=4096|context_class=ctx256_mixed_utf8|model_scale=stage9_bpe_extend|japanese_support=utf8_tokenizer_only|train_data_scale=10MB_en_baseline|delivery_mode=chat_py|aipl_feedback=productization"
+  },
+  {
+    "id": "I141",
+    "score": 0.38,
+    "cell": "tokenizer_family=bytelevel_bpe|vocab_class=256|context_class=ctx256_effective_3to4_bytes_per_token|model_scale=stage9_bpe_extend|japanese_support=none|train_data_scale=30MB_mixed_en_ja|delivery_mode=train_eval_checkpoint|aipl_feedback=data_scale_axis",
+    "genome": "tokenizer_family=bytelevel_bpe|vocab_class=256|context_class=ctx256_effective_3to4_bytes_per_token|model_scale=stage9_bpe_extend|japanese_support=none|train_data_scale=30MB_mixed_en_ja|delivery_mode=train_eval_checkpoint|aipl_feedback=data_scale_axis"
+  },
+  {
+    "id": "I191",
+    "score": 0.38,
+    "cell": "tokenizer_family=byte|vocab_class=2048|context_class=ctx256_effective_midpoint|model_scale=depth6_d128_1p35M|japanese_support=utf8_tokenizer_only|train_data_scale=10MB_en_baseline|delivery_mode=aipl_prior_update|aipl_feedback=midpoint_guard",
+    "genome": "tokenizer_family=byte|vocab_class=2048|context_class=ctx256_effective_midpoint|model_scale=depth6_d128_1p35M|japanese_support=utf8_tokenizer_only|train_data_scale=10MB_en_baseline|delivery_mode=aipl_prior_update|aipl_feedback=midpoint_guard"
+  },
+  {
+    "id": "I209",
+    "score": 0.38,
+    "cell": "tokenizer_family=hybrid_byte_bpe|vocab_class=4096|context_class=ctx384_or_ctx512|model_scale=stage9_bpe_extend|japanese_support=optional_ja_eval|train_data_scale=100MB_deduped|delivery_mode=chat_py|aipl_feedback=none",
+    "genome": "tokenizer_family=hybrid_byte_bpe|vocab_class=4096|context_class=ctx384_or_ctx512|model_scale=stage9_bpe_extend|japanese_support=optional_ja_eval|train_data_scale=100MB_deduped|delivery_mode=chat_py|aipl_feedback=none"
+  },
+  {
+    "id": "I268",
+    "score": 0.36,
+    "cell": "tokenizer_family=bytelevel_bpe|vocab_class=4096|context_class=ctx256_effective_3to4_bytes_per_token|model_scale=depth6_d128_1p4M|japanese_support=none|train_data_scale=30MB_mixed_en_ja|delivery_mode=train_eval_checkpoint|aipl_feedback=data_scale_axis",
+    "genome": "tokenizer_family=bytelevel_bpe|vocab_class=4096|context_class=ctx256_effective_3to4_bytes_per_token|model_scale=depth6_d128_1p4M|japanese_support=none|train_data_scale=30MB_mixed_en_ja|delivery_mode=train_eval_checkpoint|aipl_feedback=data_scale_axis"
+  },
+  {
+    "id": "I92",
+    "score": 0.36,
+    "cell": "tokenizer_family=byte|vocab_class=1024|context_class=ctx256_effective_midpoint|model_scale=depth6_d128_1p35M|japanese_support=utf8_tokenizer_only|train_data_scale=10MB_en_baseline|delivery_mode=chat_py|aipl_feedback=productization",
+    "genome": "tokenizer_family=byte|vocab_class=1024|context_class=ctx256_effective_midpoint|model_scale=depth6_d128_1p35M|japanese_support=utf8_tokenizer_only|train_data_scale=10MB_en_baseline|delivery_mode=chat_py|aipl_feedback=productization"
+  },
+  {
+    "id": "I129",
+    "score": 0.36,
+    "cell": "tokenizer_family=bytelevel_bpe|vocab_class=4096|context_class=ctx384_or_ctx512|model_scale=depth6_d160_2M_guarded|japanese_support=utf8_tokenizer_only|train_data_scale=10MB_en_baseline|delivery_mode=chat_py|aipl_feedback=productization",
+    "genome": "tokenizer_family=bytelevel_bpe|vocab_class=4096|context_class=ctx384_or_ctx512|model_scale=depth6_d160_2M_guarded|japanese_support=utf8_tokenizer_only|train_data_scale=10MB_en_baseline|delivery_mode=chat_py|aipl_feedback=productization"
+  },
+  {
+    "id": "I130",
+    "score": 0.36,
+    "cell": "tokenizer_family=byte|vocab_class=1024|context_class=ctx256_mixed_utf8|model_scale=depth6_d128_1p35M|japanese_support=utf8_tokenizer_only|train_data_scale=10MB_en_baseline|delivery_mode=chat_py|aipl_feedback=productization",
+    "genome": "tokenizer_family=byte|vocab_class=1024|context_class=ctx256_mixed_utf8|model_scale=depth6_d128_1p35M|japanese_support=utf8_tokenizer_only|train_data_scale=10MB_en_baseline|delivery_mode=chat_py|aipl_feedback=productization"
+  },
+  {
+    "id": "I164",
+    "score": 0.36,
+    "cell": "tokenizer_family=bytelevel_bpe|vocab_class=1024|context_class=ctx384_or_ctx512|model_scale=depth6_d160_2M_guarded|japanese_support=none|train_data_scale=30MB_mixed_en_ja|delivery_mode=train_eval_checkpoint|aipl_feedback=data_scale_axis",
+    "genome": "tokenizer_family=bytelevel_bpe|vocab_class=1024|context_class=ctx384_or_ctx512|model_scale=depth6_d160_2M_guarded|japanese_support=none|train_data_scale=30MB_mixed_en_ja|delivery_mode=train_eval_checkpoint|aipl_feedback=data_scale_axis"
+  },
+  {
+    "id": "I313",
+    "score": 0.36,
+    "cell": "tokenizer_family=bytelevel_bpe|vocab_class=2048|context_class=ctx256_current|model_scale=stage9_bpe_extend|japanese_support=none|train_data_scale=30MB_mixed_en_ja|delivery_mode=chat_py|aipl_feedback=none",
+    "genome": "tokenizer_family=bytelevel_bpe|vocab_class=2048|context_class=ctx256_current|model_scale=stage9_bpe_extend|japanese_support=none|train_data_scale=30MB_mixed_en_ja|delivery_mode=chat_py|aipl_feedback=none"
+  },
+  {
+    "id": "I1",
+    "score": 0.34,
+    "cell": "tokenizer_family=bytelevel_bpe|vocab_class=1024|context_class=ctx256_current|model_scale=stage9_bpe_extend|japanese_support=utf8_decode_smoke|train_data_scale=10MB_en_baseline|delivery_mode=chat_py|aipl_feedback=productization",
+    "genome": "tokenizer_family=bytelevel_bpe|vocab_class=1024|context_class=ctx256_current|model_scale=stage9_bpe_extend|japanese_support=utf8_decode_smoke|train_data_scale=10MB_en_baseline|delivery_mode=chat_py|aipl_feedback=productization"
+  },
+  {
+    "id": "I34",
+    "score": 0.34,
+    "cell": "tokenizer_family=bytelevel_bpe|vocab_class=1024|context_class=ctx256_effective_3to4_bytes_per_token|model_scale=stage9_bpe_extend|japanese_support=none|train_data_scale=10MB_en_baseline|delivery_mode=chat_py|aipl_feedback=productization",
+    "genome": "tokenizer_family=bytelevel_bpe|vocab_class=1024|context_class=ctx256_effective_3to4_bytes_per_token|model_scale=stage9_bpe_extend|japanese_support=none|train_data_scale=10MB_en_baseline|delivery_mode=chat_py|aipl_feedback=productization"
+  },
+  {
+    "id": "I134",
+    "score": 0.34,
+    "cell": "tokenizer_family=bytelevel_bpe|vocab_class=1024|context_class=ctx256_current|model_scale=stage9_bpe_extend|japanese_support=none|train_data_scale=10MB_en_baseline|delivery_mode=chat_py|aipl_feedback=productization",
+    "genome": "tokenizer_family=bytelevel_bpe|vocab_class=1024|context_class=ctx256_current|model_scale=stage9_bpe_extend|japanese_support=none|train_data_scale=10MB_en_baseline|delivery_mode=chat_py|aipl_feedback=productization"
+  },
+  {
+    "id": "I283",
+    "score": 0.34,
+    "cell": "tokenizer_family=hybrid_byte_bpe|vocab_class=1024|context_class=ctx256_mixed_utf8|model_scale=stage9_bpe_extend|japanese_support=utf8_tokenizer_only|train_data_scale=10MB_en_baseline|delivery_mode=generate_samples|aipl_feedback=productization",
+    "genome": "tokenizer_family=hybrid_byte_bpe|vocab_class=1024|context_class=ctx256_mixed_utf8|model_scale=stage9_bpe_extend|japanese_support=utf8_tokenizer_only|train_data_scale=10MB_en_baseline|delivery_mode=generate_samples|aipl_feedback=productization"
+  },
+  {
+    "id": "I121",
+    "score": 0.33,
+    "cell": "tokenizer_family=hybrid_byte_bpe|vocab_class=4096|context_class=ctx384_or_ctx512|model_scale=stage9_bpe_extend|japanese_support=utf8_tokenizer_only|train_data_scale=30MB_mixed_en_ja|delivery_mode=aipl_prior_update|aipl_feedback=productization",
+    "genome": "tokenizer_family=hybrid_byte_bpe|vocab_class=4096|context_class=ctx384_or_ctx512|model_scale=stage9_bpe_extend|japanese_support=utf8_tokenizer_only|train_data_scale=30MB_mixed_en_ja|delivery_mode=aipl_prior_update|aipl_feedback=productization"
+  },
+  {
+    "id": "I35",
+    "score": 0.32,
+    "cell": "tokenizer_family=bytelevel_bpe|vocab_class=1024|context_class=ctx256_current|model_scale=stage9_bpe_extend|japanese_support=optional_ja_eval|train_data_scale=30MB_mixed_en_ja|delivery_mode=chat_py|aipl_feedback=productization",
+    "genome": "tokenizer_family=bytelevel_bpe|vocab_class=1024|context_class=ctx256_current|model_scale=stage9_bpe_extend|japanese_support=optional_ja_eval|train_data_scale=30MB_mixed_en_ja|delivery_mode=chat_py|aipl_feedback=productization"
+  },
+  {
+    "id": "I136",
+    "score": 0.32,
+    "cell": "tokenizer_family=bytelevel_bpe|vocab_class=1024|context_class=ctx256_current|model_scale=stage9_bpe_extend|japanese_support=utf8_tokenizer_only|train_data_scale=100MB_deduped|delivery_mode=chat_py|aipl_feedback=productization",
+    "genome": "tokenizer_family=bytelevel_bpe|vocab_class=1024|context_class=ctx256_current|model_scale=stage9_bpe_extend|japanese_support=utf8_tokenizer_only|train_data_scale=100MB_deduped|delivery_mode=chat_py|aipl_feedback=productization"
+  },
+  {
+    "id": "I61",
+    "score": 0.31,
+    "cell": "tokenizer_family=hybrid_byte_bpe|vocab_class=1024|context_class=ctx256_effective_3to4_bytes_per_token|model_scale=stage9_bpe_extend|japanese_support=utf8_decode_smoke|train_data_scale=30MB_mixed_en_ja|delivery_mode=aipl_prior_update|aipl_feedback=vocab_axis",
+    "genome": "tokenizer_family=hybrid_byte_bpe|vocab_class=1024|context_class=ctx256_effective_3to4_bytes_per_token|model_scale=stage9_bpe_extend|japanese_support=utf8_decode_smoke|train_data_scale=30MB_mixed_en_ja|delivery_mode=aipl_prior_update|aipl_feedback=vocab_axis"
+  },
+  {
+    "id": "I139",
+    "score": 0.31,
+    "cell": "tokenizer_family=hybrid_byte_bpe|vocab_class=2048|context_class=ctx256_current|model_scale=depth6_d128_1p4M|japanese_support=ja_mixed_corpus|train_data_scale=30MB_en|delivery_mode=generate_samples|aipl_feedback=data_scale_axis",
+    "genome": "tokenizer_family=hybrid_byte_bpe|vocab_class=2048|context_class=ctx256_current|model_scale=depth6_d128_1p4M|japanese_support=ja_mixed_corpus|train_data_scale=30MB_en|delivery_mode=generate_samples|aipl_feedback=data_scale_axis"
+  },
+  {
+    "id": "I48",
+    "score": 0.3,
+    "cell": "tokenizer_family=bytelevel_bpe|vocab_class=1024|context_class=ctx256_current|model_scale=stage9_bpe_extend|japanese_support=optional_ja_eval|train_data_scale=100MB_deduped|delivery_mode=chat_py|aipl_feedback=productization",
+    "genome": "tokenizer_family=bytelevel_bpe|vocab_class=1024|context_class=ctx256_current|model_scale=stage9_bpe_extend|japanese_support=optional_ja_eval|train_data_scale=100MB_deduped|delivery_mode=chat_py|aipl_feedback=productization"
+  },
+  {
+    "id": "I106",
+    "score": 0.3,
+    "cell": "tokenizer_family=hybrid_byte_bpe|vocab_class=4096|context_class=ctx384_or_ctx512|model_scale=stage9_bpe_extend|japanese_support=utf8_tokenizer_only|train_data_scale=10MB_en_baseline|delivery_mode=aipl_prior_update|aipl_feedback=vocab_axis",
+    "genome": "tokenizer_family=hybrid_byte_bpe|vocab_class=4096|context_class=ctx384_or_ctx512|model_scale=stage9_bpe_extend|japanese_support=utf8_tokenizer_only|train_data_scale=10MB_en_baseline|delivery_mode=aipl_prior_update|aipl_feedback=vocab_axis"
+  },
+  {
+    "id": "I224",
+    "score": 0.29,
+    "cell": "tokenizer_family=bytelevel_bpe|vocab_class=1024|context_class=ctx256_effective_3to4_bytes_per_token|model_scale=stage9_bpe_extend|japanese_support=ja_mixed_corpus|train_data_scale=10MB_en_baseline|delivery_mode=chat_py|aipl_feedback=productization",
+    "genome": "tokenizer_family=bytelevel_bpe|vocab_class=1024|context_class=ctx256_effective_3to4_bytes_per_token|model_scale=stage9_bpe_extend|japanese_support=ja_mixed_corpus|train_data_scale=10MB_en_baseline|delivery_mode=chat_py|aipl_feedback=productization"
+  },
+  {
+    "id": "I286",
+    "score": 0.29,
+    "cell": "tokenizer_family=bytelevel_bpe|vocab_class=4096|context_class=ctx256_current|model_scale=depth6_d128_1p4M|japanese_support=none|train_data_scale=30MB_mixed_en_ja|delivery_mode=aipl_prior_update|aipl_feedback=vocab_axis",
+    "genome": "tokenizer_family=bytelevel_bpe|vocab_class=4096|context_class=ctx256_current|model_scale=depth6_d128_1p4M|japanese_support=none|train_data_scale=30MB_mixed_en_ja|delivery_mode=aipl_prior_update|aipl_feedback=vocab_axis"
+  },
+  {
+    "id": "I74",
+    "score": 0.29,
+    "cell": "tokenizer_family=bytelevel_bpe|vocab_class=1024|context_class=ctx256_effective_3to4_bytes_per_token|model_scale=stage9_bpe_extend|japanese_support=none|train_data_scale=30MB_mixed_en_ja|delivery_mode=generate_samples|aipl_feedback=productization",
+    "genome": "tokenizer_family=bytelevel_bpe|vocab_class=1024|context_class=ctx256_effective_3to4_bytes_per_token|model_scale=stage9_bpe_extend|japanese_support=none|train_data_scale=30MB_mixed_en_ja|delivery_mode=generate_samples|aipl_feedback=productization"
+  },
+  {
+    "id": "I84",
+    "score": 0.29,
+    "cell": "tokenizer_family=bytelevel_bpe|vocab_class=1024|context_class=ctx256_effective_3to4_bytes_per_token|model_scale=depth6_d160_2M_guarded|japanese_support=optional_ja_eval|train_data_scale=30MB_mixed_en_ja|delivery_mode=generate_samples|aipl_feedback=none",
+    "genome": "tokenizer_family=bytelevel_bpe|vocab_class=1024|context_class=ctx256_effective_3to4_bytes_per_token|model_scale=depth6_d160_2M_guarded|japanese_support=optional_ja_eval|train_data_scale=30MB_mixed_en_ja|delivery_mode=generate_samples|aipl_feedback=none"
+  },
+  {
+    "id": "I128",
+    "score": 0.29,
+    "cell": "tokenizer_family=bytelevel_bpe|vocab_class=256|context_class=ctx256_effective_midpoint|model_scale=depth6_d128_1p35M|japanese_support=utf8_tokenizer_only|train_data_scale=10MB_en_baseline|delivery_mode=train_eval_checkpoint|aipl_feedback=midpoint_guard",
+    "genome": "tokenizer_family=bytelevel_bpe|vocab_class=256|context_class=ctx256_effective_midpoint|model_scale=depth6_d128_1p35M|japanese_support=utf8_tokenizer_only|train_data_scale=10MB_en_baseline|delivery_mode=train_eval_checkpoint|aipl_feedback=midpoint_guard"
+  },
+  {
+    "id": "I211",
+    "score": 0.28,
+    "cell": "tokenizer_family=bytelevel_bpe|vocab_class=4096|context_class=ctx384_or_ctx512|model_scale=stage9_bpe_extend|japanese_support=optional_ja_eval|train_data_scale=10MB_en_baseline|delivery_mode=aipl_prior_update|aipl_feedback=multilingual_axis",
+    "genome": "tokenizer_family=bytelevel_bpe|vocab_class=4096|context_class=ctx384_or_ctx512|model_scale=stage9_bpe_extend|japanese_support=optional_ja_eval|train_data_scale=10MB_en_baseline|delivery_mode=aipl_prior_update|aipl_feedback=multilingual_axis"
+  },
+  {
+    "id": "I69",
+    "score": 0.28,
+    "cell": "tokenizer_family=bytelevel_bpe|vocab_class=4096|context_class=ctx384_or_ctx512|model_scale=stage9_bpe_extend|japanese_support=utf8_tokenizer_only|train_data_scale=30MB_mixed_en_ja|delivery_mode=chat_py|aipl_feedback=productization",
+    "genome": "tokenizer_family=bytelevel_bpe|vocab_class=4096|context_class=ctx384_or_ctx512|model_scale=stage9_bpe_extend|japanese_support=utf8_tokenizer_only|train_data_scale=30MB_mixed_en_ja|delivery_mode=chat_py|aipl_feedback=productization"
+  },
+  {
+    "id": "I103",
+    "score": 0.28,
+    "cell": "tokenizer_family=bytelevel_bpe|vocab_class=4096|context_class=ctx384_or_ctx512|model_scale=stage9_bpe_extend|japanese_support=utf8_tokenizer_only|train_data_scale=10MB_en_baseline|delivery_mode=generate_samples|aipl_feedback=productization",
+    "genome": "tokenizer_family=bytelevel_bpe|vocab_class=4096|context_class=ctx384_or_ctx512|model_scale=stage9_bpe_extend|japanese_support=utf8_tokenizer_only|train_data_scale=10MB_en_baseline|delivery_mode=generate_samples|aipl_feedback=productization"
+  },
+  {
+    "id": "I6",
+    "score": 0.27,
+    "cell": "tokenizer_family=hybrid_byte_bpe|vocab_class=2048|context_class=ctx256_current|model_scale=stage9_bpe_extend|japanese_support=ja_mixed_corpus|train_data_scale=30MB_en|delivery_mode=generate_samples|aipl_feedback=data_scale_axis",
+    "genome": "tokenizer_family=hybrid_byte_bpe|vocab_class=2048|context_class=ctx256_current|model_scale=stage9_bpe_extend|japanese_support=ja_mixed_corpus|train_data_scale=30MB_en|delivery_mode=generate_samples|aipl_feedback=data_scale_axis"
+  },
+  {
+    "id": "I117",
+    "score": 0.27,
+    "cell": "tokenizer_family=bytelevel_bpe|vocab_class=1024|context_class=ctx256_effective_3to4_bytes_per_token|model_scale=depth6_d160_2M_guarded|japanese_support=optional_ja_eval|train_data_scale=100MB_deduped|delivery_mode=generate_samples|aipl_feedback=none",
+    "genome": "tokenizer_family=bytelevel_bpe|vocab_class=1024|context_class=ctx256_effective_3to4_bytes_per_token|model_scale=depth6_d160_2M_guarded|japanese_support=optional_ja_eval|train_data_scale=100MB_deduped|delivery_mode=generate_samples|aipl_feedback=none"
+  },
+  {
+    "id": "I90",
+    "score": 0.26,
+    "cell": "tokenizer_family=hybrid_byte_bpe|vocab_class=1024|context_class=ctx256_effective_3to4_bytes_per_token|model_scale=stage9_bpe_extend|japanese_support=utf8_decode_smoke|train_data_scale=10MB_en_baseline|delivery_mode=aipl_prior_update|aipl_feedback=vocab_axis",
+    "genome": "tokenizer_family=hybrid_byte_bpe|vocab_class=1024|context_class=ctx256_effective_3to4_bytes_per_token|model_scale=stage9_bpe_extend|japanese_support=utf8_decode_smoke|train_data_scale=10MB_en_baseline|delivery_mode=aipl_prior_update|aipl_feedback=vocab_axis"
+  },
+  {
+    "id": "I108",
+    "score": 0.26,
+    "cell": "tokenizer_family=bytelevel_bpe|vocab_class=1024|context_class=ctx256_effective_3to4_bytes_per_token|model_scale=stage9_bpe_extend|japanese_support=utf8_decode_smoke|train_data_scale=30MB_mixed_en_ja|delivery_mode=chat_py|aipl_feedback=vocab_axis",
+    "genome": "tokenizer_family=bytelevel_bpe|vocab_class=1024|context_class=ctx256_effective_3to4_bytes_per_token|model_scale=stage9_bpe_extend|japanese_support=utf8_decode_smoke|train_data_scale=30MB_mixed_en_ja|delivery_mode=chat_py|aipl_feedback=vocab_axis"
+  },
+  {
+    "id": "I185",
+    "score": 0.26,
+    "cell": "tokenizer_family=byte|vocab_class=4096|context_class=ctx256_effective_midpoint|model_scale=depth6_d128_1p4M|japanese_support=utf8_tokenizer_only|train_data_scale=10MB_en_baseline|delivery_mode=aipl_prior_update|aipl_feedback=midpoint_guard",
+    "genome": "tokenizer_family=byte|vocab_class=4096|context_class=ctx256_effective_midpoint|model_scale=depth6_d128_1p4M|japanese_support=utf8_tokenizer_only|train_data_scale=10MB_en_baseline|delivery_mode=aipl_prior_update|aipl_feedback=midpoint_guard"
+  },
+  {
+    "id": "I217",
+    "score": 0.25,
+    "cell": "tokenizer_family=byte|vocab_class=4096|context_class=ctx384_or_ctx512|model_scale=stage9_bpe_extend|japanese_support=none|train_data_scale=30MB_mixed_en_ja|delivery_mode=aipl_prior_update|aipl_feedback=vocab_axis",
+    "genome": "tokenizer_family=byte|vocab_class=4096|context_class=ctx384_or_ctx512|model_scale=stage9_bpe_extend|japanese_support=none|train_data_scale=30MB_mixed_en_ja|delivery_mode=aipl_prior_update|aipl_feedback=vocab_axis"
+  },
+  {
+    "id": "I221",
+    "score": 0.25,
+    "cell": "tokenizer_family=hybrid_byte_bpe|vocab_class=4096|context_class=ctx384_or_ctx512|model_scale=stage9_bpe_extend|japanese_support=none|train_data_scale=30MB_mixed_en_ja|delivery_mode=aipl_prior_update|aipl_feedback=vocab_axis",
+    "genome": "tokenizer_family=hybrid_byte_bpe|vocab_class=4096|context_class=ctx384_or_ctx512|model_scale=stage9_bpe_extend|japanese_support=none|train_data_scale=30MB_mixed_en_ja|delivery_mode=aipl_prior_update|aipl_feedback=vocab_axis"
+  },
+  {
+    "id": "I14",
+    "score": 0.24,
+    "cell": "tokenizer_family=bytelevel_bpe|vocab_class=1024|context_class=ctx256_effective_3to4_bytes_per_token|model_scale=stage9_bpe_extend|japanese_support=utf8_decode_smoke|train_data_scale=30MB_mixed_en_ja|delivery_mode=chat_py|aipl_feedback=productization",
+    "genome": "tokenizer_family=bytelevel_bpe|vocab_class=1024|context_class=ctx256_effective_3to4_bytes_per_token|model_scale=stage9_bpe_extend|japanese_support=utf8_decode_smoke|train_data_scale=30MB_mixed_en_ja|delivery_mode=chat_py|aipl_feedback=productization"
+  },
+  {
+    "id": "I31",
+    "score": 0.24,
+    "cell": "tokenizer_family=bytelevel_bpe|vocab_class=1024|context_class=ctx256_effective_3to4_bytes_per_token|model_scale=stage9_bpe_extend|japanese_support=none|train_data_scale=30MB_mixed_en_ja|delivery_mode=chat_py|aipl_feedback=productization",
+    "genome": "tokenizer_family=bytelevel_bpe|vocab_class=1024|context_class=ctx256_effective_3to4_bytes_per_token|model_scale=stage9_bpe_extend|japanese_support=none|train_data_scale=30MB_mixed_en_ja|delivery_mode=chat_py|aipl_feedback=productization"
+  },
+  {
+    "id": "I32",
+    "score": 0.24,
+    "cell": "tokenizer_family=bytelevel_bpe|vocab_class=1024|context_class=ctx256_current|model_scale=stage9_bpe_extend|japanese_support=none|train_data_scale=30MB_mixed_en_ja|delivery_mode=chat_py|aipl_feedback=productization",
+    "genome": "tokenizer_family=bytelevel_bpe|vocab_class=1024|context_class=ctx256_current|model_scale=stage9_bpe_extend|japanese_support=none|train_data_scale=30MB_mixed_en_ja|delivery_mode=chat_py|aipl_feedback=productization"
+  },
+  {
+    "id": "I78",
+    "score": 0.24,
+    "cell": "tokenizer_family=bytelevel_bpe|vocab_class=1024|context_class=ctx256_effective_3to4_bytes_per_token|model_scale=depth6_d160_2M_guarded|japanese_support=optional_ja_eval|train_data_scale=30MB_mixed_en_ja|delivery_mode=chat_py|aipl_feedback=none",
+    "genome": "tokenizer_family=bytelevel_bpe|vocab_class=1024|context_class=ctx256_effective_3to4_bytes_per_token|model_scale=depth6_d160_2M_guarded|japanese_support=optional_ja_eval|train_data_scale=30MB_mixed_en_ja|delivery_mode=chat_py|aipl_feedback=none"
+  },
+  {
+    "id": "I79",
+    "score": 0.24,
+    "cell": "tokenizer_family=bytelevel_bpe|vocab_class=1024|context_class=ctx256_mixed_utf8|model_scale=stage9_bpe_extend|japanese_support=none|train_data_scale=30MB_mixed_en_ja|delivery_mode=chat_py|aipl_feedback=productization",
+    "genome": "tokenizer_family=bytelevel_bpe|vocab_class=1024|context_class=ctx256_mixed_utf8|model_scale=stage9_bpe_extend|japanese_support=none|train_data_scale=30MB_mixed_en_ja|delivery_mode=chat_py|aipl_feedback=productization"
+  },
+  {
+    "id": "I114",
+    "score": 0.24,
+    "cell": "tokenizer_family=bytelevel_bpe|vocab_class=1024|context_class=ctx256_effective_3to4_bytes_per_token|model_scale=stage9_bpe_extend|japanese_support=none|train_data_scale=10MB_en_baseline|delivery_mode=generate_samples|aipl_feedback=productization",
+    "genome": "tokenizer_family=bytelevel_bpe|vocab_class=1024|context_class=ctx256_effective_3to4_bytes_per_token|model_scale=stage9_bpe_extend|japanese_support=none|train_data_scale=10MB_en_baseline|delivery_mode=generate_samples|aipl_feedback=productization"
+  },
+  {
+    "id": "I352",
+    "score": 0.24,
+    "cell": "tokenizer_family=hybrid_byte_bpe|vocab_class=1024|context_class=ctx256_mixed_utf8|model_scale=stage9_bpe_extend|japanese_support=utf8_tokenizer_only|train_data_scale=30MB_en|delivery_mode=generate_samples|aipl_feedback=productization",
+    "genome": "tokenizer_family=hybrid_byte_bpe|vocab_class=1024|context_class=ctx256_mixed_utf8|model_scale=stage9_bpe_extend|japanese_support=utf8_tokenizer_only|train_data_scale=30MB_en|delivery_mode=generate_samples|aipl_feedback=productization"
+  },
+  {
+    "id": "I278",
+    "score": 0.24,
+    "cell": "tokenizer_family=hybrid_byte_bpe|vocab_class=1024|context_class=ctx256_effective_3to4_bytes_per_token|model_scale=stage9_bpe_extend|japanese_support=utf8_decode_smoke|train_data_scale=30MB_mixed_en_ja|delivery_mode=chat_py|aipl_feedback=productization",
+    "genome": "tokenizer_family=hybrid_byte_bpe|vocab_class=1024|context_class=ctx256_effective_3to4_bytes_per_token|model_scale=stage9_bpe_extend|japanese_support=utf8_decode_smoke|train_data_scale=30MB_mixed_en_ja|delivery_mode=chat_py|aipl_feedback=productization"
+  },
+  {
+    "id": "I155",
+    "score": 0.23,
+    "cell": "tokenizer_family=bytelevel_bpe|vocab_class=4096|context_class=ctx384_or_ctx512|model_scale=stage9_bpe_extend|japanese_support=none|train_data_scale=30MB_mixed_en_ja|delivery_mode=aipl_prior_update|aipl_feedback=data_scale_axis",
+    "genome": "tokenizer_family=bytelevel_bpe|vocab_class=4096|context_class=ctx384_or_ctx512|model_scale=stage9_bpe_extend|japanese_support=none|train_data_scale=30MB_mixed_en_ja|delivery_mode=aipl_prior_update|aipl_feedback=data_scale_axis"
+  },
+  {
+    "id": "I229",
+    "score": 0.23,
+    "cell": "tokenizer_family=hybrid_byte_bpe|vocab_class=4096|context_class=ctx256_effective_3to4_bytes_per_token|model_scale=stage9_bpe_extend|japanese_support=none|train_data_scale=30MB_mixed_en_ja|delivery_mode=aipl_prior_update|aipl_feedback=data_scale_axis",
+    "genome": "tokenizer_family=hybrid_byte_bpe|vocab_class=4096|context_class=ctx256_effective_3to4_bytes_per_token|model_scale=stage9_bpe_extend|japanese_support=none|train_data_scale=30MB_mixed_en_ja|delivery_mode=aipl_prior_update|aipl_feedback=data_scale_axis"
+  },
+  {
+    "id": "I254",
+    "score": 0.23,
+    "cell": "tokenizer_family=hybrid_byte_bpe|vocab_class=4096|context_class=ctx384_or_ctx512|model_scale=stage9_bpe_extend|japanese_support=utf8_decode_smoke|train_data_scale=30MB_mixed_en_ja|delivery_mode=aipl_prior_update|aipl_feedback=productization",
+    "genome": "tokenizer_family=hybrid_byte_bpe|vocab_class=4096|context_class=ctx384_or_ctx512|model_scale=stage9_bpe_extend|japanese_support=utf8_decode_smoke|train_data_scale=30MB_mixed_en_ja|delivery_mode=aipl_prior_update|aipl_feedback=productization"
+  },
+  {
+    "id": "I21",
+    "score": 0.23,
+    "cell": "tokenizer_family=bytelevel_bpe|vocab_class=4096|context_class=ctx384_or_ctx512|model_scale=stage9_bpe_extend|japanese_support=utf8_decode_smoke|train_data_scale=30MB_mixed_en_ja|delivery_mode=aipl_prior_update|aipl_feedback=productization",
+    "genome": "tokenizer_family=bytelevel_bpe|vocab_class=4096|context_class=ctx384_or_ctx512|model_scale=stage9_bpe_extend|japanese_support=utf8_decode_smoke|train_data_scale=30MB_mixed_en_ja|delivery_mode=aipl_prior_update|aipl_feedback=productization"
+  },
+  {
+    "id": "I100",
+    "score": 0.23,
+    "cell": "tokenizer_family=bytelevel_bpe|vocab_class=4096|context_class=ctx384_or_ctx512|model_scale=stage9_bpe_extend|japanese_support=none|train_data_scale=30MB_mixed_en_ja|delivery_mode=aipl_prior_update|aipl_feedback=productization",
+    "genome": "tokenizer_family=bytelevel_bpe|vocab_class=4096|context_class=ctx384_or_ctx512|model_scale=stage9_bpe_extend|japanese_support=none|train_data_scale=30MB_mixed_en_ja|delivery_mode=aipl_prior_update|aipl_feedback=productization"
+  },
+  {
+    "id": "I66",
+    "score": 0.22,
+    "cell": "tokenizer_family=bytelevel_bpe|vocab_class=1024|context_class=ctx256_current|model_scale=stage9_bpe_extend|japanese_support=utf8_decode_smoke|train_data_scale=100MB_deduped|delivery_mode=chat_py|aipl_feedback=productization",
+    "genome": "tokenizer_family=bytelevel_bpe|vocab_class=1024|context_class=ctx256_current|model_scale=stage9_bpe_extend|japanese_support=utf8_decode_smoke|train_data_scale=100MB_deduped|delivery_mode=chat_py|aipl_feedback=productization"
+  },
+  {
+    "id": "I123",
+    "score": 0.22,
+    "cell": "tokenizer_family=bytelevel_bpe|vocab_class=1024|context_class=ctx256_current|model_scale=depth6_d160_2M_guarded|japanese_support=none|train_data_scale=30MB_mixed_en_ja|delivery_mode=chat_py|aipl_feedback=productization",
+    "genome": "tokenizer_family=bytelevel_bpe|vocab_class=1024|context_class=ctx256_current|model_scale=depth6_d160_2M_guarded|japanese_support=none|train_data_scale=30MB_mixed_en_ja|delivery_mode=chat_py|aipl_feedback=productization"
+  },
+  {
+    "id": "I169",
+    "score": 0.22,
+    "cell": "tokenizer_family=bytelevel_bpe|vocab_class=1024|context_class=ctx256_current|model_scale=depth6_d160_2M_guarded|japanese_support=optional_ja_eval|train_data_scale=100MB_deduped|delivery_mode=chat_py|aipl_feedback=none",
+    "genome": "tokenizer_family=bytelevel_bpe|vocab_class=1024|context_class=ctx256_current|model_scale=depth6_d160_2M_guarded|japanese_support=optional_ja_eval|train_data_scale=100MB_deduped|delivery_mode=chat_py|aipl_feedback=none"
+  },
+  {
+    "id": "I149",
+    "score": 0.21,
+    "cell": "tokenizer_family=bytelevel_bpe|vocab_class=4096|context_class=ctx256_current|model_scale=depth6_d160_2M_guarded|japanese_support=ja_mixed_corpus|train_data_scale=10MB_en_baseline|delivery_mode=chat_py|aipl_feedback=productization",
+    "genome": "tokenizer_family=bytelevel_bpe|vocab_class=4096|context_class=ctx256_current|model_scale=depth6_d160_2M_guarded|japanese_support=ja_mixed_corpus|train_data_scale=10MB_en_baseline|delivery_mode=chat_py|aipl_feedback=productization"
+  },
+  {
+    "id": "I83",
+    "score": 0.2,
+    "cell": "tokenizer_family=bytelevel_bpe|vocab_class=4096|context_class=ctx256_current|model_scale=depth6_d160_2M_guarded|japanese_support=ja_mixed_corpus|train_data_scale=10MB_en_baseline|delivery_mode=train_eval_checkpoint|aipl_feedback=productization",
+    "genome": "tokenizer_family=bytelevel_bpe|vocab_class=4096|context_class=ctx256_current|model_scale=depth6_d160_2M_guarded|japanese_support=ja_mixed_corpus|train_data_scale=10MB_en_baseline|delivery_mode=train_eval_checkpoint|aipl_feedback=productization"
+  },
+  {
+    "id": "I118",
+    "score": 0.2,
+    "cell": "tokenizer_family=hybrid_byte_bpe|vocab_class=4096|context_class=ctx256_effective_3to4_bytes_per_token|model_scale=stage9_bpe_extend|japanese_support=none|train_data_scale=30MB_mixed_en_ja|delivery_mode=chat_py|aipl_feedback=vocab_axis",
+    "genome": "tokenizer_family=hybrid_byte_bpe|vocab_class=4096|context_class=ctx256_effective_3to4_bytes_per_token|model_scale=stage9_bpe_extend|japanese_support=none|train_data_scale=30MB_mixed_en_ja|delivery_mode=chat_py|aipl_feedback=vocab_axis"
+  },
+  {
+    "id": "I326",
+    "score": 0.19,
+    "cell": "tokenizer_family=hybrid_byte_bpe|vocab_class=1024|context_class=ctx256_current|model_scale=stage9_bpe_extend|japanese_support=ja_mixed_corpus|train_data_scale=10MB_en_baseline|delivery_mode=generate_samples|aipl_feedback=data_scale_axis",
+    "genome": "tokenizer_family=hybrid_byte_bpe|vocab_class=1024|context_class=ctx256_current|model_scale=stage9_bpe_extend|japanese_support=ja_mixed_corpus|train_data_scale=10MB_en_baseline|delivery_mode=generate_samples|aipl_feedback=data_scale_axis"
+  },
+  {
+    "id": "I16",
+    "score": 0.18,
+    "cell": "tokenizer_family=bytelevel_bpe|vocab_class=4096|context_class=ctx384_or_ctx512|model_scale=stage9_bpe_extend|japanese_support=utf8_decode_smoke|train_data_scale=30MB_mixed_en_ja|delivery_mode=chat_py|aipl_feedback=productization",
+    "genome": "tokenizer_family=bytelevel_bpe|vocab_class=4096|context_class=ctx384_or_ctx512|model_scale=stage9_bpe_extend|japanese_support=utf8_decode_smoke|train_data_scale=30MB_mixed_en_ja|delivery_mode=chat_py|aipl_feedback=productization"
+  },
+  {
+    "id": "I30",
+    "score": 0.18,
+    "cell": "tokenizer_family=hybrid_byte_bpe|vocab_class=4096|context_class=ctx384_or_ctx512|model_scale=stage9_bpe_extend|japanese_support=utf8_decode_smoke|train_data_scale=30MB_mixed_en_ja|delivery_mode=chat_py|aipl_feedback=productization",
+    "genome": "tokenizer_family=hybrid_byte_bpe|vocab_class=4096|context_class=ctx384_or_ctx512|model_scale=stage9_bpe_extend|japanese_support=utf8_decode_smoke|train_data_scale=30MB_mixed_en_ja|delivery_mode=chat_py|aipl_feedback=productization"
+  },
+  {
+    "id": "I33",
+    "score": 0.18,
+    "cell": "tokenizer_family=bytelevel_bpe|vocab_class=1024|context_class=ctx256_effective_3to4_bytes_per_token|model_scale=stage9_bpe_extend|japanese_support=none|train_data_scale=30MB_mixed_en_ja|delivery_mode=chat_py|aipl_feedback=none",
+    "genome": "tokenizer_family=bytelevel_bpe|vocab_class=1024|context_class=ctx256_effective_3to4_bytes_per_token|model_scale=stage9_bpe_extend|japanese_support=none|train_data_scale=30MB_mixed_en_ja|delivery_mode=chat_py|aipl_feedback=none"
+  },
+  {
+    "id": "I109",
+    "score": 0.18,
+    "cell": "tokenizer_family=unigram|vocab_class=1024|context_class=ctx256_effective_3to4_bytes_per_token|model_scale=stage9_bpe_extend|japanese_support=utf8_decode_smoke|train_data_scale=10MB_en_baseline|delivery_mode=aipl_prior_update|aipl_feedback=midpoint_guard",
+    "genome": "tokenizer_family=unigram|vocab_class=1024|context_class=ctx256_effective_3to4_bytes_per_token|model_scale=stage9_bpe_extend|japanese_support=utf8_decode_smoke|train_data_scale=10MB_en_baseline|delivery_mode=aipl_prior_update|aipl_feedback=midpoint_guard"
+  },
+  {
+    "id": "I67",
+    "score": 0.17,
+    "cell": "tokenizer_family=bytelevel_bpe|vocab_class=1024|context_class=ctx256_current|model_scale=stage9_bpe_extend|japanese_support=optional_ja_eval|train_data_scale=30MB_en|delivery_mode=chat_py|aipl_feedback=productization",
+    "genome": "tokenizer_family=bytelevel_bpe|vocab_class=1024|context_class=ctx256_current|model_scale=stage9_bpe_extend|japanese_support=optional_ja_eval|train_data_scale=30MB_en|delivery_mode=chat_py|aipl_feedback=productization"
+  },
+  {
+    "id": "I119",
+    "score": 0.17,
+    "cell": "tokenizer_family=bytelevel_bpe|vocab_class=1024|context_class=ctx384_or_ctx512|model_scale=stage9_bpe_extend|japanese_support=optional_ja_eval|train_data_scale=30MB_en|delivery_mode=chat_py|aipl_feedback=productization",
+    "genome": "tokenizer_family=bytelevel_bpe|vocab_class=1024|context_class=ctx384_or_ctx512|model_scale=stage9_bpe_extend|japanese_support=optional_ja_eval|train_data_scale=30MB_en|delivery_mode=chat_py|aipl_feedback=productization"
+  },
+  {
+    "id": "I13",
+    "score": 0.16,
+    "cell": "tokenizer_family=unigram|vocab_class=1024|context_class=ctx256_effective_3to4_bytes_per_token|model_scale=stage9_bpe_extend|japanese_support=utf8_decode_smoke|train_data_scale=30MB_en|delivery_mode=generate_samples|aipl_feedback=multilingual_axis",
+    "genome": "tokenizer_family=unigram|vocab_class=1024|context_class=ctx256_effective_3to4_bytes_per_token|model_scale=stage9_bpe_extend|japanese_support=utf8_decode_smoke|train_data_scale=30MB_en|delivery_mode=generate_samples|aipl_feedback=multilingual_axis"
+  },
+  {
+    "id": "I42",
+    "score": 0.16,
+    "cell": "tokenizer_family=bytelevel_bpe|vocab_class=1024|context_class=ctx256_effective_3to4_bytes_per_token|model_scale=depth6_d160_2M_guarded|japanese_support=none|train_data_scale=30MB_mixed_en_ja|delivery_mode=chat_py|aipl_feedback=none",
+    "genome": "tokenizer_family=bytelevel_bpe|vocab_class=1024|context_class=ctx256_effective_3to4_bytes_per_token|model_scale=depth6_d160_2M_guarded|japanese_support=none|train_data_scale=30MB_mixed_en_ja|delivery_mode=chat_py|aipl_feedback=none"
+  },
+  {
+    "id": "I95",
+    "score": 0.16,
+    "cell": "tokenizer_family=unigram|vocab_class=1024|context_class=ctx256_effective_3to4_bytes_per_token|model_scale=depth6_d160_2M_guarded|japanese_support=utf8_decode_smoke|train_data_scale=10MB_en_baseline|delivery_mode=generate_samples|aipl_feedback=midpoint_guard",
+    "genome": "tokenizer_family=unigram|vocab_class=1024|context_class=ctx256_effective_3to4_bytes_per_token|model_scale=depth6_d160_2M_guarded|japanese_support=utf8_decode_smoke|train_data_scale=10MB_en_baseline|delivery_mode=generate_samples|aipl_feedback=midpoint_guard"
+  },
+  {
+    "id": "I203",
+    "score": 0.16,
+    "cell": "tokenizer_family=byte|vocab_class=4096|context_class=ctx256_effective_midpoint|model_scale=depth6_d128_1p4M|japanese_support=none|train_data_scale=10MB_en_baseline|delivery_mode=aipl_prior_update|aipl_feedback=midpoint_guard",
+    "genome": "tokenizer_family=byte|vocab_class=4096|context_class=ctx256_effective_midpoint|model_scale=depth6_d128_1p4M|japanese_support=none|train_data_scale=10MB_en_baseline|delivery_mode=aipl_prior_update|aipl_feedback=midpoint_guard"
+  },
+  {
+    "id": "I210",
+    "score": 0.15,
+    "cell": "tokenizer_family=bytelevel_bpe|vocab_class=4096|context_class=ctx256_effective_midpoint|model_scale=depth6_d160_2M_guarded|japanese_support=ja_mixed_corpus|train_data_scale=10MB_en_baseline|delivery_mode=chat_py|aipl_feedback=midpoint_guard",
+    "genome": "tokenizer_family=bytelevel_bpe|vocab_class=4096|context_class=ctx256_effective_midpoint|model_scale=depth6_d160_2M_guarded|japanese_support=ja_mixed_corpus|train_data_scale=10MB_en_baseline|delivery_mode=chat_py|aipl_feedback=midpoint_guard"
+  },
+  {
+    "id": "I162",
+    "score": 0.14,
+    "cell": "tokenizer_family=bytelevel_bpe|vocab_class=4096|context_class=ctx256_effective_midpoint|model_scale=depth6_d160_2M_guarded|japanese_support=ja_mixed_corpus|train_data_scale=10MB_en_baseline|delivery_mode=train_eval_checkpoint|aipl_feedback=midpoint_guard",
+    "genome": "tokenizer_family=bytelevel_bpe|vocab_class=4096|context_class=ctx256_effective_midpoint|model_scale=depth6_d160_2M_guarded|japanese_support=ja_mixed_corpus|train_data_scale=10MB_en_baseline|delivery_mode=train_eval_checkpoint|aipl_feedback=midpoint_guard"
+  },
+  {
+    "id": "I107",
+    "score": 0.13,
+    "cell": "tokenizer_family=hybrid_byte_bpe|vocab_class=1024|context_class=ctx256_current|model_scale=stage9_bpe_extend|japanese_support=ja_mixed_corpus|train_data_scale=10MB_en_baseline|delivery_mode=generate_samples|aipl_feedback=midpoint_guard",
+    "genome": "tokenizer_family=hybrid_byte_bpe|vocab_class=1024|context_class=ctx256_current|model_scale=stage9_bpe_extend|japanese_support=ja_mixed_corpus|train_data_scale=10MB_en_baseline|delivery_mode=generate_samples|aipl_feedback=midpoint_guard"
+  },
+  {
+    "id": "I43",
+    "score": 0.1,
+    "cell": "tokenizer_family=bytelevel_bpe|vocab_class=4096|context_class=ctx256_current|model_scale=depth6_d160_2M_guarded|japanese_support=ja_mixed_corpus|train_data_scale=30MB_en|delivery_mode=train_eval_checkpoint|aipl_feedback=productization",
+    "genome": "tokenizer_family=bytelevel_bpe|vocab_class=4096|context_class=ctx256_current|model_scale=depth6_d160_2M_guarded|japanese_support=ja_mixed_corpus|train_data_scale=30MB_en|delivery_mode=train_eval_checkpoint|aipl_feedback=productization"
+  },
+  {
+    "id": "I10",
+    "score": 0.08,
+    "cell": "tokenizer_family=unigram|vocab_class=1024|context_class=ctx256_effective_3to4_bytes_per_token|model_scale=stage9_bpe_extend|japanese_support=utf8_decode_smoke|train_data_scale=30MB_en|delivery_mode=generate_samples|aipl_feedback=midpoint_guard",
+    "genome": "tokenizer_family=unigram|vocab_class=1024|context_class=ctx256_effective_3to4_bytes_per_token|model_scale=stage9_bpe_extend|japanese_support=utf8_decode_smoke|train_data_scale=30MB_en|delivery_mode=generate_samples|aipl_feedback=midpoint_guard"
+  },
+  {
+    "id": "I52",
+    "score": 0.08,
+    "cell": "tokenizer_family=unigram|vocab_class=256|context_class=ctx256_effective_3to4_bytes_per_token|model_scale=stage9_bpe_extend|japanese_support=utf8_decode_smoke|train_data_scale=30MB_en|delivery_mode=generate_samples|aipl_feedback=midpoint_guard",
+    "genome": "tokenizer_family=unigram|vocab_class=256|context_class=ctx256_effective_3to4_bytes_per_token|model_scale=stage9_bpe_extend|japanese_support=utf8_decode_smoke|train_data_scale=30MB_en|delivery_mode=generate_samples|aipl_feedback=midpoint_guard"
+  },
+  {
+    "id": "I232",
+    "score": 0.03,
+    "cell": "tokenizer_family=hybrid_byte_bpe|vocab_class=4096|context_class=ctx384_or_ctx512|model_scale=stage9_bpe_extend|japanese_support=utf8_decode_smoke|train_data_scale=30MB_en|delivery_mode=chat_py|aipl_feedback=data_scale_axis",
+    "genome": "tokenizer_family=hybrid_byte_bpe|vocab_class=4096|context_class=ctx384_or_ctx512|model_scale=stage9_bpe_extend|japanese_support=utf8_decode_smoke|train_data_scale=30MB_en|delivery_mode=chat_py|aipl_feedback=data_scale_axis"
+  }
+]

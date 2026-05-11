@@ -1,0 +1,177 @@
+// LocalGenAIIndependentEvolutionJP
+//
+// 目的:
+// yaskodama/aios-claude の local-genai を土台に、既に分かった発見
+// (RoPE, depth=6, 直交3種正則化, 10MB corpus, BPE-1024) を固定資産として扱い、
+// 次の独自進化を MAP-Elites で探索する。
+//
+// 現状 champion:
+// - byte-level ppl champion: Stage-7-deeper-extend
+//   params=1.22M, 10MB tail ppl=4.038, 1MB tail ppl=4.231
+// - bits-per-byte champion: Stage-9-BPE-extend
+//   params=1.32M, BPE-1024, bpb=1.911
+//
+// 中心仮説:
+// schedule 延長は BPE-1024 でほぼ飽和したため、次は
+// (1) tokenizer vocab size, (2) effective raw-byte context,
+// (3) BPE 向け容量/正則化, (4) 日本語対応,
+// (5) 訓練データ増大, (6) chat.py 実用化,
+// (7) AIPL への prior 還元を分けて探索する。
+
+aice LocalGenAIIndependentEvolutionJP {
+  dialect = "aice_evolution_v2";
+
+  task = "MacBook M2/MPS 上で完結する local-genai を、既存の Stage-9-BPE-extend champion から独自進化させる。主指標は tokenizer 非依存の bits-per-byte (bpb)。現 champion は BPE-1024, depth=6, d_model=128, RoPE, dropout=0.1, label_smoothing=0.05, weight_decay=0.05, 10MB corpus, bpb=1.911。schedule 延長は飽和済みなので、探索は vocab_size, effective_context_bytes, model_capacity, regularization, japanese_support, train_data_scale, generation_usability, aipl_feedback に分ける。第一候補は Stage-9-BPE-vocab2048。追加遺伝子として日本語対応と訓練データ増大を明示し、英語 Early Modern corpus だけに過適合した候補を避ける。成功条件は bpb<1.911、強い成功は bpb<=1.88。失敗時は vocab=1536、日本語混合 tokenizer、または chat.py BPE 対応へ進む。";
+
+  gene_schema = "schemas/local_genai_independent.schema.json";
+
+  evaluation_tasks {
+    task BitsPerByte {
+      spec = "10MB holdout の raw bytes 上で bpb を測る。異なる tokenizer を比較する唯一の primary metric。現 champion bpb=1.911 を下回ることを成功とする。byte-level ppl は参考値であり、tokenizer 間比較には使わない。";
+    }
+
+    task BytesPerTokenHealth {
+      spec = "BPE tokenizer の holdout bytes/token を測る。vocab=1024 の実績は約 2.04 bytes/token。vocab=2048 では 3-4 bytes/token を期待する。ただし bytes/token が伸びても bpb が悪化する場合は、語彙が 10MB corpus に対して過大。";
+    }
+
+    task CapacityFit {
+      spec = "vocab 増加で embedding/output head が増えるため、params と corpus size の釣り合いを見る。1.3M-1.8M params を第一探索帯、2M 超は bpb 改善の証拠が出てから進む。depth=8 は既に飽和したため depth=6 を基準にする。";
+    }
+
+    task ScheduleSaturationGuard {
+      spec = "BPE-1024 では 20K->40K steps が -0.004 bpb のみ。新候補は 30K steps で初回判定し、step 25000-30000 でまだ bpb が下がる場合だけ 40K 延長を許可する。";
+    }
+
+    task ChatUsability {
+      spec = "checkpoint と tokenizer を chat.py から読み、prompt continuation を対話的に確認できること。BPE model は生成時に tokenizer decode を通す。ppl/bpb が勝っても chat.py で読めない checkpoint は実用化候補として減点。";
+    }
+
+    task JapaneseSupport {
+      spec = "日本語 prompt を UTF-8 byte/BPE として破綻なく encode/decode できること。初期段階は japanese_support=utf8_tokenizer_only とし、日本語 corpus を混ぜる場合は japanese_support=ja_mixed_corpus として英語 bpb と日本語 holdout bpb を分けて記録する。";
+    }
+
+    task TrainDataScale {
+      spec = "訓練データ増大を明示的な遺伝子として扱う。10MB baseline から 30MB/100MB/mixed_en_ja へ拡張する候補は、データ SHA-256、source、dedupe 方針、train_time 見積もりを必須にする。";
+    }
+
+    task Reproducibility {
+      spec = "seed 固定、corpus SHA-256 lock、依存は torch/numpy/tokenizers に限定、外部 API 不使用、単一コマンドで train+eval+checkpoint+metrics JSON を生成する。";
+    }
+  }
+
+  search {
+    algorithm   = "map_elites";
+    cell_axes   = "tokenizer_family, vocab_class, context_class, model_scale, japanese_support, train_data_scale, delivery_mode, aipl_feedback";
+    generations = 40;
+    seed_count  = 12;
+    open_axes   = true;
+    rng_seed    = 9112048;
+  }
+
+  meta_fitness {
+    bpb_improvement        = 0.30;
+    japanese_support       = 0.15;
+    train_data_scale_value = 0.15;
+    reproducibility        = 0.15;
+    train_time_efficiency  = 0.10;
+    generation_usability   = 0.10;
+    aipl_feedback_value    = 0.05;
+  }
+
+  ranking {
+    strategy  = "pareto_then_pairwise";
+    scenarios = ["bpb_first", "japanese_first", "data_scale_first", "usable_chat_first", "aipl_revival_first"];
+    top_k     = 3;
+  }
+
+  reviewers {
+    reviewer BPBQuality {
+      persona = "あなたは bpb 品質レビュアーです。候補の primary metric は bits-per-byte です。現 champion bpb=1.911 を下回るか、bytes/token の増加が bpb 改善につながっているか、学習曲線が 30K steps 付近でまだ下降中かを評価します。採点は [bpb 改善 0-4, tokenizer 健全性 0-3, 学習曲線 0-3, OOD/1MB tail リスク 0-2] の 12 点満点。最後に最良候補番号だけを 1 行で返します。";
+    }
+
+    reviewer Efficiency {
+      persona = "あなたは効率レビュアーです。M2 MPS での訓練時間、params、token 数圧縮、checkpoint サイズ、推論時の decode コストを評価します。30K steps 初回判定を原則とし、40K 延長は曲線が明確に下降している場合だけ認めます。採点は [train_time 0-3, params 効率 0-3, token 圧縮 0-3, 推論効率 0-3] の 12 点満点。最後に最良候補番号だけを 1 行で返します。";
+    }
+
+    reviewer Productization {
+      persona = "あなたは実用化レビュアーです。候補が chat.py または generate_samples.py から実際に使えるか、checkpoint と tokenizer のロード手順が明確か、生成サンプルを比較できるかを評価します。bpb だけ良くても対話デモに接続できない候補は減点します。採点は [chat.py 接続 0-4, サンプル比較 0-3, CLI 一貫性 0-3, ドキュメント 0-2] の 12 点満点。最後に最良候補番号だけを 1 行で返します。";
+    }
+
+    reviewer AIPLFeedback {
+      persona = "あなたは AIPL 還元レビュアーです。候補が人間の発見を .aice/.ga.json の探索 prior に戻せるか、失敗実験を再実行しない制約として表現できるか、次世代 mutation を生成しやすい形かを評価します。採点は [prior 化 0-4, 失敗知識の明示 0-3, MAP-Elites 軸の妥当性 0-3, 次候補生成しやすさ 0-2] の 12 点満点。最後に最良候補番号だけを 1 行で返します。";
+    }
+  }
+
+  strategy {
+    phase BaselineLock {
+      order = 1;
+      goal = "Stage-9-BPE-extend を固定 baseline として、bpb=1.911, vocab=1024, bytes/token≈2.04, depth=6, d=128, RoPE をすべて記録する。";
+      stop_rule = "baseline checkpoint または metrics JSON が読めない場合は新規訓練より先に再現性修復を行う。";
+    }
+
+    phase VocabExpansion {
+      order = 2;
+      goal = "第一実験として Stage-9-BPE-vocab2048 を走らせる。30K steps で初回判定し、bpb<1.911 を狙う。";
+      command = "local-genai/.venv/bin/python local-genai/train_stage8_bpe.py --corpus 10MB --vocab-size 2048 --steps 30000 --eval-every 1000 --warmup 1500 --batch 24 --bptt 256 --ctx 256 --depth 6 --d-model 128 --n-heads 4 --lr 2e-3 --dropout 0.1 --label-smoothing 0.05 --weight-decay 0.05 --min-lr-frac 0.005 --pos-encoding rope --out-name transformer_stage9_bpe_vocab2048.pt --tokenizer-name tokenizer_stage9_bpe_vocab2048.json";
+      success = "best_bpb < 1.911";
+      strong_success = "best_bpb <= 1.88";
+      fallback = "vocab=1536 midpoint または BPE-1024 chat.py 実用化へ進む。";
+    }
+
+    phase ContextAndCapacity {
+      order = 3;
+      goal = "vocab2048 が勝った場合だけ ctx/bptt=384 または d_model=160 を試す。depth=8 は既に飽和したため再優先しない。";
+      guardrail = "params が 2M を超える候補は bpb 改善が 0.02 以上見えた場合だけ許可する。";
+    }
+
+    phase ChatBridge {
+      order = 4;
+      goal = "byte-level transformer と BPE transformer の両方を chat.py からロードできるようにし、同一 prompt/temperature/seed で生成比較する。";
+      metric = "定量 bpb と定性生成サンプルを同じ report にまとめる。";
+    }
+
+    phase JapaneseAndDataScale {
+      order = 5;
+      goal = "japanese_support と train_data_scale の独立効果を測る。まず utf8_tokenizer_only で日本語 prompt の encode/decode smoke test を行い、次に 30MB_mixed_en_ja で ja_mixed_corpus を試す。100MB_deduped は明示的に長時間予算を取れる場合だけ実行する。";
+      metric = "english_bpb, japanese_bpb, bytes_per_token_en, bytes_per_token_ja, train_time_sec を分けて記録する。";
+    }
+
+    phase AIPLRevival {
+      order = 6;
+      goal = "今回の結果を LocalGenAIIndependentEvolutionJP.aice と schema に戻し、次回の mutation 生成で失敗軸を避ける。";
+      encode = "depth=8 plateau, width loses to depth, BPE schedule saturation, vocab-size tradeoff, japanese_support tradeoff, train_data_scale tradeoff, chat usability as explicit axes";
+    }
+  }
+
+  candidate_seeds {
+    candidate C1_Stage9_BPE_vocab2048 {
+      genome = "tokenizer_family=bytelevel_bpe; vocab_class=2048; context_class=ctx256_effective_3to4_bytes_per_token; model_scale=depth6_d128_1p4M; japanese_support=utf8_tokenizer_only; train_data_scale=10MB_en_baseline; delivery_mode=train_eval_checkpoint; aipl_feedback=vocab_axis";
+      expected_delta = "bpb: 1.911 -> 1.88-1.91; params: 1.32M -> about 1.45M; train_time: <=90min for 30K steps";
+      reason = "schedule 延長が飽和したため、次に最も独立した改善軸は tokenizer 語彙拡張。";
+    }
+
+    candidate C2_Stage9_BPE_vocab1536 {
+      genome = "tokenizer_family=bytelevel_bpe; vocab_class=1536; context_class=ctx256_effective_midpoint; model_scale=depth6_d128_1p35M; japanese_support=utf8_tokenizer_only; train_data_scale=10MB_en_baseline; delivery_mode=train_eval_checkpoint; aipl_feedback=midpoint_guard";
+      expected_delta = "bpb: 1.911 -> 1.89-1.92; params: slight increase; train_time: <=85min for 30K steps";
+      reason = "vocab2048 が過大だった場合の中間点。10MB corpus に対する語彙過大リスクを下げる。";
+    }
+
+    candidate C3_Chat_BPE_Champion {
+      genome = "tokenizer_family=bytelevel_bpe; vocab_class=1024; context_class=ctx256_current; model_scale=stage9_bpe_extend; japanese_support=utf8_decode_smoke; train_data_scale=10MB_en_baseline; delivery_mode=chat_py; aipl_feedback=productization";
+      expected_delta = "bpb: unchanged 1.911; usability: large improvement; train_time: none";
+      reason = "モデル品質軸が飽和気味なら、実生成デモに接続する方が local-genai の価値を増やす。";
+    }
+
+    candidate C4_Japanese_Mixed_BPE {
+      genome = "tokenizer_family=bytelevel_bpe; vocab_class=2048; context_class=ctx256_mixed_utf8; model_scale=depth6_d128_1p4M; japanese_support=ja_mixed_corpus; train_data_scale=30MB_mixed_en_ja; delivery_mode=train_eval_checkpoint; aipl_feedback=multilingual_axis";
+      expected_delta = "english_bpb: may regress +0.00 to +0.03; japanese_bpb: measurable baseline established; usability: Japanese prompt continuation improves";
+      reason = "日本語対応を tokenizer smoke test で終わらせず、少量の日本語 corpus を混ぜた多言語局所モデルへ進める候補。";
+    }
+
+    candidate C5_DataScale_100MB {
+      genome = "tokenizer_family=bytelevel_bpe; vocab_class=4096; context_class=ctx384_or_ctx512; model_scale=depth6_d160_2M_guarded; japanese_support=optional_ja_eval; train_data_scale=100MB_deduped; delivery_mode=train_eval_checkpoint; aipl_feedback=data_scale_axis";
+      expected_delta = "bpb: 1.911 -> 1.80-1.88 if data quality holds; params: about 2M; train_time: multi-hour, requires explicit budget";
+      reason = "depth/width が 10MB で飽和したなら、次の本質的な改善軸は訓練データ増大。コストが高いため guarded candidate とする。";
+    }
+  }
+}

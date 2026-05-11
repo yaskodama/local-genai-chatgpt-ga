@@ -1,0 +1,37 @@
+{
+  "corpus": "30MB_MIXED_EN_JA",
+  "full_bytes": 30000000,
+  "used_bytes": 2000000,
+  "train_bytes": 1900000,
+  "holdout_bytes": 100000,
+  "train_time_sec": 1.516,
+  "results": [
+    {
+      "name": "N1",
+      "style": "char_bigram_laplace",
+      "n": 2,
+      "alpha": 1.0,
+      "params_observed": 2192,
+      "holdout_ppl": 9.107313743749001,
+      "holdout_bpb": 3.187025585305156
+    },
+    {
+      "name": "N2",
+      "style": "char_trigram_with_backoff",
+      "n": 3,
+      "alpha": 0.5,
+      "params_observed": 15589,
+      "holdout_ppl": 4.691153663623903,
+      "holdout_bpb": 2.229942758586461
+    },
+    {
+      "name": "N3",
+      "style": "byte_unigram_only",
+      "n": 1,
+      "alpha": 1.0,
+      "params_observed": 150,
+      "holdout_ppl": 51.28348317150194,
+      "holdout_bpb": 5.680422347943752
+    }
+  ]
+}

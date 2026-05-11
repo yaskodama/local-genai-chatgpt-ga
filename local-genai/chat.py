@@ -1,20 +1,22 @@
 """Interactive chat with a trained local-genai LLM.
 
-Default backend is the stage-1 n-gram (stdlib only).  If
-out/charrnn_winner.pt exists, --model charrnn loads the trained
-GRU/LSTM from stage 2 and samples through it.
+Default backend is the stage-1 n-gram (stdlib only).  If checkpoints exist,
+--model charrnn loads the trained GRU/LSTM from stage 2 and --model ga_bpe2048
+loads the evolved BPE Transformer.
 
 Usage:
     python3 local-genai/chat.py                       # n-gram REPL
     python3 local-genai/chat.py "the early bird"      # one-shot n-gram
     local-genai/.venv/bin/python local-genai/chat.py --model charrnn
     local-genai/.venv/bin/python local-genai/chat.py --model charrnn -t 0.7 "absence makes"
+    local-genai/.venv/bin/python local-genai/chat.py --model ga_bpe2048 "こんにちは"
+    local-genai/.venv/bin/python local-genai/chat.py --model ga_bpe2048_mecab "こんにちは"
 
 Flags:
     -t, --temperature  sampling temperature (default 1.0)
     -m, --max-chars    max bytes generated (default 200)
     -s, --seed         RNG seed (default 0)
-    --model            'trigram_backoff' (default) | 'bigram' | 'charrnn'
+    --model            'trigram_backoff' (default) | 'bigram' | 'charrnn' | 'ga_bpe2048' | 'ga_bpe2048_mecab'
 """
 
 from __future__ import annotations
@@ -43,6 +45,10 @@ def build_model(kind: str):
         return m, "bigram laplace (alpha=1.0)"
     if kind == "charrnn":
         return _load_charrnn()
+    if kind == "ga_bpe2048":
+        return _load_bpe_transformer("transformer_ga_bpe2048_ja30mb.pt")
+    if kind == "ga_bpe2048_mecab":
+        return _load_bpe_transformer("transformer_ga_bpe2048_ja30mb_mecab.pt")
     raise ValueError(f"unknown model kind: {kind}")
 
 
@@ -69,6 +75,51 @@ def _load_charrnn():
     label = (f"CharRNN {ckpt['name']} ({ckpt['style']}) "
              f"params={ckpt['params']:,} ppl={ckpt['holdout_ppl']:.2f}")
     return ("__charrnn__", model, _gen), label
+
+
+def _load_bpe_transformer(checkpoint_name: str):
+    try:
+        import torch
+        import torch.nn as nn
+        import torch.nn.functional as F
+        from tokenizers import Tokenizer
+        from tokenizers.decoders import ByteLevel as ByteLevelDecoder
+    except ImportError as e:
+        raise RuntimeError(
+            "ga_bpe2048 requires torch and tokenizers. Run: "
+            "local-genai/.venv/bin/pip install -r local-genai/requirements.txt"
+        ) from e
+    from candidates.transformer_real import TinyTransformer
+
+    ckpt_path = HERE / "out" / checkpoint_name
+    if not ckpt_path.exists():
+        raise RuntimeError(
+            f"no GA BPE checkpoint at out/{checkpoint_name}"
+        )
+    ckpt = torch.load(ckpt_path, weights_only=False, map_location="cpu")
+    cfg = ckpt["config"]
+    tok_path = HERE / "out" / cfg["tokenizer"]
+    if not tok_path.exists():
+        raise RuntimeError(f"tokenizer not found: {tok_path}")
+    tok = Tokenizer.from_file(str(tok_path))
+    tok.decoder = ByteLevelDecoder()
+    model = TinyTransformer(
+        d_model=cfg["d_model"],
+        n_heads=cfg["n_heads"],
+        ffn_mult=cfg.get("ffn_mult", 4),
+        ctx=cfg["ctx"],
+        depth=cfg.get("depth", 6),
+        dropout=0.0,
+        pos_encoding=cfg.get("pos_encoding", "rope"),
+    )
+    model.embed = nn.Embedding(cfg["vocab_size"], cfg["d_model"])
+    model.load_state_dict(ckpt["state_dict"])
+    model.eval()
+    label = (
+        f"GA BPE2048 Transformer {checkpoint_name} params={ckpt['params']:,} "
+        f"bpb={ckpt['holdout_bpb']:.3f}"
+    )
+    return ("__bpe_transformer__", model, tok, F), label
 
 
 def _next_byte(model, ctx_bytes: bytes, rng: random.Random,
@@ -107,6 +158,32 @@ def generate(model, prompt: str, max_chars: int = 200,
                            temperature=temperature, seed=seed, device="cpu")
         return out_bytes.decode("utf-8", errors="replace")
 
+    if isinstance(model, tuple) and len(model) == 4 and model[0] == "__bpe_transformer__":
+        import torch
+
+        _, torch_model, tok, F = model
+        g = torch.Generator(device="cpu").manual_seed(seed)
+        ids = tok.encode(prompt or "\n").ids
+        if not ids:
+            ids = tok.encode("\n").ids
+        prompt_len = len(ids)
+        out_text = ""
+        with torch.no_grad():
+            for _ in range(max_chars):
+                ctx = ids[-torch_model.ctx :]
+                x = torch.tensor([ctx], dtype=torch.long)
+                logits = torch_model(x)
+                last = logits[0, -1] / max(temperature, 1e-3)
+                probs = F.softmax(last, dim=-1)
+                nxt = int(torch.multinomial(probs, 1, generator=g).item())
+                ids.append(nxt)
+                out_text = tok.decode(ids[prompt_len:])
+                if len(out_text) >= max_chars:
+                    break
+                if out_text.endswith("\n") and len(out_text) >= 20:
+                    break
+        return out_text[:max_chars]
+
     rng = random.Random(seed)
     seed_bytes = prompt.encode("utf-8") or b". "
     out = bytearray(seed_bytes)
@@ -121,12 +198,12 @@ def generate(model, prompt: str, max_chars: int = 200,
 
 
 def parse_args():
-    p = argparse.ArgumentParser(description="chat with the local-genai stage-1 n-gram")
+    p = argparse.ArgumentParser(description="chat with local-genai models")
     p.add_argument("prompt", nargs="*", help="single-shot prompt; omit for REPL")
     p.add_argument("-t", "--temperature", type=float, default=1.0)
     p.add_argument("-m", "--max-chars", type=int, default=200)
     p.add_argument("-s", "--seed", type=int, default=0)
-    p.add_argument("--model", choices=["trigram_backoff", "bigram", "charrnn"],
+    p.add_argument("--model", choices=["trigram_backoff", "bigram", "charrnn", "ga_bpe2048", "ga_bpe2048_mecab"],
                    default="trigram_backoff")
     return p.parse_args()
 

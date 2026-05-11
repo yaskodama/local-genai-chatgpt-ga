@@ -1,0 +1,65 @@
+{
+  "axes": {
+    "tokenizer_family": [
+      "byte",
+      "bytelevel_bpe",
+      "unigram",
+      "hybrid_byte_bpe"
+    ],
+    "vocab_class": [
+      "256",
+      "1024",
+      "1536",
+      "2048",
+      "4096"
+    ],
+    "context_class": [
+      "ctx256_current",
+      "ctx256_effective_midpoint",
+      "ctx256_effective_3to4_bytes_per_token",
+      "ctx256_mixed_utf8",
+      "ctx384_or_ctx512"
+    ],
+    "model_scale": [
+      "stage9_bpe_extend",
+      "depth6_d128_1p35M",
+      "depth6_d128_1p4M",
+      "depth6_d160_2M_guarded"
+    ],
+    "japanese_support": [
+      "none",
+      "utf8_decode_smoke",
+      "utf8_tokenizer_only",
+      "ja_mixed_corpus",
+      "optional_ja_eval"
+    ],
+    "train_data_scale": [
+      "10MB_en_baseline",
+      "30MB_en",
+      "30MB_mixed_en_ja",
+      "100MB_deduped"
+    ],
+    "delivery_mode": [
+      "train_eval_checkpoint",
+      "chat_py",
+      "generate_samples",
+      "aipl_prior_update"
+    ],
+    "aipl_feedback": [
+      "none",
+      "vocab_axis",
+      "midpoint_guard",
+      "productization",
+      "multilingual_axis",
+      "data_scale_axis"
+    ]
+  },
+  "coherence": [
+    "tokenizer_family=byte => vocab_class=256",
+    "japanese_support=ja_mixed_corpus => train_data_scale in [30MB_mixed_en_ja,100MB_deduped]",
+    "train_data_scale=100MB_deduped => model_scale in [depth6_d160_2M_guarded]",
+    "delivery_mode=chat_py => train_data_scale=10MB_en_baseline",
+    "vocab_class=4096 => train_data_scale=100MB_deduped"
+  ],
+  "open_axes": true
+}

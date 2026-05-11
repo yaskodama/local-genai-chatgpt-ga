@@ -1,3 +1,6 @@
 .venv/
 __pycache__/
 *.pyc
+corpus/tinyshake_ja_30MB.txt
+corpus/tinyshake_ja_30MB.txt.sha256
+corpus/tinyshake_ja_30MB.txt.manifest.json
