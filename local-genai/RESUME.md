@@ -61,18 +61,20 @@ local-genai/out/transformer_stage7_deeper_extend.pt
 | 6d | 823K | 10MB | 4.646 | 4.191 | 28.5 分 |
 | **7-deeper** | **1.22M** | **10MB** | **4.543** | **4.064** | **57.9 分** |
 
-**5 つの発見の統合**:
+**5 つの発見の統合 + 訓練延長**:
 1. 直交 3 種正則化 (Stage-4d-orth)
 2. 深 cosine schedule (Stage-4f-extend)
 3. RoPE (Stage-5-RoPE)
 4. 10MB データ + 大容量 (Stage-6c, 6d)
 5. **深さ depth=4 → 6** (Stage-7-deeper)
+6. **訓練 20000 → 40000 step** (Stage-7-deeper-extend)
 
-各軸が独立に効くため、 4.064 ppl は **5 つを全て同時に**揃えてのみ
-到達可能。 1MB / 1.87M / depth=4 / learned-pos / dropout 単独の組み合わせ
-(Stage-4) との差は 5.929 → 4.064 = **-1.87 ppl (-31%)**。
-
-Stage-7-deeper も step 19500 で best (まだ微更新中) → 延長で更に下げ得る。
+**重要: width は効かない**:
+- Stage-8-wider (depth=4, d=192, 1.82M params, 50 分訓練): ppl 4.232 @ 10MB / 5.206 @ 1MB
+- Stage-7-deeper (depth=6, d=128, 1.22M params, 58 分訓練): ppl 4.064 @ 10MB / 4.543 @ 1MB
+- → 同程度 params 予算なら **depth に投資すべき**。 width=192 は depth=6
+  + 訓練延長を上回れない。 head_dim を 32 → 48 にしても表現力増加には
+  繋がらず、 FFN の二次的拡大は data 不足で活きない。
 
 **Stage-6b Transformer (165K params, 軽量 champion)** — 165K で達成可能な
 最良が 1MB tail 5.289 / 10MB tail 4.725:
@@ -270,6 +272,7 @@ cd aice-evolution-v2 && /opt/homebrew/bin/python3.13 -m src.cli \
 | 6d (10MB) | 4d-orth + RoPE + 10MB | 10MB | 823K | 4.19 | 4.19 (1MB tail 4.65 / 10MB tail 4.19) |
 | 7-deeper (10MB) | 6d + depth 4→6 | 10MB | 1.22M | 4.06 | 4.06 (1MB tail 4.54 / 10MB tail 4.06) |
 | **7-deeper-extend (10MB)** | **7-deeper + steps=40000** | **10MB** | **1.22M** | **4.04** | **4.04 (ultimate champion: 1MB tail 4.23 / 10MB tail 4.04)** |
+| 8-wider (10MB) | depth=4, d=192 (width 試行) | 10MB | 1.82M | 4.23 | 4.23 (1MB tail 5.21 / 10MB tail 4.23 — params +50% で 7-deeper に負け) |
 
 教訓:
 - Stage-3 の transformer 敗北は ctx だけの問題ではなかった: BPTT < ctx
@@ -308,7 +311,9 @@ cd aice-evolution-v2 && /opt/homebrew/bin/python3.13 -m src.cli \
    - ~~7-deeper~~ — 完了 (1.22M, 1MB 4.54 / 10MB 4.06)
    - ~~**7-deeper-extend**~~ — 完了 (1.22M, 1MB **4.23** / 10MB **4.04**; **ultimate champion**)
 5. **Stage-8 シリーズ (4.0 切り突破)**
-   - **8-wider**: depth=4, d=192, RoPE, 10MB, 20000 step → 容量 vs 深さの比較
+   - ~~8-wider~~ — 完了 (1.82M, depth=4 d=192, ppl 4.232 @ 10MB / 5.206 @ 1MB; **負け**)。
+     →**depth >> width** が確定: 同 params 予算なら深さに投資すべき。
+   - **8-deeper-plus**: depth=8, d=128, RoPE, 10MB, 20000 step (~1.6M params) — 更に深く
    - **8-bpe**: byte → BPE トークナイザに切替 (実効 ctx 4x、大改修)
    - **8-AIPL-revival**: 全 prior を AIPL .abcl に encode して進化計算へ
    - **chat.py 拡張**: 最終 champion で実生成デモ (transformer 対応)
