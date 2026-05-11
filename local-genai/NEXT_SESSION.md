@@ -3,70 +3,73 @@
 ## 再起動時に Claude に入力する文 (コピペ用)
 
 ```
-local-genai/RESUME.md を読み込んで現状を把握して下さい。
-現 champion は Stage-7-deeper-extend (1.22M params, 10MB tail ppl 4.038, 1MB tail ppl 4.231)。
-直近で Stage-8-wider が失敗 (depth >> width 確定) したので、次は
-Stage-8-deeper-plus (depth=8, d=128, RoPE, 10MB, 20000 step) か
-chat.py を transformer 対応にしてデモを作るかを選びたい。
+local-genai/RESUME.md と local-genai/NEXT_SESSION.md を読み込んで現状を把握して下さい。
+champion は二系統:
+  - byte-level ppl champion = Stage-7-deeper-extend (1.22M params, 10MB tail ppl 4.038)
+  - bits-per-byte champion = Stage-9-BPE-extend (1.32M params, bpb 1.911)
+最近 Stage-9-BPE-extend で BPE は schedule 延長効果がほぼ飽和 (-0.004 bpb) と判明。
+次の選択肢:
+  (a) Stage-9-BPE-vocab2048 (vocab 1024 → 2048 で更に圧縮)
+  (b) chat.py 拡張 (最終 champion で実生成デモ)
+  (c) AIPL-revival (進化計算側に発見を還元)
 あなたが推奨する次の一手と理由を一言で教えて下さい。
 ```
 
-## 現状サマリ (2026-05-11 時点)
+## 現状サマリ (2026-05-11 終了時点)
 
-### Champion (両ベンチで最強)
+### 2 種類の champion 併存
 
-**Stage-7-deeper-extend** (`local-genai/out/transformer_stage7_deeper_extend.pt`)
-- 1,217,920 params (d=128, depth=6, n_heads=4, RoPE)
-- 10MB tail ppl: **4.038**
-- 1MB  tail ppl: **4.231**
-- 訓練: 40,000 step / 193 分 / M2 MPS
+| 指標 | champion | params | 値 |
+|---|---|---:|---:|
+| **byte-level ppl** (10MB tail) | Stage-7-deeper-extend | 1.22M | **4.038** |
+| **byte-level ppl** (1MB tail) | Stage-7-deeper-extend | 1.22M | **4.231** |
+| **bits-per-byte** (cross-tokenizer fair) | **Stage-9-BPE-extend** | **1.32M** | **bpb 1.911** (= ppl/byte 3.760) |
 
-### 出発点 (Stage-4, 1MB 学習) からの累計改善
+→ **Stage-9-BPE-extend が cross-tokenizer ベンチ (bpb) で最強**。
+チェックポイント: `local-genai/out/transformer_stage9_bpe_extend.pt` +
+`local-genai/out/tokenizer_stage9_bpe_extend.json`
 
-| 軸 | 出発 | 現在 | 改善 |
-|---|---:|---:|---:|
-| 1MB tail ppl | 5.929 | 4.231 | -29% |
-| 10MB tail ppl (OOD→ID) | 7.318 (4d-orth OOD) | 4.038 | -45% |
-| params (champion) | 1.87M | 1.22M | -35% |
+### 6 つの discovery とその効果 (Stage 別)
 
-### 5 つの discovery とその効果
-
-| 軸 | 由来 stage | 単独効果 |
+| 軸 | 由来 stage | 効果 |
 |---|---|---|
-| 直交 3 種正則化 (dropout 0.1 + ls 0.05 + wd 0.05) | 4d-orth | 4b 比 -0.43 ppl |
-| 深 cosine schedule (steps↑ + min_lr_frac↓) | 4f-extend | 4f-mini 比 -0.32 ppl |
-| RoPE (rotary positional) | 5-RoPE | 4f-extend 比 -0.08 ppl |
-| 10MB データ + 容量増 | 6c/6d | 5-RoPE 比 1MB tail -0.47 ppl |
-| depth=4 → 6 | 7-deeper | 6d 比 -0.10 ppl |
-| 訓練 20000 → 40000 step | 7-deeper-extend | 7-deeper 比 -0.31 ppl (1MB tail!) |
+| 直交 3 種正則化 (dropout 0.1 + ls 0.05 + wd 0.05) | 4d-orth | -0.43 ppl |
+| 深 cosine schedule (steps↑ + min_lr_frac↓) | 4f-extend | -0.32 ppl |
+| RoPE (rotary positional) | 5-RoPE | -0.08 ppl + params -9% |
+| 10MB データ + 容量増 | 6c/6d | 1MB tail -0.47 ppl |
+| depth=4 → 6 | 7-deeper | -0.10 ppl |
+| 訓練 20000 → 40000 step | 7-deeper-extend | -0.31 ppl (1MB tail!) |
+| **BPE 1024-vocab トークナイザ** | 8-BPE | bpb -0.10 (-5%), 訓練 1/4 時間 |
 
-### Failed experiments (やってはダメと判明したもの)
+### Failed / 飽和した experiments
 
-- **width**: depth=4, d=192 (Stage-8-wider, 1.82M params) は depth=6, d=128 (1.22M) に負け。
-  同 params 予算なら depth に投資。
-- **1MB scale で容量増**: Stage-4 (1.87M) が Stage-4b (855K) より悪い。
-  小データなら容量を絞って正則化を効かせるのが正解。
+- **width**: Stage-8-wider (d=192, depth=4, 1.82M) は depth=6 (1.22M) に負け
+  → 同 params 予算なら depth >> width
+- **depth=8**: Stage-8-deeper-plus (1.61M) は 7-deeper-extend (1.22M) と並ぶだけ
+  → depth scaling は飽和 (depth=6 が optimum)
+- **1MB scale で容量増**: Stage-4 (1.87M) が 4b (855K) より悪い
+  → 小データなら容量を絞って正則化を効かせる
+- **BPE schedule 延長**: 9-BPE-extend は 8-BPE 比 -0.004 bpb のみ
+  → BPE は token 情報量が高く早く飽和。 vocab 拡張のほうが伸び代あり
 
-## 次の候補 (RESUME.md にも記載)
+## 次の候補
 
-### A. アーキ深掘り
-- **Stage-8-deeper-plus**: depth=8, d=128, RoPE, 10MB, 20000 step (≈ 1.6M params, ~75 分)
-  - depth=6 で勝ったので depth=8 も効くか
-- **Stage-8-BPE**: byte → BPE トークナイザに切替 (実効 ctx 4x, 大改修)
-  - 数値的に最も伸び代がある
-- **Stage-9-extend-7-deeper-extend**: 7-deeper-extend を steps=80000 で延長 (~6-7 時間)
-  - diminishing returns 警戒だが、 still descending
+### A. **Stage-9-BPE-vocab2048** (BPE 軸の継続) — 推奨 1
+- 同 recipe で vocab 1024 → 2048 に拡張 → ~3-4 bytes/token
+- 各 prediction の情報量増→ bpb 1.8 切り狙い
+- 時間: ~40-60 分 (token 数が更に減るため speedup あり)
 
-### B. メタ実験
-- **Stage-AIPL-revival**: 全 prior (容量, 直交正則化 3 種, schedule, RoPE, 深さ範囲) を
-  `.aice` に encode → AIPL evolution で人が見つけた Pareto を AI が更に押し下げられるか
-  (`aice-evolution-v2/examples/LocalGenAIScaledEvolutionJP.aice` の Stage 7 仕様あり)
+### B. **chat.py 拡張** (アプリ化、本来の目標着地)
+- 現状の chat.py は stage-1 n-gram のみ対応
+- byte-level transformer + BPE transformer の両方で対話デモ
+- `generate_samples.py` のロジック流用可能
+- 時間: ~30 分
 
-### C. アプリ化 (本来の目標着地)
-- **chat.py を transformer 対応に拡張**: 現状 stage-1 n-gram と stage-2 LSTM のみ
-  - 最終 champion (Stage-7-deeper-extend) で実生成デモ
-  - `generate_samples.py` のロジック (`local-genai/generate_samples.py`) を流用可能
-  - 生成サンプル例は `local-genai/samples/samples_stage7_deeper_extend.md` 参照
+### C. **AIPL-revival** (メタ実験)
+- 全 prior を AIPL .aice schema に encode し直し
+- `design_estimator.py` の table 更新 (現状 prior が 1MB 時代のまま)
+- 人間が発見した Pareto を AIPL が更に押し下げられるか
+- 時間: 実装 ~1 時間 + AIPL evolution + 上位候補訓練
 
 ## 重要ファイル一覧
 
@@ -74,24 +77,29 @@ chat.py を transformer 対応にしてデモを作るかを選びたい。
 |---|---|
 | `local-genai/RESUME.md` | 詳細な進化履歴と現状 |
 | `local-genai/NEXT_SESSION.md` | この再起動メモ |
-| `local-genai/train_stage4.py` | 訓練ループ (Stage-4 〜 Stage-8 全て) |
+| `local-genai/train_stage4.py` | byte-level 訓練 (Stage-4 〜 Stage-8 全て) |
+| `local-genai/train_stage8_bpe.py` | BPE 訓練 (Stage-8/9-BPE) |
 | `local-genai/candidates/transformer_real.py` | TinyTransformer (RoPE 対応) |
 | `local-genai/common.py` | コーパスロード + SHA-256 lock |
-| `local-genai/fair_compare.py` | 全 checkpoint を共通 holdout で再評価 |
+| `local-genai/fair_compare.py` | 全 checkpoint を共通 holdout で再評価 (1MB / 10MB) |
 | `local-genai/build_10mb_corpus.py` | PG から 10MB コーパスを再生成 |
-| `local-genai/generate_samples.py` | サンプル文書生成 |
-| `local-genai/out/transformer_stage7_deeper_extend.pt` | 現 champion |
+| `local-genai/generate_samples.py` | サンプル文書生成 (byte-level) |
+| `local-genai/out/transformer_stage7_deeper_extend.pt` | byte-level ppl champion |
+| `local-genai/out/transformer_stage9_bpe_extend.pt` | bpb champion |
+| `local-genai/out/tokenizer_stage9_bpe_extend.json` | bpb champion の BPE tokenizer |
 | `local-genai/corpus/tinyshake_10MB.txt` | 10MB コーパス (hash locked) |
+| `local-genai/samples/samples_stage7_deeper_extend.md` | byte-level champion の生成サンプル |
 
 ## 環境前提
 
 - macOS arm64 (M2 MPS available)
 - `local-genai/.venv/bin/python` (PyTorch 2.11.0)
 - `/opt/homebrew/bin/python3.13` (システム Python; AIPL/aice 用)
+- `tokenizers==0.23.1` (Stage-8/9-BPE で必要、 .venv に install 済)
 
 ## 主要コマンド (再現用)
 
-### Stage-7-deeper-extend (champion) を再生成
+### byte-level ppl champion (Stage-7-deeper-extend) を再生成
 
 ```sh
 local-genai/.venv/bin/python local-genai/train_stage4.py \
@@ -104,7 +112,24 @@ local-genai/.venv/bin/python local-genai/train_stage4.py \
   --min-lr-frac 0.005 \
   --pos-encoding rope \
   --out-name transformer_stage7_deeper_extend.pt
-# ~193 分 (M2 MPS), best ppl 4.038 @ step 40000
+# ~193 分 (M2 MPS), best ppl 4.038
+```
+
+### bpb champion (Stage-9-BPE-extend) を再生成
+
+```sh
+local-genai/.venv/bin/python local-genai/train_stage8_bpe.py \
+  --corpus 10MB --vocab-size 1024 \
+  --steps 40000 --eval-every 1000 --warmup 1500 \
+  --batch 24 --bptt 256 --ctx 256 \
+  --depth 6 --d-model 128 --n-heads 4 \
+  --lr 2e-3 --dropout 0.1 \
+  --label-smoothing 0.05 --weight-decay 0.05 \
+  --min-lr-frac 0.005 \
+  --pos-encoding rope \
+  --out-name transformer_stage9_bpe_extend.pt \
+  --tokenizer-name tokenizer_stage9_bpe_extend.json
+# ~112 分 (M2 MPS), best bpb 1.911 @ step 32000
 ```
 
 ### 全 checkpoint を再評価
@@ -114,7 +139,7 @@ cd local-genai && .venv/bin/python fair_compare.py              # 1MB tail
 cd local-genai && .venv/bin/python fair_compare.py --corpus 10MB  # 10MB tail
 ```
 
-### champion でサンプル生成
+### byte-level champion でサンプル生成
 
 ```sh
 local-genai/.venv/bin/python local-genai/generate_samples.py
@@ -125,4 +150,14 @@ local-genai/.venv/bin/python local-genai/generate_samples.py
 
 - branch: `main`
 - origin: `https://github.com/yaskodama/aios-claude.git`
-- 最新コミット: `fb1ce77 local-genai: Stage-8-wider — width=192 loses to depth=6`
+- 最新コミット: `f7cf721 local-genai: Stage-9-BPE-extend — 40000 steps give only -0.004 bpb`
+
+## ppl / bpb 推移 (Stage-4 → Stage-9)
+
+```
+1MB tail ppl:        5.93 → 5.73 → 5.52 → 5.30 → 5.20 → 5.12 → 4.77 → 4.65 → 4.54 → 4.23  (-29%)
+10MB tail ppl:        —  →  —  →  —  → 7.32 → 4.73 → 4.25 → 4.19 → 4.06 → 4.04
+                                            (OOD)                            (in-distribution)
+10MB tail bpb:        —  →  —  →  —  →  —  →  —  →  —  →  —  →  —  → 2.01 → 1.92 → 1.91
+                                                              (byte→BPE 切替)
+```
