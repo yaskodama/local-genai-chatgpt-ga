@@ -280,7 +280,9 @@ def main():
     }, ckpt)
     print(f"saved → {ckpt}")
 
-    metrics = out_dir / "stage_stage8_bpe_real.json"
+    # Derive metrics filename from --out-name so different runs don't clobber.
+    out_stem = Path(args.out_name).stem.replace("transformer_", "")
+    metrics = out_dir / f"stage_{out_stem}_real.json"
     metrics.write_text(json.dumps({
         "name": "Stage8_BPE_Transformer",
         "params": n_params,
