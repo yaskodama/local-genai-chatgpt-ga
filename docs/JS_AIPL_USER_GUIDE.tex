@@ -1,0 +1,382 @@
+\documentclass[11pt,a4paper,uplatex,dvipdfmx]{jsarticle}
+
+\usepackage[margin=22mm]{geometry}
+\usepackage{longtable}
+\usepackage{booktabs}
+\usepackage{array}
+\usepackage{xcolor}
+\usepackage{hyperref}
+\usepackage{listings}
+\usepackage{enumitem}
+
+\hypersetup{
+  colorlinks=true,
+  linkcolor=blue,
+  urlcolor=blue
+}
+
+\lstdefinestyle{aipl}{
+  basicstyle=\ttfamily\small,
+  breaklines=true,
+  frame=single,
+  columns=fullflexible,
+  keepspaces=true
+}
+
+\setlist[itemize]{leftmargin=2em}
+\setlist[enumerate]{leftmargin=2em}
+\renewcommand{\arraystretch}{1.2}
+
+\title{JS版AIPL ユーザーズガイド}
+\author{児玉靖司（Yasushi Kodama）\\法政大学（Hosei University）}
+\date{2026年5月12日}
+
+\begin{document}
+\maketitle
+\tableofcontents
+\newpage
+
+\section{概要}
+
+JS版AIPLは、\texttt{src/browser-abcl/} にあるブラウザ向けAIPL実装である。
+Jisonで生成したパーサ、JavaScript製AST、ブラウザ上のアクターランタイム、
+Canvas描画、デモHTML、ブラウザコンソールUIから構成される。
+
+主な目的は、AIPLのアクターモデルをブラウザで可視化しながら実行することである。
+OCaml版がネイティブ実行、Python版が研究用拡張を担うのに対し、JS版は
+並行アクター、Canvas可視化、ブラウザUI、Web Worker実験に重点を置く。
+
+\section{対象実装}
+
+\begin{longtable}{p{0.32\linewidth}p{0.58\linewidth}}
+\toprule
+項目 & ファイル \\
+\midrule
+パーサ文法 & \texttt{src/browser-abcl/src/parser/grammar.jison} \\
+生成済みパーサ & \texttt{src/browser-abcl/src/parser/parser.js} \\
+AST定義 & \texttt{src/browser-abcl/src/ast.js} \\
+インタプリタ & \texttt{src/browser-abcl/src/interpreter.js} \\
+ランタイム本体 & \texttt{src/browser-abcl/src/runtime.js} \\
+ブラウザコンソール & \texttt{src/browser-abcl/src/ui/console\_browser.js} \\
+Web Worker実験 & \texttt{src/browser-abcl/src/worker\_actor.mjs}, \texttt{worker\_runtime.js} \\
+デモ入口 & \texttt{src/browser-abcl/index.html} \\
+\bottomrule
+\end{longtable}
+
+\section{全体構成}
+
+\begin{center}
+\begin{tabular}{c}
+\fbox{\texttt{.abcl source}} \\
+$\downarrow$ \\
+\fbox{\texttt{grammar.jison -> parser.js}} \\
+$\downarrow$ \\
+\fbox{\texttt{ast.js}} \\
+$\downarrow$ \\
+\fbox{\texttt{interpreter.js}} \\
+$\downarrow$ \\
+\fbox{\texttt{runtime.js actor scheduler}} \\
+$\downarrow$ \\
+\fbox{Canvas / Console / Demo HTML / Web Worker}
+\end{tabular}
+\end{center}
+
+\section{言語構文}
+
+JS版AIPLは、ブラウザで動かすための中規模なAIPL実装である。構文は
+\texttt{class}、\texttt{method}、\texttt{var}、\texttt{send}、
+\texttt{now}、\texttt{future}、\texttt{await}、\texttt{select} を中心にしている。
+
+\begin{longtable}{p{0.32\linewidth}p{0.58\linewidth}}
+\toprule
+構文 & 意味 \\
+\midrule
+\texttt{class Name \{ ... \}} & クラス定義。 \\
+\texttt{var x = expr;} & フィールドまたはローカル変数の宣言。 \\
+\texttt{method name(params) \{ ... \}} & アクターが受け取るメソッド定義。 \\
+\texttt{new Class(args)} & アクター生成。 \\
+\texttt{send actor.method(args);} & 非同期メッセージ送信。 \\
+\texttt{send! actor.method(args);} & 未知メソッド検査を緩めるunsafe送信。 \\
+\texttt{now actor.method(args)} & 同期呼び出し。相手の \texttt{reply} を待つ。 \\
+\texttt{future actor.method(args)} & Futureを返す非同期呼び出し。 \\
+\texttt{await futureExpr} & Futureの結果待ち。 \\
+\texttt{reply(expr);} & \texttt{now}/\texttt{future} の呼び出し元へ返信。 \\
+\texttt{if (cond) \{ ... \} else \{ ... \}} & 条件分岐。 \\
+\texttt{select \{ case m(args) -> \{ ... \} timeout ms -> \{ ... \} \}} & メールボックス選択受信。 \\
+\texttt{call builtin(args);} & CanvasやAIなどの組み込み関数呼び出し。 \\
+\bottomrule
+\end{longtable}
+
+\section{値と式}
+
+JS版AIPLの値はJavaScript値として表現される。整数、浮動小数、文字列、
+真偽値相当の \texttt{0/1}、アクター名文字列、Futureオブジェクトを扱う。
+
+式としては、数値・文字列リテラル、変数参照、\texttt{new}、関数呼び出し、
+\texttt{now}、\texttt{future}、\texttt{await}、二項演算を利用できる。
+演算子は \texttt{+}, \texttt{-}, \texttt{*}, \texttt{/}, \texttt{==},
+\texttt{!=}, \texttt{<}, \texttt{>}, \texttt{<=}, \texttt{>=} である。
+
+\section{アクターランタイム}
+
+JS版のアクターは、JavaScriptオブジェクトとして管理される。各アクターは
+以下の状態を持つ。
+
+\begin{itemize}
+  \item アクター名
+  \item クラス名
+  \item メソッド表
+  \item メールボックス
+  \item インスタンス状態
+  \item 実行中/スケジュール済みフラグ
+\end{itemize}
+
+通常のスケジューリングは \texttt{setTimeout} ベースで行われる。
+\texttt{wait(ms)} は現在のアクターの次メッセージ処理を遅延させる。
+\texttt{now} と \texttt{await} はreply slotを使い、必要な返信が来るまで
+メールボックスを同期的にdrainする。
+
+\section{組み込み関数}
+
+\subsection{基本}
+
+\begin{longtable}{p{0.32\linewidth}p{0.58\linewidth}}
+\toprule
+関数 & 概要 \\
+\midrule
+\texttt{print(x)} & ログへ出力する。 \\
+\texttt{wait(ms)} & アクターの次回処理を遅延させる。 \\
+\texttt{cos(x)} & 余弦。 \\
+\texttt{sin(x)} & 正弦。 \\
+\texttt{sqrt(x)} & 平方根。 \\
+\texttt{abs(x)} & 絶対値。 \\
+\texttt{floor(x)} & 切り捨て。 \\
+\texttt{rand(n)} & \texttt{0} 以上 \texttt{n} 未満の整数乱数。 \\
+\texttt{randf(n)} & \texttt{0} 以上 \texttt{n} 未満の浮動小数乱数。 \\
+\bottomrule
+\end{longtable}
+
+\subsection{Canvas描画}
+
+\begin{longtable}{p{0.34\linewidth}p{0.56\linewidth}}
+\toprule
+関数 & 概要 \\
+\midrule
+\texttt{canvas\_line(x1,y1,x2,y2)} & Canvasに線分を描く。 \\
+\texttt{sdl\_line(x1,y1,x2,y2)} & \texttt{canvas\_line} と同等の互換名。 \\
+\texttt{canvas\_clear()} / \texttt{sdl\_clear()} & Canvasをクリアする。実装上は再描画時に自動クリアされる。 \\
+\texttt{canvas\_present()} / \texttt{sdl\_present()} & Canvasでは即時反映のためno-op。 \\
+\bottomrule
+\end{longtable}
+
+\subsection{デモ可視化用組み込み}
+
+\begin{longtable}{p{0.36\linewidth}p{0.54\linewidth}}
+\toprule
+関数 & 概要 \\
+\midrule
+\texttt{philo\_state(id,state)} & 食事する哲学者の状態をCanvasに反映する。 \\
+\texttt{fork\_state(id,state)} & フォーク状態を反映する。 \\
+\texttt{fork\_free(id)} & フォークを空き状態にする。 \\
+\texttt{fork\_held(id,holderId)} & フォーク保持者を描画する。 \\
+\texttt{buf\_init(cap)} & bounded buffer可視化を初期化する。 \\
+\texttt{buf\_set(i,v)} / \texttt{buf\_clear(i)} & buffer slotを更新する。 \\
+\texttt{buf\_pstate(s)} / \texttt{buf\_cstate(s)} & producer/consumer状態を表示する。 \\
+\texttt{prod\_speed()} / \texttt{cons\_speed()} & UIスライダーの速度値を読む。 \\
+\bottomrule
+\end{longtable}
+
+\subsection{ドローンシミュレータ用組み込み}
+
+\begin{longtable}{p{0.36\linewidth}p{0.54\linewidth}}
+\toprule
+関数 & 概要 \\
+\midrule
+\texttt{world\_setup(W,H,comm,view)} & ドローン世界を初期化する。 \\
+\texttt{place\_obstacle(id,x,y,r)} & 障害物を配置する。 \\
+\texttt{place\_safe(x,y,r)} & 安全地帯を配置する。 \\
+\texttt{drone\_register(id)} & ドローンアクターを登録する。 \\
+\texttt{drone\_pos(id,x,y)} & ドローン位置を更新する。 \\
+\texttt{drone\_state(id,state)} & ドローン状態を更新する。 \\
+\texttt{drone\_scan(id,x,y)} & 周囲の障害物を検出する。 \\
+\texttt{drone\_broadcast(id,obs,x,y,r)} & 通信範囲内へ障害物情報を拡散する。 \\
+\texttt{drone\_remember(id,obs)} & 障害物を既知情報として保存する。 \\
+\bottomrule
+\end{longtable}
+
+\section{AI/AIOS/プロトコル機能}
+
+JS版AIPLには、オフラインで動くmock AI呼び出しが用意されている。
+
+\begin{itemize}
+  \item \texttt{ai\_call(prompt)}
+  \item \texttt{ai\_call\_with\_system(system, prompt)}
+\end{itemize}
+
+標準実装ではmock応答を返す。Node runner側で \texttt{\_aiCall} を差し替えることで、
+外部AI呼び出しに接続できる。
+
+AIOS/プロトコル実験用に以下の関数もある。
+
+\begin{itemize}
+  \item \texttt{aios\_register\_service(alias, actor)}
+  \item \texttt{aios\_now(alias, method, ...)}
+  \item \texttt{aios\_future(alias, method, ...)}
+  \item \texttt{aios\_services()}
+  \item \texttt{aios\_events()}
+  \item \texttt{protocol\_define(name, spec)}
+  \item \texttt{protocol\_start(name)}
+  \item \texttt{protocol\_state(sid)}
+  \item \texttt{protocol\_end(sid)}
+  \item \texttt{protocol\_events()}
+\end{itemize}
+
+\section{ブラウザUI}
+
+JS版AIPLには複数のHTMLデモが含まれる。
+
+\begin{longtable}{p{0.34\linewidth}p{0.56\linewidth}}
+\toprule
+HTML & 内容 \\
+\midrule
+\texttt{index.html} & デモ一覧とブラウザコンソールへの入口。 \\
+\texttt{browser\_console.html} & AIPLソースをブラウザ上で入力・実行するコンソール。 \\
+\texttt{rotate4lines.html} & 4本線の回転Canvasデモ。 \\
+\texttt{rotate4lines\_workers.html} & Web Workerを使う回転線デモ。 \\
+\texttt{philosophers.html} & 食事する哲学者のCanvas可視化。 \\
+\texttt{bounded\_buffer.html} & bounded bufferのログ表示版。 \\
+\texttt{bounded\_buffer\_visual.html} & bounded bufferのCanvas可視化版。 \\
+\texttt{drone\_simulator.html} & MANET風ドローン帰還経路シミュレータ。 \\
+\texttt{cooperative\_chat.html} & Planner/Solver/Reviewerの協調AIチャット可視化。 \\
+\texttt{cooperative\_solve.html} & ソース編集、Console、Chatを統合した協調問題解決UI。 \\
+\bottomrule
+\end{longtable}
+
+\section{サンプル}
+
+主な \texttt{.abcl} サンプルは以下である。
+
+\begin{itemize}
+  \item \texttt{rotate4lines.abcl}: 4つのLineアクターがCanvas上で回転線を描く。
+  \item \texttt{philosophers.abcl}: 5人の哲学者と5本のフォークをCanvasで可視化する。
+  \item \texttt{bounded\_buffer.abcl}: Producer/Consumerとbounded buffer。
+  \item \texttt{cooperative\_now\_future.abcl}: Planner/Solver/Reviewerによる \texttt{now}/\texttt{future}/\texttt{await} 協調。
+  \item \texttt{drone\_simulator.abcl}: 災害時ドローンの障害物情報拡散と帰還シミュレーション。
+\end{itemize}
+
+\section{実行方法}
+
+\subsection{サーバ有り: 通常のブラウザ実行}
+
+JS版AIPLの標準的な実行方法は、\texttt{src/browser-abcl/} をHTTPサーバで配信し、
+ブラウザから \texttt{http://localhost:3000/} を開く方式である。
+この方式では、ES module、絶対パスの \texttt{/src/...} 読み込み、Web Worker、
+HTMLデモ間のリンクが自然に動作する。
+
+\begin{lstlisting}[style=aipl,language=bash]
+cd /Users/yaskodama/local-genai-chatgpt-ga/aios-claude/src/browser-abcl
+npm install
+npm run start
+\end{lstlisting}
+
+起動後、ブラウザで次を開く。
+
+\begin{lstlisting}[style=aipl]
+http://localhost:3000/
+\end{lstlisting}
+
+サーバ有りでの主な利用対象は以下である。
+
+\begin{itemize}
+  \item \texttt{index.html}: デモ一覧。
+  \item \texttt{browser\_console.html}: ブラウザ内AIPLコンソール。
+  \item \texttt{rotate4lines.html}: Canvas描画デモ。
+  \item \texttt{rotate4lines\_workers.html}: Web Worker版デモ。
+  \item \texttt{philosophers.html}: 食事する哲学者の可視化。
+  \item \texttt{bounded\_buffer.html}: bounded bufferログ版。
+  \item \texttt{bounded\_buffer\_visual.html}: bounded buffer可視化版。
+  \item \texttt{drone\_simulator.html}: ドローン帰還経路シミュレータ。
+  \item \texttt{cooperative\_chat.html}: AI協調チャット可視化。
+  \item \texttt{cooperative\_solve.html}: ソース編集付き協調問題解決UI。
+\end{itemize}
+
+\texttt{npm run start} の代わりに、Pythonの簡易HTTPサーバでも確認できる。
+
+\begin{lstlisting}[style=aipl,language=bash]
+cd /Users/yaskodama/local-genai-chatgpt-ga/aios-claude/src/browser-abcl
+python3 -m http.server 8765
+\end{lstlisting}
+
+この場合は次を開く。
+
+\begin{lstlisting}[style=aipl]
+http://localhost:8765/
+\end{lstlisting}
+
+\subsection{サーバ無し: Node実行と静的確認}
+
+サーバを立てない場合でも、Node.js上でパーサ、AST、ランタイムの一部を確認できる。
+これはブラウザ画面を開かずに構文チェックやサンプルのパース確認を行う用途に向いている。
+
+\begin{lstlisting}[style=aipl,language=bash]
+cd /Users/yaskodama/local-genai-chatgpt-ga/aios-claude/src/browser-abcl
+./_smoke_test.sh
+\end{lstlisting}
+
+\texttt{\_smoke\_test.sh} の通常実行では、主に以下を行う。
+
+\begin{itemize}
+  \item \texttt{node --check} によるJavaScript構文確認。
+  \item \texttt{parser.js} と \texttt{ast.js} を使った \texttt{.abcl} サンプルのパース確認。
+\end{itemize}
+
+AI協調サンプルはNode runnerでも実行できる。
+
+\begin{lstlisting}[style=aipl,language=bash]
+cd /Users/yaskodama/local-genai-chatgpt-ga/aios-claude/src/browser-abcl
+node run_cooperative.mjs
+\end{lstlisting}
+
+なお、HTMLを \texttt{file://} で直接開くサーバ無し実行は、ページによって制限がある。
+多くのHTMLは \texttt{/src/parser/parser.js} や \texttt{type="module"} を使うため、
+ブラウザのCORS制限、絶対パス解決、Web Workerの制約で動作しないことがある。
+Canvasだけで完結する一部のスタンドアロンHTMLは直接開ける場合があるが、通常は
+サーバ有り実行を推奨する。
+
+\subsection{パーサ再生成}
+
+\begin{lstlisting}[style=aipl,language=bash]
+cd /Users/yaskodama/local-genai-chatgpt-ga/aios-claude/src/browser-abcl
+npm run build-parser
+\end{lstlisting}
+
+\subsection{ブラウザ込みスモークテスト}
+
+\begin{lstlisting}[style=aipl,language=bash]
+cd /Users/yaskodama/local-genai-chatgpt-ga/aios-claude/src/browser-abcl
+./_smoke_test.sh --dynamic
+\end{lstlisting}
+
+このモードでは、内部でローカルHTTPサーバを起動し、Chromeと
+\texttt{puppeteer-core} を使ってHTMLデモを開く。したがって、これは
+サーバ有りの動的確認である。
+
+\section{JS版の制限}
+
+\begin{itemize}
+  \item Python版の型注釈、所有権、線形型、transient cast、モデル検査などはJS版の主対象ではない。
+  \item 通常ランタイムの並行性は \texttt{setTimeout} ベースで、厳密なOSスレッドではない。
+  \item Web Worker版は一部デモ向けの実験実装である。
+  \item 多くのブラウザデモはHTTPサーバ配信を前提にしている。直接 \texttt{file://} で開くと、絶対パス、ES module、Web Workerの制約で動作しない場合がある。
+  \item ブラウザ実行のため、ファイルI/Oや外部API呼び出しはPython版/OCaml版ほど直接的ではない。
+  \item AI呼び出しは標準ではmockであり、実AI接続はNode runnerなどで \texttt{\_aiCall} を差し替える。
+\end{itemize}
+
+\section{まとめ}
+
+JS版AIPLは、AIPLのアクター計算をブラウザ上で見える形にするための実装である。
+言語中核は小さめだが、Canvas描画、可視化サンプル、ブラウザコンソール、
+協調AIデモ、Web Worker実験を備えている。教育、デモ、並行アクターの挙動確認、
+可視化プロトタイピングに適したランタイムである。
+
+\end{document}

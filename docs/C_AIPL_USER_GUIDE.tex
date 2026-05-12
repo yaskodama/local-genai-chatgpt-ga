@@ -1,0 +1,298 @@
+\documentclass[11pt,a4paper,uplatex,dvipdfmx]{jsarticle}
+
+\usepackage[margin=22mm]{geometry}
+\usepackage{longtable}
+\usepackage{booktabs}
+\usepackage{array}
+\usepackage{xcolor}
+\usepackage{hyperref}
+\usepackage{listings}
+\usepackage{enumitem}
+
+\hypersetup{
+  colorlinks=true,
+  linkcolor=blue,
+  urlcolor=blue
+}
+
+\lstdefinestyle{aipl}{
+  basicstyle=\ttfamily\small,
+  breaklines=true,
+  frame=single,
+  columns=fullflexible,
+  keepspaces=true
+}
+
+\setlist[itemize]{leftmargin=2em}
+\setlist[enumerate]{leftmargin=2em}
+\renewcommand{\arraystretch}{1.2}
+
+\title{C版AIPL ユーザーズガイド}
+\author{児玉靖司（Yasushi Kodama）\\法政大学（Hosei University）}
+\date{2026年5月12日}
+
+\begin{document}
+\maketitle
+\tableofcontents
+\newpage
+
+\section{概要}
+
+C版AIPLは、AIPLの \texttt{.abcl} ソースをCコードへ変換して実行するための
+コード生成系である。中心となるツールは \texttt{abcl2c} であり、
+実装は \texttt{src/abcl2c.ml} と \texttt{src/c\_translator.ml} にある。
+
+C版は単一のランタイムではなく、用途別に以下の出力系を持つ。
+
+\begin{itemize}
+  \item POSIX pthread版Cコード
+  \item SDL2 GUIランタイム付きCコード
+  \item Xinu向けCコード
+  \item 参考実装としてのPythonコード生成
+\end{itemize}
+
+本ガイドでは、主にC出力、SDL2 GUI付きC出力、Xinu向けC出力を扱う。
+
+\section{対象実装}
+
+\begin{longtable}{p{0.32\linewidth}p{0.58\linewidth}}
+\toprule
+項目 & ファイル \\
+\midrule
+変換器入口 & \texttt{src/abcl2c.ml} \\
+C変換本体 & \texttt{src/c\_translator.ml} \\
+GUIランタイム & \texttt{src/abcl\_gui\_runtime.c} \\
+OCamlパーサ & \texttt{src/parser.mly}, \texttt{src/lexer.mll} \\
+AST定義 & \texttt{src/ast.ml} \\
+GUIサンプル & \texttt{abclc/*Gui.abcl} \\
+Xinuサンプル & \texttt{abclc/*Xinu.abcl} \\
+実行スクリプト & \texttt{run\_*\_\{gui,xinu\}.sh} \\
+\bottomrule
+\end{longtable}
+
+\section{全体構成}
+
+\begin{center}
+\begin{tabular}{c}
+\fbox{\texttt{.abcl source}} \\
+$\downarrow$ \\
+\fbox{\texttt{OCaml lexer/parser}} \\
+$\downarrow$ \\
+\fbox{\texttt{AST}} \\
+$\downarrow$ \\
+\fbox{\texttt{abcl2c / c\_translator.ml}} \\
+$\downarrow$ \\
+\fbox{POSIX C / SDL2 GUI C / Xinu C}
+\end{tabular}
+\end{center}
+
+\section{abcl2cコマンド}
+
+\texttt{abcl2c} はAIPLソースをCまたは派生ターゲットへ変換する。
+
+\begin{lstlisting}[style=aipl]
+usage: abcl2c <input.abcl> [-o <output>] [--max-msgs N] [--xinu | --python]
+\end{lstlisting}
+
+\begin{longtable}{p{0.30\linewidth}p{0.60\linewidth}}
+\toprule
+オプション & 意味 \\
+\midrule
+\texttt{-o <output>} & 出力ファイル名を指定する。省略時は入力名から拡張子を変えて出力する。 \\
+\texttt{--max-msgs N} & 実行時に処理するメッセージ数上限。0で上限無効。 \\
+\texttt{--xinu} & Xinu向けCコードを生成する。 \\
+\texttt{--python} & 参考用のPythonコードを生成する。 \\
+\bottomrule
+\end{longtable}
+
+\section{POSIX pthread版C}
+
+標準のC出力は、POSIX pthreadを使うアクターランタイムを内包する。
+各AIPLアクターはC側の \texttt{object\_t} として管理され、各オブジェクトに
+メールボックスとpthreadが割り当てられる。
+
+\subsection{主なランタイム構造}
+
+\begin{itemize}
+  \item \texttt{value\_t}: \texttt{int}, \texttt{float}, \texttt{string}, object idを表す値。
+  \item \texttt{message\_t}: sender、receiver、method、引数列を持つメッセージ。
+  \item \texttt{mailbox\_t}: mutexとcondition variableを持つリングバッファ型メールボックス。
+  \item \texttt{object\_t}: class id、fields、mailbox、pthreadを持つアクター。
+  \item \texttt{enqueue}: 受信側メールボックスへ非同期メッセージを投函する。
+  \item \texttt{actor\_main}: 各アクターのメッセージ処理ループ。
+\end{itemize}
+
+\subsection{生成される処理}
+
+変換後のCコードでは、AIPLクラスごとに以下が生成される。
+
+\begin{itemize}
+  \item class idの定義
+  \item フィールド番号のenum
+  \item フィールド初期化関数
+  \item メソッド関数
+  \item method名によるdispatch関数
+  \item グローバルactor生成と起動処理
+\end{itemize}
+
+\subsection{通常のビルド例}
+
+\begin{lstlisting}[style=aipl,language=bash]
+cd /Users/yaskodama/local-genai-chatgpt-ga/aios-claude
+dune build src/abcl2c.exe
+./_build/default/src/abcl2c.exe abclc/PingPong.abcl -o /tmp/pingpong.c --max-msgs 12
+cc -O2 -Wall -pthread -o /tmp/pingpong /tmp/pingpong.c -lm
+/tmp/pingpong
+\end{lstlisting}
+
+\section{対応するAIPL機能}
+
+C版が主に扱うAIPL機能は以下である。
+
+\begin{longtable}{p{0.30\linewidth}p{0.60\linewidth}}
+\toprule
+機能 & 対応状況 \\
+\midrule
+\texttt{class} / \texttt{method} & C関数とdispatch関数へ変換される。 \\
+\texttt{var} フィールド & C配列 \texttt{fields[]} の要素として保持される。 \\
+\texttt{new Class(args)} & C側でオブジェクトを確保し、\texttt{init} メッセージを投函する。 \\
+\texttt{send actor.method(args)} & \texttt{enqueue} に変換される。 \\
+\texttt{send!} & 通常の \texttt{send} と同様にC側投函へ変換される。 \\
+\texttt{self} & 現在の \texttt{self\_id}。 \\
+\texttt{sender} & メッセージ送信元ID。 \\
+\texttt{if} / \texttt{while} & Cの制御構文へ変換される。 \\
+算術・比較 & \texttt{v\_binop} で処理される。 \\
+\texttt{print} & \texttt{v\_print} で標準出力へ出す。 \\
+外部組み込み & Cの \texttt{extern value\_t name(int,value\_t*)} としてリンクする。 \\
+\bottomrule
+\end{longtable}
+
+\section{未対応または制限のある機能}
+
+\begin{itemize}
+  \item \texttt{become} はC出力ではコメント \texttt{/* become unsupported */} になる。
+  \item \texttt{select} はC出力ではコメント \texttt{/* select unsupported */} になる。
+  \item \texttt{now} / \texttt{future} / \texttt{await} はC出力の中心機能ではない。
+  \item Python版AIPLの型注釈、所有権、線形型、transient cast、モデル検査機能はC変換対象ではない。
+  \item 標準ランタイムの固定上限として、\texttt{MAX\_OBJECTS}, \texttt{MAX\_MAILBOX}, \texttt{MAX\_FIELDS}, \texttt{MAX\_ARGS} がある。
+  \item non-objectなトップレベル変数は標準C出力では限定的な扱いになる。
+  \item Xinu版はPOSIX版よりさらに小さい固定上限を持つ。
+\end{itemize}
+
+\section{SDL2 GUI付きC版}
+
+GUI付きC版は、通常のC出力に \texttt{src/abcl\_gui\_runtime.c} をリンクして使う。
+SDL2を使い、線描画、ボタン、スライダー、哲学者、bounded buffer、災害/ドローン風
+可視化などを提供する。
+
+\subsection{代表的なGUI組み込み}
+
+\begin{longtable}{p{0.34\linewidth}p{0.56\linewidth}}
+\toprule
+関数 & 概要 \\
+\midrule
+\texttt{gui\_open(w,h,title)} & GUIウィンドウを開く準備をする。 \\
+\texttt{gui\_set\_line(...)} & 線分を描画状態へ設定する。 \\
+\texttt{gui\_add\_button(...)} & GUIボタンを追加する。 \\
+\texttt{gui\_register\_ticker(actor)} & 定期的に動かすactorを登録する。 \\
+\texttt{gui\_run()} & SDLイベントループを実行する。 \\
+\texttt{gui\_dining\_init(N)} & 食事する哲学者の配置を初期化する。 \\
+\texttt{gui\_set\_phil(i,state)} & 哲学者状態を更新する。 \\
+\texttt{gui\_set\_fork\_held/free} & フォーク状態を更新する。 \\
+\texttt{gui\_buf\_setup(...)} & bounded buffer表示を初期化する。 \\
+\texttt{gui\_add\_slider(...)} & スライダーを追加する。 \\
+\texttt{gui\_slider\_value(i)} & スライダー値を読む。 \\
+\bottomrule
+\end{longtable}
+
+\subsection{GUIビルド例}
+
+\begin{lstlisting}[style=aipl,language=bash]
+cd /Users/yaskodama/local-genai-chatgpt-ga/aios-claude
+dune build src/abcl2c.exe
+./_build/default/src/abcl2c.exe abclc/Rotate4LinesGui.abcl -o /tmp/r4l.c --max-msgs 0
+cc -O2 -Wall -pthread $(pkg-config --cflags sdl2) \
+   -o /tmp/r4l /tmp/r4l.c src/abcl_gui_runtime.c \
+   $(pkg-config --libs sdl2) -lm
+/tmp/r4l
+\end{lstlisting}
+
+既存スクリプトとして、以下が用意されている。
+
+\begin{itemize}
+  \item \texttt{run\_r4l\_gui.sh}
+  \item \texttt{run\_p5\_gui.sh}
+  \item \texttt{run\_bb\_gui.sh}
+  \item \texttt{run\_disaster\_gui.sh}
+\end{itemize}
+
+\section{Xinu向けC版}
+
+\texttt{--xinu} を指定すると、Xinu向けCコードを生成する。POSIX pthreadの代わりに、
+Xinuの \texttt{thread}, \texttt{semaphore}, \texttt{kprintf},
+\texttt{create}, \texttt{ready} を使うランタイムになる。
+
+\subsection{Xinu版の特徴}
+
+\begin{itemize}
+  \item \texttt{pthread} ではなくXinu threadを使う。
+  \item \texttt{enqueue} はXinu内部名との衝突を避けて \texttt{abcl\_enqueue} として実装される。
+  \item エントリポイントは \texttt{thread aipl\_main(void)} として生成される。
+  \item QEMU上のXinu kernelへ組み込んで実行する想定である。
+\end{itemize}
+
+\subsection{Xinu実行例}
+
+\begin{lstlisting}[style=aipl,language=bash]
+cd /Users/yaskodama/local-genai-chatgpt-ga/aios-claude
+dune build src/abcl2c.exe
+./_build/default/src/abcl2c.exe abclc/PingPong.abcl \
+    -o /tmp/pp_xinu.c --xinu --max-msgs 12
+\end{lstlisting}
+
+生成したCファイルをXinuの \texttt{apps/} に配置し、Xinu kernelをビルドして
+QEMUで実行する。既存スクリプトとして以下がある。
+
+\begin{itemize}
+  \item \texttt{run\_pingpong\_xinu.sh}
+  \item \texttt{run\_r4l\_xinu.sh}
+  \item \texttt{run\_p5\_xinu.sh}
+  \item \texttt{run\_bb\_xinu.sh}
+\end{itemize}
+
+\section{サンプル分類}
+
+\begin{longtable}{p{0.34\linewidth}p{0.56\linewidth}}
+\toprule
+サンプル & 用途 \\
+\midrule
+\texttt{abclc/PingPong.abcl} & 基本的なアクター間メッセージ。 \\
+\texttt{abclc/Rotate4LinesGui.abcl} & SDL2 GUIで回転線を描画。 \\
+\texttt{abclc/Philosophers5Gui.abcl} & GUI付き食事する哲学者。 \\
+\texttt{abclc/BoundedBufferGui.abcl} & GUI付きbounded buffer。 \\
+\texttt{abclc/DisasterReturnGui.abcl} & 災害/帰還支援風GUIサンプル。 \\
+\texttt{abclc/Rotate4LinesXinu.abcl} & Xinu向け回転線サンプル。 \\
+\texttt{abclc/Philosophers5Xinu.abcl} & Xinu向け哲学者サンプル。 \\
+\texttt{abclc/BoundedBufferXinu.abcl} & Xinu向けbounded buffer。 \\
+\bottomrule
+\end{longtable}
+
+\section{テスト}
+
+\texttt{abclc/\_smoke\_test.sh} は、OCaml REPLで動かすサンプルと、
+\texttt{abcl2c} で変換すべきGUI/Python/Xinu系サンプルを分けて検査する。
+GUI系は \texttt{abcl2c} でC生成後、\texttt{cc} とSDL2でコンパイルする。
+
+\begin{lstlisting}[style=aipl,language=bash]
+cd /Users/yaskodama/local-genai-chatgpt-ga/aios-claude/abclc
+./_smoke_test.sh
+\end{lstlisting}
+
+\section{まとめ}
+
+C版AIPLは、AIPLプログラムをネイティブCランタイムへ落とし込むための実験的な
+コード生成系である。POSIX pthread版では軽量なアクター実行を確認でき、
+SDL2 GUIランタイムをリンクすれば可視化デモを構築できる。さらにXinu向け出力により、
+教育用OSや組込み風環境でAIPLアクターを動かす実験も可能である。
+
+\end{document}

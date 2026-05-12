@@ -59,9 +59,14 @@ src/python-aipl/out_site/
 
 # LaTeX build intermediates
 *.aux
+*.dvi
 *.log
 *.out
 *.toc
+
+# Local git bundle exports
+*.bundle
+codex_saved_gitdir_*/
 
 # local-genai PG corpus build cache (regenerable)
 local-genai/.cache/

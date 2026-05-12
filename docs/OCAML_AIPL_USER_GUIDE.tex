@@ -1,0 +1,373 @@
+\documentclass[11pt,a4paper,uplatex,dvipdfmx]{jsarticle}
+
+\usepackage[margin=22mm]{geometry}
+\usepackage{longtable}
+\usepackage{booktabs}
+\usepackage{array}
+\usepackage{xcolor}
+\usepackage{hyperref}
+\usepackage{listings}
+\usepackage{enumitem}
+
+\hypersetup{
+  colorlinks=true,
+  linkcolor=blue,
+  urlcolor=blue
+}
+
+\lstdefinestyle{aipl}{
+  basicstyle=\ttfamily\small,
+  breaklines=true,
+  frame=single,
+  columns=fullflexible,
+  keepspaces=true
+}
+
+\setlist[itemize]{leftmargin=2em}
+\setlist[enumerate]{leftmargin=2em}
+\renewcommand{\arraystretch}{1.2}
+
+\title{OCaml版AIPL 機能一覧ユーザガイド}
+\author{児玉靖司（Yasushi Kodama）\\法政大学（Hosei University）}
+\date{2026年5月12日}
+
+\begin{document}
+\maketitle
+\tableofcontents
+\newpage
+
+\section{概要}
+
+OCaml版AIPLは、Actor-based Intelligent Parallel LanguageのOCaml実装である。
+各 \texttt{class} のインスタンスはアクターとして生成され、メッセージキューと
+OCaml Threadによって並行実行される。
+
+Python版AIPLにあるPhase 11以降の新しい表面構文、たとえば引数型注釈、
+\texttt{pub}、\texttt{linear T}、能力エフェクト注釈、transient cast構文などは、
+OCaml版のパーサでは直接扱わない。ただし、OCaml版にもHM風の簡易型推論、
+\texttt{now}、\texttt{future}、\texttt{await}、リモートアクター、AI呼び出し、
+SDL描画、Web gatewayなどの実行機能がある。
+
+\section{対象実装}
+
+\begin{longtable}{p{0.30\linewidth}p{0.62\linewidth}}
+\toprule
+項目 & ファイル \\
+\midrule
+ランタイム本体 & \texttt{src/eval\_thread.ml} \\
+構文定義 & \texttt{src/parser.mly}, \texttt{src/lexer.mll} \\
+AST & \texttt{src/ast.ml} \\
+型推論プレリュード & \texttt{src/typing\_env.ml}, \texttt{src/infer.ml} \\
+REPL/バッチ実行 & \texttt{src/repl\_thread.ml} \\
+サンプル & \texttt{abclc/*.abcl}, \texttt{abclc/ai-samples/*.abcl} \\
+\bottomrule
+\end{longtable}
+
+\section{言語構文}
+
+\begin{longtable}{p{0.20\linewidth}p{0.36\linewidth}p{0.34\linewidth}}
+\toprule
+分類 & 機能 & 例 \\
+\midrule
+クラス定義 & \texttt{class Name \{ ... \}} & \texttt{class Hello \{ ... \}} \\
+フィールド & \texttt{var x = expr;}、\texttt{float x = expr;} & \texttt{var count = 0;} \\
+メソッド & \texttt{method name(params) \{ ... \}} & \texttt{method greet() \{ print("hi"); \}} \\
+オブジェクト生成 & \texttt{new Class(args)} & \texttt{var h = new Hello(5);} \\
+自動初期化 & \texttt{init} メソッドがあれば生成時に送信 & \texttt{new Hello(5)} で \texttt{init(5)} \\
+代入 & \texttt{x = expr;} & \texttt{count = count + 1;} \\
+ローカル変数 & \texttt{var x = expr;} & \texttt{var i = 0;} \\
+関数呼び出し & \texttt{f(args)} または \texttt{call f(args);} & \texttt{print(x);} \\
+非同期送信 & \texttt{send target.method(args);} & \texttt{send h.greet();} \\
+unsafe送信 & \texttt{send! target.method(args);} & \texttt{send! h.greet();} \\
+同期呼び出し & \texttt{now target.method(args)} & \texttt{var r = now calc.add(1, 2);} \\
+Future & \texttt{future target.method(args)} & \texttt{var f = future w.ask(q);} \\
+Await & \texttt{await expr} & \texttt{var r = await f;} \\
+リモート対象 & \texttt{remote("host:port", "actor")} & \texttt{now remote("localhost:9100","reviewer").review(x)} \\
+条件分岐 & \texttt{if (cond) stmt else stmt} & \texttt{if (n < 10) \{ ... \}} \\
+ループ & \texttt{while cond do stmt} & \texttt{while i < 10 do \{ ... \}} \\
+ブロック & \texttt{\{ stmt ... \}} & \texttt{\{ x = x + 1; print(x); \}} \\
+振る舞い変更 & \texttt{become Class(args);} & \texttt{become B();} \\
+メールボックス選択 & \texttt{select \{ case m(args) -> \{ ... \} timeout ms -> \{ ... \} \}} & \texttt{select \{ case put(x) -> \{ ... \} \}} \\
+特殊変数 & \texttt{self}, \texttt{sender} & \texttt{send self.tick();} \\
+コメント & \texttt{// ...}, \texttt{/* ... */} & \texttt{// line comment} \\
+\bottomrule
+\end{longtable}
+
+\section{データ型と式}
+
+OCaml版AIPLは実行時値として、整数、浮動小数、文字列、真偽値、Unit、
+Actor参照、Array、Futureを扱う。算術演算は \texttt{+}, \texttt{-},
+\texttt{*}, \texttt{/}、比較演算は \texttt{>}, \texttt{<}, \texttt{>=},
+\texttt{<=}, \texttt{==}, \texttt{!=} を使う。
+\texttt{+} は片側が文字列の場合、文字列連結として扱われる。
+
+\begin{longtable}{p{0.25\linewidth}p{0.65\linewidth}}
+\toprule
+分類 & 内容 \\
+\midrule
+整数 & \texttt{123} \\
+浮動小数 & \texttt{123.}, \texttt{123.45} \\
+文字列 & \texttt{"hello"} \\
+真偽値 & 比較式などから生成される内部値 \\
+Unit & 組み込み関数や文の戻り値 \\
+Actor参照 & \texttt{new} で生成されたアクター \\
+Array & \texttt{array\_empty}, \texttt{array\_push}, \texttt{array\_get}, \texttt{array\_set} で操作 \\
+Future & \texttt{future} の戻り値 \\
+\bottomrule
+\end{longtable}
+
+\section{アクターと並行実行}
+
+\begin{itemize}
+  \item \texttt{new Class(args)} でインスタンスごとにアクターを作成する。
+  \item 各アクターは自身のメッセージキューを持つ。
+  \item 各アクターはOCaml Threadでループ実行される。
+  \item \texttt{send} は送信後に待たない。
+  \item \texttt{now} は受信側の \texttt{reply(value)} まで待つ。
+  \item \texttt{future} は即座にFutureハンドルを返す。
+  \item \texttt{await} はFutureの完了まで待つ。
+  \item \texttt{now} と \texttt{future} は内部のmsg\_idとreply slotで相関される。
+  \item \texttt{sender} はメッセージ送信元のアクター名を保持する。
+  \item \texttt{self} は現在のアクター自身を表す。
+  \item \texttt{become} はアクターのクラス/メソッド表を差し替え、既存状態を保持する。
+\end{itemize}
+
+\section{組み込み関数}
+
+\subsection{基本I/O}
+
+\begin{longtable}{p{0.32\linewidth}p{0.58\linewidth}}
+\toprule
+関数 & 概要 \\
+\midrule
+\texttt{print(x)} & 値を標準出力とWebログに出力する。 \\
+\texttt{typeof(x)} & 実行時の型名を文字列で返す。 \\
+\texttt{reply(x)} & \texttt{now} / \texttt{future} の呼び出し元へ値を返す。 \\
+\texttt{wait(ms)} & ミリ秒単位でスリープする。 \\
+\bottomrule
+\end{longtable}
+
+\subsection{数学関数}
+
+数学関数として、\texttt{sin}, \texttt{cos}, \texttt{tan}, \texttt{asin},
+\texttt{acos}, \texttt{atan}, \texttt{sqrt}, \texttt{exp}, \texttt{log10},
+\texttt{abs}, \texttt{floor}, \texttt{ceil}, \texttt{round} が利用できる。
+
+\subsection{配列}
+
+\begin{longtable}{p{0.32\linewidth}p{0.58\linewidth}}
+\toprule
+関数 & 概要 \\
+\midrule
+\texttt{array\_empty()} & 空配列を作る。 \\
+\texttt{array\_len(xs)} & 配列長を返す。 \\
+\texttt{array\_get(xs, i)} & 要素を読む。 \\
+\texttt{array\_set(xs, i, v)} & 要素を更新した新しい配列を返す。 \\
+\texttt{array\_push(xs, v)} & 末尾に追加した新しい配列を返す。 \\
+\bottomrule
+\end{longtable}
+
+\subsection{SDL描画}
+
+\begin{longtable}{p{0.35\linewidth}p{0.55\linewidth}}
+\toprule
+関数 & 概要 \\
+\midrule
+\texttt{sdl\_init(w, h)} & SDLウィンドウを初期化する。 \\
+\texttt{sdl\_clear()} & 画面をクリアする。 \\
+\texttt{sdl\_present()} & 描画結果を表示する。 \\
+\texttt{sdl\_line(x1, y1, x2, y2)} & 線を描く。 \\
+\texttt{sdl\_erase\_line(x1, y1, x2, y2)} & 線を背景色で消す。 \\
+\texttt{sdl\_line\_c(x1, y1, x2, y2, r, g, b)} & 色付き線を描く。 \\
+\texttt{sdl\_poll\_key()} & キー入力を非ブロッキング取得する。 \\
+\texttt{sdl\_mouse\_x()} & マウスX座標を返す。 \\
+\texttt{sdl\_mouse\_y()} & マウスY座標を返す。 \\
+\texttt{sdl\_mouse\_down()} & 左ボタン押下状態を返す。 \\
+\bottomrule
+\end{longtable}
+
+\texttt{SDL\_VIDEODRIVER=dummy} で実行するとウィンドウは出ない。
+これはCIやヘッドレス確認用の設定である。
+
+\subsection{Web/リモート連携}
+
+\begin{longtable}{p{0.42\linewidth}p{0.48\linewidth}}
+\toprule
+関数/構文 & 概要 \\
+\midrule
+\texttt{web\_listen(port)} & HTTP gatewayを起動する。 \\
+\texttt{web\_expose(path, actor)} & actorをWeb endpointとして公開する。 \\
+\texttt{send remote("host:port", "actor").method(args);} & HTTP越しの非同期送信。 \\
+\texttt{now remote("host:port", "actor").method(args)} & HTTP越しの同期呼び出し。 \\
+\texttt{future remote("host:port", "actor").method(args)} & HTTP越しのFuture呼び出し。 \\
+\bottomrule
+\end{longtable}
+
+主なHTTP APIは \texttt{src/web\_gateway.ml} にあり、JSON形式の
+\texttt{/api/json/send} と \texttt{/api/json/call} を使う。
+
+\subsection{AI呼び出し}
+
+\begin{longtable}{p{0.42\linewidth}p{0.48\linewidth}}
+\toprule
+関数 & 概要 \\
+\midrule
+\texttt{ai\_call(prompt)} & LLMへプロンプトを送る。 \\
+\texttt{ai\_call\_with\_system(system, prompt)} & system prompt付きでLLM呼び出しを行う。 \\
+\texttt{ai\_call\_retry(max\_attempts, prompt)} & リトライ付きAI呼び出しを行う。 \\
+\texttt{ai\_call\_retry\_with\_system(max\_attempts, system, prompt)} & system prompt付きリトライを行う。 \\
+\texttt{ai\_usage()} & 使用量文字列を返す。 \\
+\texttt{ai\_remaining()} & 残りトークン予算を返す。未設定なら \texttt{-1}。 \\
+\texttt{ai\_cost()} & 推定コストを返す。 \\
+\bottomrule
+\end{longtable}
+
+関連する環境変数は、\texttt{ABCL\_AI\_PROVIDER},
+\texttt{GEMINI\_API\_KEY}, \texttt{ANTHROPIC\_API\_KEY},
+\texttt{OPENAI\_API\_KEY}, \texttt{ABCL\_AI\_TOKEN\_BUDGET},
+\texttt{ABCL\_AI\_MAX\_CONCURRENT}, \texttt{ABCL\_AI\_USAGE\_FILE} である。
+
+\section{REPL/バッチ実行}
+
+OCaml版のREPL実行体は \texttt{src/abclrepl\_thread} またはDuneビルド後の
+\texttt{\_build/default/src/repl\_thread.exe} である。
+
+\begin{longtable}{p{0.30\linewidth}p{0.60\linewidth}}
+\toprule
+コマンド & 概要 \\
+\midrule
+\texttt{help} & コマンド一覧を表示する。 \\
+\texttt{load file.abcl} & \texttt{.abcl} ファイルを読み込み、AST表示と型チェックを行う。 \\
+\texttt{compile} & ロード済みプログラムを登録/起動する。 \\
+\texttt{send obj.method(args)} & REPLから非同期メッセージを送信する。 \\
+\texttt{ssend obj.method} & 引数なし簡易送信を行う。 \\
+\texttt{ast name} & クラスまたはインスタンスのASTを表示する。 \\
+\texttt{pprint name} & クラス定義を整形表示する。 \\
+\texttt{script file.bat} & REPLコマンドをまとめて実行する。 \\
+\texttt{clear} & 表示/バッファ系をクリアする。 \\
+\texttt{reset} & セッション状態をリセットする。 \\
+\texttt{exit} / \texttt{quit} & 終了する。 \\
+\bottomrule
+\end{longtable}
+
+バッチ実行例を示す。
+
+\begin{lstlisting}[style=aipl,language=bash]
+cd /Users/yaskodama/local-genai-chatgpt-ga/aios-claude/abclc
+eval $(opam env --switch=ocaml-5.1.1 --set-switch)
+ocamlrun ../src/abclrepl_thread -f com04.bat
+\end{lstlisting}
+
+\texttt{com04.bat} のような \texttt{.bat} ファイルは、通常次の形式である。
+
+\begin{lstlisting}[style=aipl]
+load LDD.abcl
+compile
+\end{lstlisting}
+
+\section{型推論/型関連}
+
+\begin{itemize}
+  \item HM風の型推論は \texttt{src/infer.ml} と \texttt{src/typing\_env.ml} で実装される。
+  \item 算術型は \texttt{int} と \texttt{float} を扱い、混在時はfloatへ昇格する。
+  \item 比較型は数値比較と文字列の \texttt{==} / \texttt{!=} を扱う。
+  \item \texttt{print} は多相的に任意値を表示できる扱いである。
+  \item \texttt{reply} は多相的に任意値を返せる扱いである。
+  \item \texttt{array\_*} には多相型が付与される。
+  \item \texttt{actor\_dump} と \texttt{typeof} でアクター型を確認できる。
+\end{itemize}
+
+\section{トランスレータ/派生実行系}
+
+\begin{longtable}{p{0.24\linewidth}p{0.30\linewidth}p{0.36\linewidth}}
+\toprule
+機能 & ファイル & 概要 \\
+\midrule
+C変換 & \texttt{src/c\_translator.ml} & AIPL ASTからCランタイム風コードを生成する。 \\
+Xinu向け変換 & \texttt{src/c\_translator.ml} & Xinu向けの出力パスを含む。 \\
+Python変換 & \texttt{src/c\_translator.ml} & Pythonアクターコード生成パスを含む。 \\
+Web gateway & \texttt{src/web\_gateway.ml} & ブラウザ/HTTPからアクターへ送信する。 \\
+Browser連携 & \texttt{src/browser-abcl/} & ブラウザ側AIPL実装/デモ。 \\
+GUI IDE & \texttt{src/gui\_ide.ml} & SDLベースのIDE。 \\
+TUI IDE & \texttt{src/tui\_ide.ml} & ターミナルUI。 \\
+\bottomrule
+\end{longtable}
+
+\section{サンプル}
+
+\subsection{基本}
+
+\begin{itemize}
+  \item \texttt{abclc/Hello.abcl}: 生成、\texttt{init}、\texttt{send}、フィールド更新。
+  \item \texttt{abclc/counter.abcl}: カウンタ。
+  \item \texttt{abclc/PingPong.abcl}: 2アクター間メッセージ。
+  \item \texttt{abclc/become.abcl}: \texttt{become} による振る舞い変更。
+  \item \texttt{abclc/bbecome.abcl}: 状態を持つ \texttt{become}。
+\end{itemize}
+
+\subsection{並行/同期}
+
+\begin{itemize}
+  \item \texttt{abclc/Phase11\_TypedCounter.abcl}: \texttt{now} と \texttt{reply} を使う計算。
+  \item \texttt{abclc/Phase13\_Channels.abcl}: チャンネル相当の同期サンプル。
+  \item \texttt{abclc/bounded\_buffer.abcl}: bounded buffer。
+  \item \texttt{abclc/Philosophers5.abcl}: 食事する哲学者。
+\end{itemize}
+
+\subsection{描画}
+
+\begin{itemize}
+  \item \texttt{abclc/LineDrawer.abcl}: 線描画。
+  \item \texttt{abclc/Rotate4Lines.abcl}: 4本線の回転。
+  \item \texttt{abclc/Rotate4LinesGui.abcl}: GUI操作付き回転。
+  \item \texttt{abclc/Philosophers5Gui.abcl}: 哲学者GUI。
+  \item \texttt{abclc/bounded\_buffer\_visual.abcl}: bounded buffer可視化。
+\end{itemize}
+
+\subsection{AI/リモート}
+
+\begin{itemize}
+  \item \texttt{abclc/ai-samples/AIHello.abcl}: LLM呼び出し。
+  \item \texttt{abclc/ai-samples/Budgeted.abcl}: AI予算/同時実行管理。
+  \item \texttt{abclc/ai-samples/CooperativeNowFuture.abcl}: 複数AI役割の協調。
+  \item \texttt{abclc/ai-samples/CooperativeNowFuture-jp.abcl}: 日本語版AI協調。
+  \item \texttt{abclc/ai-samples/CooperativeNowFuture-jp-remote.abcl}: リモートAI actor連携。
+  \item \texttt{abclc/ai-samples/RemoteCalcServer.abcl}: リモート計算サーバ。
+  \item \texttt{abclc/ai-samples/RemoteCalcClient.abcl}: リモート計算クライアント。
+\end{itemize}
+
+\section{代表的な実行コマンド}
+
+通常実行:
+
+\begin{lstlisting}[style=aipl,language=bash]
+cd /Users/yaskodama/local-genai-chatgpt-ga/aios-claude/abclc
+eval $(opam env --switch=ocaml-5.1.1 --set-switch)
+ocamlrun ../src/abclrepl_thread -f run_pingpong.bat
+\end{lstlisting}
+
+描画なしのヘッドレス確認:
+
+\begin{lstlisting}[style=aipl,language=bash]
+SDL_VIDEODRIVER=dummy SDL_RENDER_DRIVER=software \
+  ocamlrun ../src/abclrepl_thread -f com04.bat
+\end{lstlisting}
+
+AIをmockで実行:
+
+\begin{lstlisting}[style=aipl,language=bash]
+ABCL_AI_PROVIDER=mock \
+  ocamlrun ../src/abclrepl_thread -f ai-samples/run_aihello.bat
+\end{lstlisting}
+
+\section{現時点の主な制限}
+
+\begin{itemize}
+  \item \texttt{SDL\_VIDEODRIVER=dummy} では実画面描画は表示されない。
+  \item OCaml版はPython版より古い表面構文を使うため、型注釈付きメソッドや所有権構文はそのままでは読めない。
+  \item \texttt{select} はAST/構文上に存在するが、サンプルと実装状況に依存するため、実運用前に対象サンプルで確認すること。
+  \item リモート/AI機能は環境変数、API key、ネットワーク、\texttt{curl}/\texttt{jq} など外部コマンドに依存する。
+  \item ビルド済み \texttt{src/abclrepl\_thread} はOCaml runtimeのバージョンに依存するため、magic mismatchが出る場合は同じopam switchで再ビルドする。
+\end{itemize}
+
+\end{document}

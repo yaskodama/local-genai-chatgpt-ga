@@ -1,0 +1,330 @@
+\documentclass[11pt,a4paper,uplatex,dvipdfmx]{jsarticle}
+
+\usepackage[margin=22mm]{geometry}
+\usepackage{longtable}
+\usepackage{booktabs}
+\usepackage{array}
+\usepackage{xcolor}
+\usepackage{hyperref}
+\usepackage{listings}
+\usepackage{enumitem}
+
+\hypersetup{
+  colorlinks=true,
+  linkcolor=blue,
+  urlcolor=blue
+}
+
+\lstdefinestyle{aipl}{
+  basicstyle=\ttfamily\small,
+  breaklines=true,
+  frame=single,
+  columns=fullflexible,
+  keepspaces=true
+}
+
+\setlist[itemize]{leftmargin=2em}
+\setlist[enumerate]{leftmargin=2em}
+\renewcommand{\arraystretch}{1.2}
+
+\title{Python版AIPL ユーザーズガイド}
+\author{児玉靖司（Yasushi Kodama）\\法政大学（Hosei University）}
+\date{2026年5月12日}
+
+\begin{document}
+\maketitle
+\tableofcontents
+\newpage
+
+\section{概要}
+
+Python版AIPLは、\texttt{src/python-aipl/} にある研究・拡張用ランタイムである。
+OCaml版よりも新しい言語機能を多く持ち、型注釈、効果注釈、所有権、線形型、
+構造化並行、動的コンパイル、AI呼び出し、モデル検査などを扱える。
+
+Python版AIPLは単なるABCL風アクター処理系ではなく、型付きアクター言語、
+AI統合言語、分散アクター実験基盤、モデル検査対象言語、動的自己拡張言語
+として利用できる。
+
+\section{対象実装}
+
+\begin{longtable}{p{0.30\linewidth}p{0.62\linewidth}}
+\toprule
+項目 & ファイル \\
+\midrule
+ランタイム本体 & \texttt{src/python-aipl/aipl\_interp.py} \\
+パーサ/構文 & \texttt{src/python-aipl/grammar.lark}, \texttt{src/python-aipl/aipl\_parser.py} \\
+AST & \texttt{src/python-aipl/aipl\_ast.py} \\
+型検査 & \texttt{src/python-aipl/aipl\_typeck.py} \\
+実行入口 & \texttt{src/python-aipl/aipl\_main.py} \\
+サンプル & \texttt{src/python-aipl/samples/}, \texttt{samples-ai/}, \texttt{samples-remote/}, \texttt{samples-mc/} \\
+\bottomrule
+\end{longtable}
+
+\section{全体構成}
+
+\begin{center}
+\begin{tabular}{c}
+\fbox{\texttt{.abcl source}} \\
+$\downarrow$ \\
+\fbox{\texttt{grammar.lark / aipl\_parser.py}} \\
+$\downarrow$ \\
+\fbox{\texttt{aipl\_ast.py}} \\
+$\downarrow$ \\
+\fbox{\texttt{aipl\_typeck.py}} \\
+$\downarrow$ \\
+\fbox{\texttt{aipl\_interp.py actor runtime}} \\
+$\downarrow$ \\
+\fbox{AI / Remote / File / Image / Model Check integrations}
+\end{tabular}
+\end{center}
+
+\section{基本言語機能}
+
+Python版AIPLは、\texttt{class}、\texttt{method}、\texttt{var}、\texttt{function}
+を中心にしたアクター指向言語である。クラスから生成されたインスタンスは
+アクターとして動作し、\texttt{send}、\texttt{now}、\texttt{future}、
+\texttt{await} によって通信する。
+
+\begin{longtable}{p{0.34\linewidth}p{0.56\linewidth}}
+\toprule
+構文 & 意味 \\
+\midrule
+\texttt{send actor.method(args);} & 非同期送信。呼び出し元は待たない。 \\
+\texttt{now actor.method(args)} & 同期呼び出し。相手の \texttt{reply} を待つ。 \\
+\texttt{future actor.method(args)} & Futureを返す非同期呼び出し。 \\
+\texttt{await(f)} / \texttt{await f} & Futureの結果を待つ。 \\
+\texttt{self} & 現在のアクター自身。 \\
+\texttt{sender} & メッセージ送信元。 \\
+\texttt{become Class(args);} & 現在のアクターの振る舞いを別クラスへ変更する。 \\
+\bottomrule
+\end{longtable}
+
+\section{型システム}
+
+Python版AIPLは、OCaml版より新しい型付き構文を持つ。変数、引数、戻り値に
+型注釈を書ける。
+
+\begin{lstlisting}[style=aipl]
+method add(a: int, b: int) -> int {
+  return a + b;
+}
+\end{lstlisting}
+
+対応する主な型を以下に示す。
+
+\begin{itemize}
+  \item \texttt{int}
+  \item \texttt{float}
+  \item \texttt{string}
+  \item \texttt{bool}
+  \item \texttt{array[T]}
+  \item \texttt{tuple(...)}
+  \item \texttt{record\{...\}}
+  \item Union型
+  \item 型変数
+  \item 長さ付き配列
+  \item \texttt{linear T}
+\end{itemize}
+
+\texttt{typeof(x)} により実行時の構造型を確認できる。
+
+\section{Phase 11から17の研究機能}
+
+\begin{longtable}{p{0.20\linewidth}p{0.70\linewidth}}
+\toprule
+Phase & 機能 \\
+\midrule
+Phase 11 & 型注釈、Union型、Generics、長さ付き配列。 \\
+Phase 12 & capability effects。例: \texttt{!\{fs, ai, net, mut\}}。 \\
+Phase 13 & CSP風チャンネル。 \\
+Phase 14 & \texttt{linear} による線形値、use-after-move検出。 \\
+Phase 15 & \texttt{pub} フィールドと所有権、外部書き込み禁止。 \\
+Phase 16 & transient cast、\texttt{any -> T} 境界の実行時検査。 \\
+Phase 17 & \texttt{scope \{ ... \}} による構造化並行。 \\
+\bottomrule
+\end{longtable}
+
+\section{データ構造}
+
+配列、タプル、レコードを扱える。配列は \texttt{[1, 2, 3]} のような
+リテラル、\texttt{array\_push}、\texttt{array\_get}、\texttt{array\_set}
+などで操作する。多次元配列もあり、\texttt{var grid[rows][cols];} のように
+動的サイズで宣言できる。
+
+タプルは \texttt{(1, "a")}、レコードは
+\texttt{\{ name: "Alice", age: 30 \}} のように書ける。レコードは
+\texttt{r.name} のようなドットアクセスに対応している。
+
+\section{関数}
+
+トップレベル関数とクラス内関数を定義できる。関数は \texttt{return} によって
+同期的に値を返す。クラス内関数は、そのクラスのメソッドから補助関数として
+呼び出せる。
+
+\texttt{typeof(function\_name)} により、実行時に観測された呼び出し履歴から
+推定された関数シグネチャを表示できる。
+
+\section{アクター機能}
+
+アクターはメッセージキューを持ち、非同期に動作する。
+\texttt{reply(value)} によって \texttt{now} や \texttt{future} の呼び出し元に
+値を返す。
+
+\texttt{become Class(args);} によって、実行中のアクターの振る舞いを別クラスへ
+変更できる。
+
+\section{チャンネル}
+
+CSP風のチャンネル機能がある。アクター間通信とは別に、明示的な同期キューを
+使える。
+
+\begin{lstlisting}[style=aipl]
+channel(capacity, type_name)
+channel_send(ch, value)
+channel_recv(ch)
+channel_try_recv(ch)
+channel_close(ch)
+channel_size(ch)
+select_recv([ch1, ch2], timeout_ms)
+\end{lstlisting}
+
+\section{動的コンパイルと動的生成}
+
+\texttt{compile(source)} により、文字列として渡したAIPLソースを実行中に
+コンパイルできる。\texttt{spawn(class\_name, args...)} により、文字列で
+指定したクラスからアクターを生成できる。
+
+さらに、以下のメソッドインジェクション機能がある。
+
+\begin{lstlisting}[style=aipl]
+add_method(target, source)
+remove_method(target, name)
+methods_of(target)
+\end{lstlisting}
+
+これにより、クラスまたは特定アクターへメソッドを動的に追加・削除できる。
+
+\section{AI連携}
+
+Python版AIPLは、生成AI呼び出しを組み込み関数として持っている。
+
+\begin{lstlisting}[style=aipl]
+ai_call(prompt)
+ai_call_with_system(system, prompt)
+ai_call_priority(priority, prompt)
+ai_call_retry(max_attempts, prompt)
+ai_call_image(prompt, image)
+ai_usage()
+ai_remaining()
+ai_cost()
+\end{lstlisting}
+
+Gemini、Anthropic Claude、OpenAIを切り替えられる。
+\texttt{AIPL\_AI\_PROVIDER=mock} を使うと、外部APIなしでテストできる。
+
+また、起動時に \texttt{AI} アクターが自動生成され、
+\texttt{now AI.ask("...")} や \texttt{future AI.ask("...")} の形でAIを
+アクターとして扱える。
+
+\section{ファイル、JSON、画像処理}
+
+Python版AIPLには、アプリ生成やデータ処理向けの組み込みもある。
+
+\begin{longtable}{p{0.30\linewidth}p{0.60\linewidth}}
+\toprule
+関数 & 概要 \\
+\midrule
+\texttt{read\_file} & テキストファイルを読む。 \\
+\texttt{write\_file} & テキストファイルを書く。 \\
+\texttt{append\_file} & テキストファイルへ追記する。 \\
+\texttt{read\_bytes} & バイナリを読む。 \\
+\texttt{write\_bytes} & バイナリを書く。 \\
+\texttt{json\_parse} & JSON文字列をAIPL値へ変換する。 \\
+\texttt{json\_stringify} & AIPL値をJSON文字列へ変換する。 \\
+\texttt{image\_load} & 画像を読み込む。 \\
+\texttt{image\_save} & 画像を保存する。 \\
+\texttt{image\_create} & 画像を生成する。 \\
+\texttt{image\_pixel} & ピクセル値を読む。 \\
+\texttt{image\_set\_pixel} & ピクセル値を書き込む。 \\
+\texttt{image\_size} & 画像サイズを返す。 \\
+\bottomrule
+\end{longtable}
+
+画像処理はPillowを使う。AIPLだけでHTML、CSS、画像、JSON manifestを生成する
+サンプルもある。
+
+\section{分散アクター}
+
+HTTP経由で別プロセス、別ランタイムのアクターと通信できる。
+
+\begin{lstlisting}[style=aipl]
+web_listen(port)
+web_expose(name, actor)
+remote_call(host, actor, method, args...)
+remote_now(host, actor, method, args...)
+remote_future(host, actor, method, args...)
+serve_forever()
+\end{lstlisting}
+
+OCaml版との相互通信も想定されており、JSON形式の
+\texttt{/api/json/send} と \texttt{/api/json/call} を使う。
+
+\section{モデル検査}
+
+Python版AIPLには、アクタープログラムの bounded model checking 用モジュールがある。
+\texttt{aipl\_modelcheck.py}、\texttt{aipl\_modelcheck\_load.py} により、
+食事する哲学者やロック順序などのサンプルを検査できる。
+
+また、Promela/SPIN向け出力とTLA+向け出力もある。
+
+\begin{itemize}
+  \item \texttt{aipl\_to\_promela.py}
+  \item \texttt{aipl\_to\_tla.py}
+  \item \texttt{samples-mc/*.abcl}
+\end{itemize}
+
+\section{実行方法}
+
+Python版AIPLのメイン実行ファイルは次である。
+
+\begin{lstlisting}[style=aipl]
+src/python-aipl/aipl_main.py
+\end{lstlisting}
+
+この環境ではラッパーとして次も使っている。
+
+\begin{lstlisting}[style=aipl]
+scripts/run_aipl_python313.sh
+\end{lstlisting}
+
+実行例:
+
+\begin{lstlisting}[style=aipl,language=bash]
+cd /Users/yaskodama/local-genai-chatgpt-ga/aios-claude
+scripts/run_aipl_python313.sh src/python-aipl/samples/Hello.abcl
+\end{lstlisting}
+
+\section{サンプルとテスト}
+
+サンプルは主に以下にある。
+
+\begin{itemize}
+  \item \texttt{src/python-aipl/samples/}
+  \item \texttt{src/python-aipl/samples-ai/}
+  \item \texttt{src/python-aipl/samples-remote/}
+  \item \texttt{src/python-aipl/samples-mc/}
+\end{itemize}
+
+テストは \texttt{\_test\_*.py} として多数用意されており、型検査、配列、
+タプル、レコード、チャンネル、線形型、所有権、メソッドインジェクション、
+AIアクター、モデル検査などを確認できる。
+
+\section{まとめ}
+
+Python版AIPLは、型付きアクター言語としての中核に加え、AI統合、動的拡張、
+分散アクター、モデル検査、ファイル・画像・JSON処理を統合した実験用言語である。
+OCaml版がネイティブ実行とアクターランタイムの基礎を担う一方で、Python版は
+新しい言語仕様とAI連携を素早く検証するための中心的な実装である。
+
+\end{document}

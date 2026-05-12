@@ -1,0 +1,444 @@
+\documentclass[11pt,a4paper,uplatex,dvipdfmx]{jsarticle}
+
+\usepackage[margin=22mm]{geometry}
+\usepackage{amsmath,amssymb}
+\usepackage{booktabs}
+\usepackage{longtable}
+\usepackage{array}
+\usepackage{xcolor}
+\usepackage{hyperref}
+\usepackage{listings}
+\usepackage{enumitem}
+
+\hypersetup{
+  colorlinks=true,
+  linkcolor=blue,
+  urlcolor=blue,
+  citecolor=blue,
+  pdftitle={型付きAIエージェント記述言語の設計と実装},
+  pdfauthor={Yasushi Kodama}
+}
+
+\definecolor{codebg}{RGB}{248,248,248}
+\definecolor{codekw}{RGB}{20,70,150}
+\definecolor{codestr}{RGB}{150,40,40}
+\definecolor{codecmt}{RGB}{90,90,90}
+
+\lstdefinelanguage{aipl}{
+  keywords={class,method,function,return,var,int,float,string,bool,array,record,
+            new,send,now,future,await,reply,become,if,else,while,do,self,sender,
+            pub,linear,scope,channel,select,true,false},
+  keywordstyle=\color{codekw}\bfseries,
+  comment=[l]{//},
+  commentstyle=\color{codecmt}\itshape,
+  string=[b]",
+  stringstyle=\color{codestr},
+  basicstyle=\ttfamily\small,
+  backgroundcolor=\color{codebg},
+  frame=single,
+  breaklines=true,
+  columns=fullflexible,
+  keepspaces=true,
+  showstringspaces=false
+}
+\lstset{language=aipl}
+
+\setlist[itemize]{leftmargin=2em}
+\setlist[enumerate]{leftmargin=2em}
+\renewcommand{\arraystretch}{1.18}
+
+\title{型付きAIエージェント記述言語の設計と実装}
+\author{児玉靖司（Yasushi Kodama）\\法政大学（Hosei University）}
+\date{2026年5月12日}
+
+\newcommand{\code}[1]{\texttt{#1}}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+本論文では、生成AIを外部サービスではなくプログラム構成要素として扱うための
+型付きAIエージェント記述言語 AIPL
+（Actor-based Intelligent Parallel Language）の設計と実装について述べる。
+AIPL はアクターを基本単位とし、非同期メッセージ送信、同期呼び出し、
+Future、動的な振る舞い変更、AI呼び出しを同一の言語モデル上に統合する。
+さらに Python 版では、型注釈、Union型、Generics、Capability 効果、
+CSP風チャンネル、線形型、所有権、transient cast、構造化並行を導入し、
+AIエージェントの実験的記述に必要な安全性と柔軟性の両立を目指した。
+実装は OCaml、Python、JavaScript、C への複数バックエンドから構成され、
+研究用インタプリタ、ブラウザ実行、組込み向けC変換を同じ言語系列で扱える。
+本論文では、言語設計、型システム、AI連携、実装方式、サンプルプログラムに
+基づく評価、ならびに現時点の制限を整理する。
+\end{abstract}
+
+\tableofcontents
+\newpage
+
+\section{はじめに}
+
+生成AIを利用したソフトウェアは、自然言語入力、外部API呼び出し、
+ファイル操作、ネットワーク通信、ユーザ対話、並行タスクを組み合わせて実行する。
+しかし、多くの実装では、AI呼び出しは通常の関数呼び出しやHTTPクライアントの
+薄いラッパとして扱われる。そのため、複数のAIエージェントが協調する場合、
+メッセージの流れ、同期点、権限、データ所有権、失敗時の再試行方針が
+プログラムの型や構文から見えにくくなる。
+
+本研究の目的は、AIエージェントを明示的なアクターとして記述し、
+その通信と効果を型付き言語として扱うことである。
+AIPL は、古典的なアクターモデルを基礎にしながら、
+\code{send}、\code{now}、\code{future}、\code{await} による通信、
+\code{ai\_call} 系のAI組み込み、型注釈と効果注釈を同じ構文体系に配置する。
+これにより、AI呼び出しを含むエージェント群を、単なるスクリプトではなく
+検査可能な並行プログラムとして表現することを狙う。
+
+本論文の貢献は次の三点である。
+
+\begin{itemize}
+  \item AIエージェントをアクターとして記述する型付き言語 AIPL の設計を示す。
+  \item 型、効果、所有権、線形性、構造化並行を段階的に導入する実装方針を示す。
+  \item OCaml、Python、JavaScript、C の複数処理系を通じて、研究用実行、
+        ブラウザ実行、組込み向け変換を同一言語系列で扱う方法を整理する。
+\end{itemize}
+
+\section{設計目標}
+
+AIPL の設計目標は以下である。
+
+\begin{description}
+  \item[エージェントの明示化]
+    AI、ユーザ、ツール、ワーカをアクターとして表現し、通信関係を構文上に現す。
+  \item[同期と非同期の統一]
+    Fire-and-forget の \code{send}、返信を待つ \code{now}、
+    Future を返す \code{future} を使い分けられるようにする。
+  \item[型による局所的安全性]
+    型注釈された領域では、引数、戻り値、データ構造、所有権を検査する。
+  \item[AI効果の分離]
+    ファイル、ネットワーク、AI呼び出し、状態更新などの効果を注釈し、
+    危険な処理を局所化する。
+  \item[実験容易性]
+    動的コンパイル、メソッドインジェクション、mock AI provider により、
+    研究段階のエージェント設計を素早く試せるようにする。
+  \item[複数実行環境]
+    サーバ、ブラウザ、デスクトップGUI、C変換、Xinu風環境を想定し、
+    実装方式の差を比較できるようにする。
+\end{description}
+
+\section{言語モデル}
+
+\subsection{アクターとメッセージ}
+
+AIPL の基本単位は \code{class} から生成されるアクターである。
+各アクターはフィールド、メソッド、メールボックスを持つ。
+メッセージはメソッド名と引数列から構成され、ランタイムがキューに格納して処理する。
+
+\begin{lstlisting}
+class Counter {
+  var n = 0;
+
+  method inc() {
+    n = n + 1;
+    reply(n);
+  }
+}
+
+var c = new Counter();
+var x = now c.inc();
+print(x);
+\end{lstlisting}
+
+\code{send c.inc();} は送信後に待たない。
+\code{now c.inc()} は受信側の \code{reply} を待つ。
+\code{future c.inc()} は Future を返し、後続の \code{await} で結果を取り出す。
+この三つの通信を明示することで、AI呼び出しを含む処理の待ち合わせ位置を
+プログラム上で確認できる。
+
+\subsection{AI呼び出し}
+
+AIPL では AI 呼び出しを通常の組み込み関数としてだけでなく、
+AI アクターとしても扱える。
+
+\begin{lstlisting}
+class Reviewer {
+  method review(text: string) -> string !{ai} {
+    var r = ai_call_with_system(
+      "You are a strict reviewer.",
+      text
+    );
+    reply(r);
+  }
+}
+\end{lstlisting}
+
+Python版では \code{AIPL\_AI\_PROVIDER} により mock、Gemini、
+Anthropic Claude、OpenAI などの provider を切り替える設計になっている。
+mock provider を用いると、外部APIやネットワークを使わずにプログラム構造を
+テストできる。
+
+\subsection{振る舞い変更と動的拡張}
+
+アクターは \code{become} により実行中に振る舞いを変更できる。
+また Python版では \code{compile(source)}、\code{spawn(name, args...)}、
+\code{add\_method(target, source)} による動的拡張を持つ。
+これはAIが生成したコード片を制御された形で取り込む実験に有用である。
+一方で、動的拡張は静的型検査の境界を越えるため、transient cast や
+ランタイム検査と組み合わせる必要がある。
+
+\section{型システム}
+
+\subsection{基本型と構造型}
+
+Python版AIPLは、明示的な型注釈を持つ。
+基本型は \code{int}、\code{float}、\code{string}、\code{bool} であり、
+配列、タプル、レコード、Union型、型変数、長さ付き配列も扱う。
+
+\begin{lstlisting}
+method add(a: int, b: int) -> int {
+  return a + b;
+}
+
+var xs: array[int] = [1, 2, 3];
+var user: record{name: string, age: int}
+  = {name: "Alice", age: 30};
+\end{lstlisting}
+
+未注釈領域は \code{any} として扱われる。
+したがって AIPL の型システムは、全面的な静的保証よりも、
+注釈された境界を中心に安全性を強める段階的型付けの立場を取る。
+
+\subsection{効果注釈}
+
+AIエージェントは、AI呼び出し、ファイルI/O、ネットワーク、状態更新などを
+組み合わせる。AIPL ではこれらを Capability 効果として表す。
+
+\begin{lstlisting}
+method summarize(path: string) -> string !{fs, ai} {
+  var text = read_file(path);
+  return ai_call("summarize: " + text);
+}
+\end{lstlisting}
+
+効果注釈は、プログラムの安全性だけでなく、実行環境選択にも使える。
+例えばブラウザのみで実行するプログラムでは \code{fs} を禁止し、
+ネットワークを使うエージェントには \code{net} を明示させる、
+といった制御が可能になる。
+
+\subsection{線形型と所有権}
+
+AIエージェントでは、APIキー、セッション、ファイルハンドル、外部リソースなど、
+複製や再利用を制限したい値が存在する。
+Python版AIPLでは \code{linear T} と所有権検査により、
+move 後の再利用や外部からの非公開フィールド更新を検出する。
+
+\begin{lstlisting}
+class Worker {
+  pub var name: string = "worker";
+  var secret: string = "token";
+
+  method consume(x: linear string) -> string {
+    return x;
+  }
+}
+\end{lstlisting}
+
+\code{pub} で公開されたフィールドだけを外部から参照可能にし、
+内部状態はアクター自身のメソッドを通じて変更する。
+この制約は、並行実行時の意図しない共有状態更新を減らすためのものである。
+
+\subsection{構造化並行}
+
+\code{scope \{ ... \}} は、スコープ内で生成された並行タスクの寿命を
+構文ブロックに結びつけるための機能である。
+エージェントが複数のAI呼び出しを並列に投げる場合、
+親スコープの終了時に未完了タスクをどう扱うかが重要になる。
+構造化並行は、Future の取り忘れや孤立タスクを防ぐための足場となる。
+
+\section{実装}
+
+\subsection{実装構成}
+
+AIPL は複数の処理系を持つ。
+表\ref{tab:impl}に主な実装を示す。
+
+\begin{longtable}{p{0.20\linewidth}p{0.32\linewidth}p{0.38\linewidth}}
+\caption{AIPL の主な実装構成}
+\label{tab:impl}\\
+\toprule
+処理系 & 主なファイル & 役割 \\
+\midrule
+OCaml版 & \code{src/parser.mly}, \code{src/eval\_thread.ml},
+\code{src/repl\_thread.ml} & アクター実行、型推論、AI呼び出し、SDL描画、
+Web gateway、リモートアクター実験 \\
+Python版 & \code{src/python-aipl/grammar.lark},
+\code{aipl\_interp.py}, \code{aipl\_typeck.py} &
+型注釈、効果、線形型、所有権、動的コンパイル、モデル検査などの研究機能 \\
+JavaScript版 & \code{src/browser-abcl/} & ブラウザ内実行、Canvas可視化、
+サーバ有り/無しのスモークテスト \\
+C版 & \code{src/abcl2c.ml}, \code{src/c\_translator.ml},
+\code{src/abcl\_gui\_runtime.c} & POSIX pthread、SDL2 GUI、
+Xinu風環境を対象にしたCコード生成 \\
+\bottomrule
+\end{longtable}
+
+OCaml版は、AIPL/ABCL の基礎的なアクター実行モデルを確認する処理系である。
+Python版は、新しい型機能とAIエージェント機能を追加する研究用処理系である。
+JavaScript版はブラウザでの可視化と配布容易性を担う。
+C版は、生成されたアクター実行を低レベル環境へ持ち込むための実験である。
+
+\subsection{ランタイム}
+
+ランタイムは、アクターごとのメールボックス、メッセージディスパッチ、
+返信スロット、Future、組み込み関数表から構成される。
+同期呼び出し \code{now} と Future 呼び出し \code{future} は、
+内部的にはメッセージ識別子と返信スロットにより関連付けられる。
+これにより、AI呼び出しのように遅延が大きい処理も、通常のアクター通信として扱える。
+
+C版では、\code{value\_t}、\code{message\_t}、\code{mailbox\_t}、
+\code{object\_t} といったランタイム構造体を生成し、
+POSIX pthread によって各アクターを実行する。
+SDL2 GUI ランタイムをリンクすることで、線描画、ボタン、スライダ、
+哲学者問題やバッファ問題の可視化も可能である。
+
+\subsection{パーサと型検査}
+
+OCaml版は \code{ocamlyacc}/\code{ocamllex} 系の構文定義を持ち、
+Python版は Lark による文法を持つ。
+Python版の型検査器は、クラス、メソッド、関数、変数宣言、式を走査し、
+注釈された型境界で整合性を検査する。
+段階的型付けを採用しているため、すべての式を完全に静的解決するのではなく、
+\code{any} から具体型へ入る境界をランタイム検査で補う。
+
+\section{評価}
+
+\subsection{記述性}
+
+AIPL のサンプルには、カウンタ、Ping-Pong、Bounded Buffer、
+Dining Philosophers、線分回転、災害復旧可視化、AIサンプルが含まれる。
+これらは、単純なアクター通信からGUIを伴う並行シミュレーションまでを
+同じ構文で記述できることを示している。
+
+\begin{longtable}{p{0.30\linewidth}p{0.58\linewidth}}
+\toprule
+サンプル領域 & 確認できる性質 \\
+\midrule
+Counter / PingPong & メッセージ送信、返信、基本的なアクター生成 \\
+Bounded Buffer & 生産者・消費者、同期、キュー状態の可視化 \\
+Dining Philosophers & 複数アクター間の資源獲得、デッドロック観察 \\
+Line Rotation & GUI描画、周期実行、C/SDL2変換 \\
+AI samples & AI呼び出し、プロンプト、mock provider によるテスト \\
+\bottomrule
+\end{longtable}
+
+\subsection{安全性}
+
+型注釈、効果注釈、所有権、線形型により、AIエージェント記述で問題になりやすい
+誤用を局所的に検出できる。
+例えば、AI呼び出しを含むメソッドに \code{!{ai}} を明示させることで、
+通常の計算と外部AI依存の計算を区別できる。
+また、\code{linear} 値の再利用を禁止することで、
+一度消費した権限トークンや一回限りの資源を再使用するプログラムを検出できる。
+
+一方、AIPL は動的コンパイルやメソッドインジェクションを持つため、
+完全な静的健全性を主張する処理系ではない。
+本研究で重視するのは、AIによるプログラム生成や実行時拡張を許容しながら、
+注釈可能な境界を増やし、危険な領域を明示することである。
+
+\subsection{移植性}
+
+同じ言語系列を OCaml、Python、JavaScript、C で実装したことにより、
+次の比較が可能になった。
+
+\begin{itemize}
+  \item OCaml版では、軽量な型推論とネイティブスレッドを用いた実行を確認できる。
+  \item Python版では、型システム研究とAI連携機能の追加を高速に試せる。
+  \item JavaScript版では、ブラウザ上でサーバ有り/無しの実行形態を検討できる。
+  \item C版では、pthread、SDL2、Xinu風環境への展開を検討できる。
+\end{itemize}
+
+これにより、AIPL は単一処理系の言語ではなく、
+AIエージェント記述のための中間的な設計空間として利用できる。
+
+\section{議論}
+
+\subsection{AIエージェントと言語処理系}
+
+AIエージェントは、従来の関数型・オブジェクト指向プログラムとは異なり、
+外部モデルの非決定的応答を含む。
+そのため、型システムだけで完全に振る舞いを固定することは難しい。
+しかし、AIを呼ぶ場所、AIに渡すデータ、AIの結果を受け取る同期点、
+AI呼び出しが許可される権限は、言語機能として明示できる。
+AIPL は、この「AIの非決定性」と「プログラム構造の検査可能性」を分離する。
+
+\subsection{静的性と動的性の境界}
+
+AIPL は、静的型付けだけでなく、動的コンパイルとメソッドインジェクションを持つ。
+これは一見矛盾するが、AIエージェント実験では重要である。
+AIが提案した新しい手続きを実行時に追加し、失敗すれば削除する、
+あるいは mock provider で検証してから本物の provider に切り替える、
+といったワークフローを支えるためである。
+したがって、AIPL の型システムは閉じた世界の完全性ではなく、
+動的境界を明示して検査することを目標とする。
+
+\subsection{現時点の制限}
+
+現時点では、処理系間で実装済み機能に差がある。
+例えば、Python版の Phase 11 以降の型付き構文は、
+OCaml版パーサでは直接扱えない。
+C変換では \code{become} や \code{select} の一部が制限される。
+JavaScript版ではブラウザのセキュリティ制約により、
+\code{file://} での直接実行よりもローカルサーバ経由の実行が安定する。
+これらの差を仕様として整理し、共通中間表現を定義することが今後の課題である。
+
+\section{関連研究}
+
+AIPL は、アクターモデル、段階的型付け、Capabilityベースの効果管理、
+線形型、構造化並行、AIツール呼び出しを組み合わせる試みである。
+Erlang や Akka はアクターによる耐障害並行処理を実用化した。
+TypeScript や Typed Racket は、動的言語に型境界を導入する段階的型付けの
+実用例である。
+Rust は所有権と借用により、共有状態と資源管理を静的に制御する。
+AIPL はこれらを直接置き換えるものではなく、
+生成AIエージェントを記述する小型研究言語として、
+AI呼び出しとアクター通信を同じ表現に置く点に特徴がある。
+
+\section{おわりに}
+
+本論文では、型付きAIエージェント記述言語 AIPL の設計と実装を述べた。
+AIPL は、アクター、メッセージ、Future、AI呼び出し、型注釈、効果注釈、
+所有権、線形型、構造化並行を組み合わせることで、
+AIエージェントを検査可能な並行プログラムとして記述することを目指す。
+複数処理系により、研究用機能の追加、ブラウザでの可視化、Cによる低レベル実行を
+同じ言語系列で検討できる。
+
+今後は、処理系間の仕様差を縮小し、共通中間表現、形式的意味論、
+型健全性の範囲、AI応答の契約記述、実運用向けの権限モデルを整備する。
+特に、AIが生成したコードを実行時に取り込む場合の型境界と監査可能性は、
+型付きAIエージェント言語における中心課題である。
+
+\begin{thebibliography}{9}
+\bibitem{hewitt}
+Carl Hewitt, Peter Bishop, Richard Steiger.
+``A Universal Modular ACTOR Formalism for Artificial Intelligence''.
+Proceedings of IJCAI, 1973.
+
+\bibitem{erlang}
+Joe Armstrong.
+``Programming Erlang: Software for a Concurrent World''.
+Pragmatic Bookshelf, 2007.
+
+\bibitem{gradual}
+Jeremy G. Siek, Walid Taha.
+``Gradual Typing for Functional Languages''.
+Scheme and Functional Programming Workshop, 2006.
+
+\bibitem{rust}
+Steve Klabnik, Carol Nichols.
+``The Rust Programming Language''.
+No Starch Press, 2018.
+
+\bibitem{structured}
+Nathaniel J. Smith.
+``Notes on structured concurrency, or: Go statement considered harmful''.
+2018.
+\end{thebibliography}
+
+\end{document}
